@@ -19,6 +19,7 @@ export default defineConfig({
     environmentMatchGlobs: [
       ["src/__tests__/dashboard/**/*.test.tsx", "jsdom"],
     ],
+    setupFiles: ["src/__tests__/setup.ts"],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],

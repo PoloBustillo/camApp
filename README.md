@@ -2,7 +2,7 @@
 
 > **Rol:** Arquitecto de Software Senior / Product Owner / Tech Lead  
 > **Fecha:** Junio 2026  
-> **Estado:** Sprint 2 — Auth + Sites + Cameras implementados ✅
+> **Estado:** Sprint 2 — Auth + Sites + Cameras + MediaMTX + Dashboard implementados ✅
 
 ---
 
@@ -63,6 +63,7 @@ bun run db:studio      # Abre Prisma Studio (http://localhost:5555)
 bun run db:reset       # Resetea la BD (CUIDADO: borra todo)
 
 bun run test           # Ejecuta todos los tests (Vitest)
+bun run storybook      # Inicia Storybook en http://localhost:6006
 
 docker compose up -d   # Levanta todos los servicios (postgres + redis + web)
 docker compose logs -f # Ver logs
@@ -434,6 +435,81 @@ bun run test -- src/__tests__/mediamtx/
 ```
 
 18 tests cubriendo constructor, `healthCheck`, `validateConnection`, `listStreams` y `getStream`.
+
+---
+
+## Dashboard (Epic 5)
+
+Visualización en tiempo real de múltiples cámaras con soporte para WebRTC, drag-and-drop y pantalla completa.
+
+### Layouts disponibles
+
+| Layout | Celdas | Descripción |
+|--------|--------|-------------|
+| 1×1 | 1 | Foco en una sola cámara |
+| 2×2 | 4 | Vista cuádruple |
+| 3×3 | 9 | Vista 9 cámaras |
+| 4×4 | 16 | Vista 16 cámaras |
+| Custom | N×M | Definir columnas y filas (máx 6×6) |
+
+### Componentes principales
+
+| Componente | Archivo | Descripción |
+|------------|---------|-------------|
+| `CameraGrid` | `src/components/dashboard/camera-grid.tsx` | Grilla principal con dnd-kit sortable + LayoutSelector + polling |
+| `CameraCard` | `src/components/dashboard/camera-card.tsx` | Tarjeta de cámara con indicador online/offline, badge de protocolo |
+| `CameraPlayer` | `src/components/dashboard/camera-player.tsx` | Reproductor WebRTC/WHEP con estados: idle/loading/playing/error/offline |
+
+### Estado global (Zustand)
+
+```typescript
+import { useDashboardStore } from "@/stores/dashboard.store";
+
+const { layout, setLayout, cellCameraIds, setCellCamera } = useDashboardStore();
+```
+
+El estado se persiste en `localStorage` como `camwatch-dashboard`.
+
+### Reproductor WebRTC (WHEP)
+
+El reproductor usa el protocolo **WHEP** (WebRTC-HTTP Egress Protocol) de MediaMTX:
+
+1. `POST /api/cameras/:id/stream` → devuelve `{ streamToken, whepUrl, expiresIn: 30 }`
+2. El player crea un `RTCPeerConnection` y negocia SDP via `POST whepUrl`
+3. El track remoto se asigna al elemento `<video>`
+
+Requiere la variable de entorno:
+
+```bash
+MEDIAMTX_WEBRTC_URL=http://100.64.0.1:8889  # IP de Tailscale del servidor MediaMTX
+```
+
+### Funcionalidades
+
+- **Pantalla completa**: botón por celda → fullscreen nativo del navegador
+- **Drag & drop**: arrastrar celdas para reorganizar con `@dnd-kit/core`
+- **Polling**: actualización automática del estado online/offline cada 10 s
+- **Asignación de cámaras**: click en celda vacía → picker con lista de cámaras
+
+### Storybook
+
+```bash
+bun run storybook          # Inicia en http://localhost:6006
+bun run build-storybook    # Build estático
+```
+
+Stories disponibles:
+- `Dashboard/CameraCard` — variantes Online, Offline, Compact, Protocols, Selected
+- `Dashboard/CameraPlayer` — Idle, AutoPlay, ErrorState
+- `Dashboard/CameraGrid` — Default, NoCameras, AllOffline, SingleCamera, SixteenCameras
+
+### Tests
+
+```bash
+bun run test -- src/__tests__/dashboard/
+```
+
+21 tests: `camera-card.test.tsx` (14) + `camera-grid.test.tsx` (7).
 
 ---
 

@@ -39,12 +39,24 @@ vi.mock("@/components/dashboard/camera-player", () => ({
 }));
 
 // Mock Zustand store
-const mockStore = {
-  layout: "2x2" as const,
+const mockStore: {
+  layout: import("@/stores/dashboard.store").GridLayout;
+  customCols: number;
+  customRows: number;
+  cellCameraIds: (string | null)[];
+  fullscreenCameraId: string | null;
+  moveCells: ReturnType<typeof vi.fn>;
+  setFullscreen: ReturnType<typeof vi.fn>;
+  resetCells: ReturnType<typeof vi.fn>;
+  setLayout: ReturnType<typeof vi.fn>;
+  setCustomDimensions: ReturnType<typeof vi.fn>;
+  setCellCamera: ReturnType<typeof vi.fn>;
+} = {
+  layout: "2x2",
   customCols: 2,
   customRows: 2,
-  cellCameraIds: [null, null, null, null] as (string | null)[],
-  fullscreenCameraId: null as string | null,
+  cellCameraIds: [null, null, null, null],
+  fullscreenCameraId: null,
   moveCells: vi.fn(),
   setFullscreen: vi.fn(),
   resetCells: vi.fn(),
@@ -124,7 +136,7 @@ describe("CameraGrid", () => {
   });
 
   it("renders 1 cell for 1x1 layout", () => {
-    mockStore.layout = "1x1" as const;
+    mockStore.layout = "1x1";
     mockStore.cellCameraIds = [null];
     render(<CameraGrid cameras={cameras} />);
     expect(screen.getByTestId("grid-cell-0")).toBeInTheDocument();
