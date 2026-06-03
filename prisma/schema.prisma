@@ -7,6 +7,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // ─────────────────────────────────────────
@@ -82,22 +83,22 @@ enum AuditAction {
 // ─────────────────────────────────────────
 
 model User {
-  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name           String      @db.VarChar(255)
-  email          String      @db.VarChar(255)
-  passwordHash   String      @map("password_hash") @db.VarChar(255)
-  role           UserRole    @default(viewer)
-  status         UserStatus  @default(active)
-  failedAttempts Int         @default(0) @map("failed_attempts") @db.SmallInt
-  lockedUntil    DateTime?   @map("locked_until") @db.Timestamptz()
-  lastLoginAt    DateTime?   @map("last_login_at") @db.Timestamptz()
-  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz()
-  deletedAt      DateTime?   @map("deleted_at") @db.Timestamptz()
+  id             String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name           String     @db.VarChar(255)
+  email          String     @db.VarChar(255)
+  passwordHash   String     @map("password_hash") @db.VarChar(255)
+  role           UserRole   @default(viewer)
+  status         UserStatus @default(active)
+  failedAttempts Int        @default(0) @map("failed_attempts") @db.SmallInt
+  lockedUntil    DateTime?  @map("locked_until") @db.Timestamptz()
+  lastLoginAt    DateTime?  @map("last_login_at") @db.Timestamptz()
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz()
+  deletedAt      DateTime?  @map("deleted_at") @db.Timestamptz()
 
-  refreshTokens  RefreshToken[]
-  layouts        Layout[]
-  auditLogs      AuditLog[]
+  refreshTokens RefreshToken[]
+  layouts       Layout[]
+  auditLogs     AuditLog[]
 
   @@unique([email], name: "users_email_unique")
   @@index([email], name: "idx_users_email")
@@ -106,54 +107,54 @@ model User {
 }
 
 model EdgeServer {
-  id               String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name             String      @db.VarChar(255)
-  tailscaleIp      String      @unique @map("tailscale_ip") @db.VarChar(50)
-  mediamtxApiPort  Int         @default(9997) @map("mediamtx_api_port") @db.SmallInt
-  webrtcPort       Int         @default(8889) @map("webrtc_port") @db.SmallInt
-  publicHost       String      @map("public_host") @db.VarChar(255)
-  status           EdgeStatus  @default(unknown)
-  lastSeenAt       DateTime?   @map("last_seen_at") @db.Timestamptz()
-  createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt        DateTime    @updatedAt @map("updated_at") @db.Timestamptz()
+  id              String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String     @db.VarChar(255)
+  tailscaleIp     String     @unique @map("tailscale_ip") @db.VarChar(50)
+  mediamtxApiPort Int        @default(9997) @map("mediamtx_api_port") @db.SmallInt
+  webrtcPort      Int        @default(8889) @map("webrtc_port") @db.SmallInt
+  publicHost      String     @map("public_host") @db.VarChar(255)
+  status          EdgeStatus @default(unknown)
+  lastSeenAt      DateTime?  @map("last_seen_at") @db.Timestamptz()
+  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz()
 
-  locations        Location[]
+  locations Location[]
 
   @@map("edge_servers")
 }
 
 model Location {
-  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  edgeServerId   String      @map("edge_server_id") @db.Uuid
-  name           String      @db.VarChar(255)
-  description    String?     @db.Text
-  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz()
-  deletedAt      DateTime?   @map("deleted_at") @db.Timestamptz()
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  edgeServerId String    @map("edge_server_id") @db.Uuid
+  name         String    @db.VarChar(255)
+  description  String?   @db.Text
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz()
 
-  edgeServer     EdgeServer  @relation(fields: [edgeServerId], references: [id])
+  edgeServer EdgeServer @relation(fields: [edgeServerId], references: [id])
 
   @@index([edgeServerId], name: "idx_locations_edge_server")
   @@map("locations")
 }
 
 model Camera {
-  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  siteId          String          @map("site_id") @db.Uuid
-  name            String          @db.VarChar(255)
-  description     String?         @db.Text
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  siteId        String         @map("site_id") @db.Uuid
+  name          String         @db.VarChar(255)
+  description   String?        @db.Text
   // pathEncrypted: AES-256-GCM. Formato base64(iv):base64(ciphertext):base64(authTag)
   // Almacena la URL completa (ej: rtsp://user:pass@host:554/stream) cifrada
-  pathEncrypted   String          @map("path_encrypted") @db.Text
-  protocol        CameraProtocol  @default(rtsp)
-  enabled         Boolean         @default(true)
-  online          Boolean         @default(false)
-  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz()
+  pathEncrypted String         @map("path_encrypted") @db.Text
+  protocol      CameraProtocol @default(rtsp)
+  enabled       Boolean        @default(true)
+  online        Boolean        @default(false)
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz()
 
-  site            Site            @relation(fields: [siteId], references: [id])
-  layoutCells     LayoutCell[]
-  streamEvents    StreamEvent[]
+  site         Site          @relation(fields: [siteId], references: [id])
+  layoutCells  LayoutCell[]
+  streamEvents StreamEvent[]
 
   @@index([siteId], name: "idx_cameras_site")
   @@index([enabled], name: "idx_cameras_enabled")
@@ -161,21 +162,21 @@ model Camera {
 }
 
 model Layout {
-  id            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  ownerId       String     @map("owner_id") @db.Uuid
-  name          String     @db.VarChar(255)
-  gridType      GridType   @default(quad) @map("grid_type")
-  isDefault     Boolean    @default(false) @map("is_default")
-  isShared      Boolean    @default(false) @map("is_shared")
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId       String    @map("owner_id") @db.Uuid
+  name          String    @db.VarChar(255)
+  gridType      GridType  @default(quad) @map("grid_type")
+  isDefault     Boolean   @default(false) @map("is_default")
+  isShared      Boolean   @default(false) @map("is_shared")
   // configuration: full dashboard state snapshot
   // { gridLayout, cellCameraIds, customCols, customRows }
-  configuration Json?      @db.JsonB
-  createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt     DateTime   @updatedAt @map("updated_at") @db.Timestamptz()
-  deletedAt     DateTime?  @map("deleted_at") @db.Timestamptz()
+  configuration Json?     @db.JsonB
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz()
 
-  owner         User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  cells         LayoutCell[]
+  owner User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  cells LayoutCell[]
 
   @@index([ownerId], name: "idx_layouts_owner")
   @@index([isShared], name: "idx_layouts_shared")
@@ -183,14 +184,14 @@ model Layout {
 }
 
 model LayoutCell {
-  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  layoutId   String    @map("layout_id") @db.Uuid
-  cameraId   String?   @map("camera_id") @db.Uuid
-  position   Int       @db.SmallInt
-  label      String?   @db.VarChar(100)
+  id       String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  layoutId String  @map("layout_id") @db.Uuid
+  cameraId String? @map("camera_id") @db.Uuid
+  position Int     @db.SmallInt
+  label    String? @db.VarChar(100)
 
-  layout     Layout    @relation(fields: [layoutId], references: [id], onDelete: Cascade)
-  camera     Camera?   @relation(fields: [cameraId], references: [id], onDelete: SetNull)
+  layout Layout  @relation(fields: [layoutId], references: [id], onDelete: Cascade)
+  camera Camera? @relation(fields: [cameraId], references: [id], onDelete: SetNull)
 
   @@unique([layoutId, position], name: "layout_cells_position_unique")
   @@index([layoutId], name: "idx_layout_cells_layout")
@@ -199,17 +200,17 @@ model LayoutCell {
 }
 
 model RefreshToken {
-  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId     String    @map("user_id") @db.Uuid
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
   // jti: JWT ID claim, usado para revocar tokens específicos
-  jti        String    @unique @db.Uuid
-  expiresAt  DateTime  @map("expires_at") @db.Timestamptz()
-  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz()
-  userAgent  String?   @map("user_agent") @db.Text
-  ipAddress  String?   @map("ip_address") @db.VarChar(50)
-  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  jti       String    @unique @db.Uuid
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz()
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz()
+  userAgent String?   @map("user_agent") @db.Text
+  ipAddress String?   @map("ip_address") @db.VarChar(50)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz()
 
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId], name: "idx_refresh_tokens_user")
   @@index([jti], name: "idx_refresh_tokens_jti")
@@ -218,29 +219,29 @@ model RefreshToken {
 }
 
 model StreamEvent {
-  id         String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  cameraId   String           @map("camera_id") @db.Uuid
-  eventType  StreamEventType  @map("event_type")
-  message    String?          @db.Text
-  createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz()
+  id        String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cameraId  String          @map("camera_id") @db.Uuid
+  eventType StreamEventType @map("event_type")
+  message   String?         @db.Text
+  createdAt DateTime        @default(now()) @map("created_at") @db.Timestamptz()
 
-  camera     Camera           @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+  camera Camera @relation(fields: [cameraId], references: [id], onDelete: Cascade)
 
   @@index([cameraId, createdAt(sort: Desc)], name: "idx_stream_events_camera")
   @@map("stream_events")
 }
 
 model AuditLog {
-  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId       String?      @map("user_id") @db.Uuid
+  id           String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String?     @map("user_id") @db.Uuid
   action       AuditAction
-  resourceType String?      @map("resource_type") @db.VarChar(50)
-  resourceId   String?      @map("resource_id") @db.Uuid
-  metadata     Json?        @db.JsonB
-  ipAddress    String?      @map("ip_address") @db.VarChar(50)
-  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz()
+  resourceType String?     @map("resource_type") @db.VarChar(50)
+  resourceId   String?     @map("resource_id") @db.Uuid
+  metadata     Json?       @db.JsonB
+  ipAddress    String?     @map("ip_address") @db.VarChar(50)
+  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz()
 
-  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt], name: "idx_audit_logs_user")
   @@index([action, createdAt], name: "idx_audit_logs_action")
@@ -258,7 +259,7 @@ model Site {
   updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
   deletedAt   DateTime? @map("deleted_at") @db.Timestamptz()
 
-  cameras     Camera[]
+  cameras Camera[]
 
   @@index([active], name: "idx_sites_active")
   @@map("sites")
