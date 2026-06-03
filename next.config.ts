@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Headers de seguridad
+  output: "standalone",
+
   async headers() {
     return [
       {
