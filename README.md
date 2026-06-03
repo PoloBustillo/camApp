@@ -2,7 +2,7 @@
 
 > **Rol:** Arquitecto de Software Senior / Product Owner / Tech Lead  
 > **Fecha:** Junio 2026  
-> **Estado:** Sprint 0 — Estructura inicial creada
+> **Estado:** Sprint 2 — Auth + Sites + Cameras implementados ✅
 
 ---
 
@@ -15,9 +15,8 @@ Plataforma web para monitoreo en tiempo real de cámaras IP ubicadas en una inst
 ## Inicio Rápido
 
 ### Requisitos
-- Node.js 20 LTS
+- Bun 1.x
 - Docker + Docker Compose v2
-- npm 10+
 
 ### Setup local
 
@@ -27,21 +26,21 @@ git clone <repo-url>
 cd camera-platform
 
 # 2. Instalar dependencias
-npm install
+bun install
 
 # 3. Configurar variables de entorno
 cp .env.example .env.local
-# Editar .env.local con tus valores (especialmente ENCRYPTION_KEY y JWT secrets)
+# Editar .env.local con tus valores (especialmente ENCRYPTION_KEY y AUTH_SECRET)
 
 # 4. Levantar base de datos y Redis
 docker compose up postgres redis -d
 
 # 5. Ejecutar migraciones y seed
-npm run db:migrate
-npm run db:seed
+bun run db:migrate
+bun run db:seed
 
 # 6. Iniciar en desarrollo
-npm run dev
+bun run dev
 ```
 
 La aplicación estará disponible en `http://localhost:3000`.
@@ -53,15 +52,17 @@ La aplicación estará disponible en `http://localhost:3000`.
 ### Comandos útiles
 
 ```bash
-npm run dev            # Inicia Next.js con Turbopack
-npm run build          # Build de producción
-npm run typecheck      # Verificación de tipos TypeScript
-npm run lint           # ESLint
+bun run dev            # Inicia Next.js con Turbopack
+bun run build          # Build de producción
+bun run typecheck      # Verificación de tipos TypeScript
+bun run lint           # ESLint
 
-npm run db:migrate     # Aplica migraciones pendientes
-npm run db:seed        # Carga datos iniciales
-npm run db:studio      # Abre Prisma Studio (http://localhost:5555)
-npm run db:reset       # Resetea la BD (CUIDADO: borra todo)
+bun run db:migrate     # Aplica migraciones pendientes
+bun run db:seed        # Carga datos iniciales (admin + EdgeServer + Site)
+bun run db:studio      # Abre Prisma Studio (http://localhost:5555)
+bun run db:reset       # Resetea la BD (CUIDADO: borra todo)
+
+bun run test           # Ejecuta todos los tests (Vitest)
 
 docker compose up -d   # Levanta todos los servicios (postgres + redis + web)
 docker compose logs -f # Ver logs
@@ -112,10 +113,10 @@ camera-platform/
 | POST | `/api/auth/login` | Autenticación | Público |
 | POST | `/api/auth/logout` | Cierre de sesión | Autenticado |
 | POST | `/api/auth/refresh` | Renovar access token | Cookie |
-| GET | `/api/cameras` | Listar cámaras | Todos |
+| GET | `/api/cameras` | Listar cámaras (filtros: siteId, protocol, enabled, online) | Todos |
 | POST | `/api/cameras` | Crear cámara | Admin |
 | GET | `/api/cameras/:id` | Ver cámara | Todos |
-| PATCH | `/api/cameras/:id` | Editar cámara | Admin |
+| PUT | `/api/cameras/:id` | Editar cámara completa | Admin |
 | DELETE | `/api/cameras/:id` | Eliminar cámara | Admin |
 | POST | `/api/cameras/:id/stream` | Token de stream WebRTC | Todos |
 | GET | `/api/layouts` | Listar layouts | Todos |
@@ -226,7 +227,7 @@ camera-platform/
 | Site | `sites` | Ubicaciones/instalaciones (timezone, activo) |
 | EdgeServer | `edge_servers` | Servidores MediaMTX remotos |
 | Location | `locations` | Ubicaciones físicas en un EdgeServer |
-| Camera | `cameras` | Cámaras IP con URL RTSP cifrada |
+| Camera | `cameras` | Cámaras IP con path cifrado AES-256 y protocolo (RTSP/RTMP/WebRTC/HLS) |
 | Layout | `layouts` | Grillas de monitoreo multi-cámara |
 | LayoutCell | `layout_cells` | Celdas individuales de un Layout |
 | RefreshToken | `refresh_tokens` | Tokens de renovación de sesión |
@@ -325,3 +326,43 @@ chmod +x deploy.sh
 ### Nota sobre Plesk + Nginx
 
 Si Plesk gestiona el Nginx externo y el SSL, usa `docker-compose.prod.yml` **sin** el servicio `nginx` (Plesk hace proxy al puerto 3000 directamente). Añade en Plesk un Virtual Host → Proxy → `http://localhost:3000`.
+
+---
+
+## Cámaras (Epic 3)
+
+Las **Cámaras** representan dispositivos IP registrados en la plataforma y gestionados por MediaMTX.
+
+### Entidad Camera
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| id | UUID | Identificador único |
+| siteId | UUID | Sitio al que pertenece (requerido) |
+| name | string | Nombre (max 255) |
+| description | string? | Descripción opcional (max 1000) |
+| path | string | URL/path del stream (guardado cifrado con AES-256-GCM) |
+| protocol | enum | `rtsp` \| `rtmp` \| `webrtc` \| `hls` (default: rtsp) |
+| enabled | boolean | Si la cámara está habilitada (default: true) |
+| online | boolean | Estado de conectividad en tiempo real (default: false) |
+| createdAt / updatedAt | timestamp | Lifecycle |
+
+### Seguridad
+
+- El campo `path` (URL/stream path) se **cifra en AES-256-GCM** antes de guardarse como `pathEncrypted`
+- La API nunca expone `pathEncrypted` — siempre devuelve el `path` descifrado
+- La clave de cifrado se define en `ENCRYPTION_KEY` (64 caracteres hex)
+
+### Filtros disponibles en GET /api/cameras
+
+```
+GET /api/cameras?siteId=xxx&protocol=rtsp&enabled=true&online=false&search=entrada&page=1&limit=20
+```
+
+### Tests
+
+```bash
+bun run test -- src/__tests__/cameras/
+```
+
+18 tests cubriendo `createCameraSchema` y `updateCameraSchema`.

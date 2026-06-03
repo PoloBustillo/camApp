@@ -39,17 +39,11 @@ enum EdgeStatus {
   unknown
 }
 
-enum CameraStatus {
-  online
-  offline
-  unknown
-  error
-}
-
-enum CameraCodec {
-  h264
-  h265
-  unknown
+enum CameraProtocol {
+  rtsp
+  rtmp
+  webrtc
+  hls
 }
 
 enum StreamEventType {
@@ -124,7 +118,6 @@ model EdgeServer {
   updatedAt        DateTime    @updatedAt @map("updated_at") @db.Timestamptz()
 
   locations        Location[]
-  cameras          Camera[]
 
   @@map("edge_servers")
 }
@@ -139,40 +132,31 @@ model Location {
   deletedAt      DateTime?   @map("deleted_at") @db.Timestamptz()
 
   edgeServer     EdgeServer  @relation(fields: [edgeServerId], references: [id])
-  cameras        Camera[]
 
   @@index([edgeServerId], name: "idx_locations_edge_server")
   @@map("locations")
 }
 
 model Camera {
-  id                 String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  edgeServerId       String        @map("edge_server_id") @db.Uuid
-  locationId         String?       @map("location_id") @db.Uuid
-  name               String        @db.VarChar(255)
-  // slug: nombre del path en MediaMTX (ej: "cam-entrada")
-  slug               String        @db.VarChar(100)
-  description        String?       @db.Text
-  // rtsp_url_encrypted: AES-256-GCM, formato: base64(iv):base64(ciphertext):base64(authTag)
-  rtspUrlEncrypted   String        @map("rtsp_url_encrypted") @db.Text
-  resolution         String?       @db.VarChar(20)
-  codec              CameraCodec   @default(unknown)
-  status             CameraStatus  @default(unknown)
-  lastStatusAt       DateTime?     @map("last_status_at") @db.Timestamptz()
-  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt          DateTime      @updatedAt @map("updated_at") @db.Timestamptz()
-  deletedAt          DateTime?     @map("deleted_at") @db.Timestamptz()
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  siteId          String          @map("site_id") @db.Uuid
+  name            String          @db.VarChar(255)
+  description     String?         @db.Text
+  // pathEncrypted: AES-256-GCM. Formato base64(iv):base64(ciphertext):base64(authTag)
+  // Almacena la URL completa (ej: rtsp://user:pass@host:554/stream) cifrada
+  pathEncrypted   String          @map("path_encrypted") @db.Text
+  protocol        CameraProtocol  @default(rtsp)
+  enabled         Boolean         @default(true)
+  online          Boolean         @default(false)
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz()
 
-  edgeServer         EdgeServer    @relation(fields: [edgeServerId], references: [id])
-  location           Location?     @relation(fields: [locationId], references: [id])
-  layoutCells        LayoutCell[]
-  streamEvents       StreamEvent[]
+  site            Site            @relation(fields: [siteId], references: [id])
+  layoutCells     LayoutCell[]
+  streamEvents    StreamEvent[]
 
-  @@unique([slug], name: "cameras_slug_unique")
-  @@index([edgeServerId], name: "idx_cameras_edge_server")
-  @@index([locationId], name: "idx_cameras_location")
-  @@index([status], name: "idx_cameras_status")
-  @@index([slug], name: "idx_cameras_slug")
+  @@index([siteId], name: "idx_cameras_site")
+  @@index([enabled], name: "idx_cameras_enabled")
   @@map("cameras")
 }
 
@@ -270,6 +254,8 @@ model Site {
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
   deletedAt   DateTime? @map("deleted_at") @db.Timestamptz()
+
+  cameras     Camera[]
 
   @@index([active], name: "idx_sites_active")
   @@map("sites")

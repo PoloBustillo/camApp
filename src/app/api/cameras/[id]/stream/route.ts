@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/middleware";
-import { decryptRtspUrl } from "@/lib/crypto";
 import { signStreamToken } from "@/lib/stream";
 import { Errors } from "@/lib/errors";
 
@@ -9,37 +8,33 @@ type RouteParams = { params: Promise<{ id: string }> };
 
 /**
  * POST /api/cameras/:id/stream
- * Genera un token temporal (30s) para acceder al stream WebRTC de la cámara vía MediaMTX.
- * El backend verifica credenciales y retorna la URL WHEP + token firmado.
+ * Genera un token temporal (30s) para acceder al stream de la cámara vía MediaMTX.
  */
-export async function POST(req: NextRequest, { params }: RouteParams) {
+export async function POST(_req: NextRequest, { params }: RouteParams) {
   const user = await requireAuth();
   if (user instanceof NextResponse) return user;
 
   const { id } = await params;
 
-  const camera = await prisma.camera.findFirst({
-    where: { id, deletedAt: null },
-    include: { edgeServer: true },
-  });
+  const camera = await prisma.camera.findUnique({ where: { id } });
 
-  if (!camera) return Errors.notFound("Cámara");
+  if (!camera) return Errors.notFound("Cámara no encontrada");
 
-  if (camera.status === "offline" || camera.status === "error") {
+  if (!camera.enabled) {
     return NextResponse.json(
-      {
-        error: {
-          code: "STREAM_UNAVAILABLE",
-          message: "El stream no está disponible",
-        },
-      },
+      { error: { code: "CAMERA_DISABLED", message: "La cámara está deshabilitada" } },
+      { status: 503 },
+    );
+  }
+
+  if (!camera.online) {
+    return NextResponse.json(
+      { error: { code: "CAMERA_OFFLINE", message: "La cámara está offline" } },
       { status: 503 },
     );
   }
 
   const streamToken = await signStreamToken(camera.id, user.id);
-
-  const whepUrl = `http://${camera.edgeServer.publicHost}:${camera.edgeServer.webrtcPort}/${camera.slug}/whep`;
 
   await prisma.auditLog.create({
     data: {
@@ -50,9 +45,5 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     },
   });
 
-  return NextResponse.json({
-    streamToken,
-    whepUrl,
-    expiresIn: 30,
-  });
+  return NextResponse.json({ streamToken, cameraId: camera.id, expiresIn: 30 });
 }

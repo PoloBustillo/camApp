@@ -13,10 +13,11 @@ function getKey(): Buffer {
 }
 
 /**
- * Cifra una URL RTSP con AES-256-GCM.
+ * Cifra un string con AES-256-GCM.
  * Formato de salida: base64(iv):base64(ciphertext):base64(authTag)
+ * Usado para almacenar rutas/URLs que pueden contener credenciales.
  */
-export function encryptRtspUrl(plaintext: string): string {
+export function encryptPath(plaintext: string): string {
   const key = getKey();
   const iv = randomBytes(12); // 96-bit IV para GCM
   const cipher = createCipheriv(ALGORITHM, key, iv);
@@ -35,14 +36,14 @@ export function encryptRtspUrl(plaintext: string): string {
 }
 
 /**
- * Descifra una URL RTSP almacenada con AES-256-GCM.
+ * Descifra un string almacenado con AES-256-GCM.
  */
-export function decryptRtspUrl(encrypted: string): string {
+export function decryptPath(encrypted: string): string {
   const key = getKey();
   const [ivB64, ciphertextB64, authTagB64] = encrypted.split(":");
 
   if (!ivB64 || !ciphertextB64 || !authTagB64) {
-    throw new Error("Invalid encrypted RTSP URL format");
+    throw new Error("Invalid encrypted path format");
   }
 
   const iv = Buffer.from(ivB64, "base64");
@@ -54,3 +55,7 @@ export function decryptRtspUrl(encrypted: string): string {
 
   return decipher.update(ciphertext) + decipher.final("utf8");
 }
+
+// Aliases para compatibilidad con código existente
+export const encryptRtspUrl = encryptPath;
+export const decryptRtspUrl = decryptPath;

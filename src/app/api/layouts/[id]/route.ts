@@ -29,7 +29,7 @@ async function getLayoutOrFail(id: string, userId: string, role: string) {
       cells: {
         include: {
           camera: {
-            select: { id: true, name: true, slug: true, status: true },
+            select: { id: true, name: true, enabled: true, online: true },
           },
         },
         orderBy: { position: "asc" },
@@ -62,7 +62,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       cells: {
         include: {
           camera: {
-            select: { id: true, name: true, slug: true, status: true },
+            select: { id: true, name: true, enabled: true, online: true },
           },
         },
         orderBy: { position: "asc" },
@@ -121,7 +121,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
         cells: {
           include: {
             camera: {
-              select: { id: true, name: true, slug: true, status: true },
+              select: { id: true, name: true, enabled: true, online: true },
             },
           },
           orderBy: { position: "asc" },

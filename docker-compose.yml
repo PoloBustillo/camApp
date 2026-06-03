@@ -57,7 +57,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: npm run dev
+    command: bun run dev
 
   # ─── Reverse Proxy ───────────────────────────────────────
   nginx:

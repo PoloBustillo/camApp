@@ -48,8 +48,8 @@ export async function GET(req: NextRequest) {
               select: {
                 id: true,
                 name: true,
-                slug: true,
-                status: true,
+                enabled: true,
+                online: true,
               },
             },
           },

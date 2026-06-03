@@ -14,10 +14,7 @@ CREATE TYPE "GridType" AS ENUM ('single', 'quad', 'hexa', 'nine');
 CREATE TYPE "EdgeStatus" AS ENUM ('online', 'offline', 'unknown');
 
 -- CreateEnum
-CREATE TYPE "CameraStatus" AS ENUM ('online', 'offline', 'unknown', 'error');
-
--- CreateEnum
-CREATE TYPE "CameraCodec" AS ENUM ('h264', 'h265', 'unknown');
+CREATE TYPE "CameraProtocol" AS ENUM ('rtsp', 'rtmp', 'webrtc', 'hls');
 
 -- CreateEnum
 CREATE TYPE "StreamEventType" AS ENUM ('online', 'offline', 'error', 'reconnecting');
@@ -75,19 +72,15 @@ CREATE TABLE "locations" (
 -- CreateTable
 CREATE TABLE "cameras" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "edge_server_id" UUID NOT NULL,
-    "location_id" UUID,
+    "site_id" UUID NOT NULL,
     "name" VARCHAR(255) NOT NULL,
-    "slug" VARCHAR(100) NOT NULL,
     "description" TEXT,
-    "rtsp_url_encrypted" TEXT NOT NULL,
-    "resolution" VARCHAR(20),
-    "codec" "CameraCodec" NOT NULL DEFAULT 'unknown',
-    "status" "CameraStatus" NOT NULL DEFAULT 'unknown',
-    "last_status_at" TIMESTAMPTZ,
+    "path_encrypted" TEXT NOT NULL,
+    "protocol" "CameraProtocol" NOT NULL DEFAULT 'rtsp',
+    "enabled" BOOLEAN NOT NULL DEFAULT true,
+    "online" BOOLEAN NOT NULL DEFAULT false,
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ NOT NULL,
-    "deleted_at" TIMESTAMPTZ,
 
     CONSTRAINT "cameras_pkey" PRIMARY KEY ("id")
 );
@@ -187,19 +180,10 @@ CREATE UNIQUE INDEX "edge_servers_tailscale_ip_key" ON "edge_servers"("tailscale
 CREATE INDEX "idx_locations_edge_server" ON "locations"("edge_server_id");
 
 -- CreateIndex
-CREATE INDEX "idx_cameras_edge_server" ON "cameras"("edge_server_id");
+CREATE INDEX "idx_cameras_site" ON "cameras"("site_id");
 
 -- CreateIndex
-CREATE INDEX "idx_cameras_location" ON "cameras"("location_id");
-
--- CreateIndex
-CREATE INDEX "idx_cameras_status" ON "cameras"("status");
-
--- CreateIndex
-CREATE INDEX "idx_cameras_slug" ON "cameras"("slug");
-
--- CreateIndex
-CREATE UNIQUE INDEX "cameras_slug_key" ON "cameras"("slug");
+CREATE INDEX "idx_cameras_enabled" ON "cameras"("enabled");
 
 -- CreateIndex
 CREATE INDEX "idx_layouts_owner" ON "layouts"("owner_id");
@@ -247,10 +231,7 @@ CREATE INDEX "idx_sites_active" ON "sites"("active");
 ALTER TABLE "locations" ADD CONSTRAINT "locations_edge_server_id_fkey" FOREIGN KEY ("edge_server_id") REFERENCES "edge_servers"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "cameras" ADD CONSTRAINT "cameras_edge_server_id_fkey" FOREIGN KEY ("edge_server_id") REFERENCES "edge_servers"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "cameras" ADD CONSTRAINT "cameras_location_id_fkey" FOREIGN KEY ("location_id") REFERENCES "locations"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "cameras" ADD CONSTRAINT "cameras_site_id_fkey" FOREIGN KEY ("site_id") REFERENCES "sites"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "layouts" ADD CONSTRAINT "layouts_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;

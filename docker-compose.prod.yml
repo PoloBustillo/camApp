@@ -48,6 +48,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    command: bun server.js
 
   nginx:
     image: nginx:1.25-alpine

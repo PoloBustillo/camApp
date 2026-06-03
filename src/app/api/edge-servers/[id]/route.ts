@@ -62,9 +62,8 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
   if (!existing) return Errors.notFound("Servidor Edge");
 
   // Verificar que no tenga cámaras activas
-  const cameraCount = await prisma.camera.count({
-    where: { edgeServerId: id, deletedAt: null },
-  });
+  // Cameras are now linked to Sites, not EdgeServers — no constraint check needed
+  const cameraCount = 0;
   if (cameraCount > 0) {
     return Errors.conflict("No se puede eliminar: tiene cámaras asociadas");
   }
