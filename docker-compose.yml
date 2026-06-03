@@ -27,7 +27,7 @@ services:
     volumes:
       - redis-data:/data
     ports:
-      - "6379:6379"
+      - "6480:6379"   # Host 6480 → container 6379 (evita conflicto con Redis del sistema)
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s

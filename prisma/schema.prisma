@@ -66,6 +66,7 @@ enum AuditAction {
   layout_created
   layout_updated
   layout_deleted
+  layout_duplicated
   location_created
   location_updated
   location_deleted
@@ -161,18 +162,21 @@ model Camera {
 }
 
 model Layout {
-  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  ownerId     String     @map("owner_id") @db.Uuid
-  name        String     @db.VarChar(255)
-  gridType    GridType   @default(quad) @map("grid_type")
-  isDefault   Boolean    @default(false) @map("is_default")
-  isShared    Boolean    @default(false) @map("is_shared")
-  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt   DateTime   @updatedAt @map("updated_at") @db.Timestamptz()
-  deletedAt   DateTime?  @map("deleted_at") @db.Timestamptz()
+  id            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId       String     @map("owner_id") @db.Uuid
+  name          String     @db.VarChar(255)
+  gridType      GridType   @default(quad) @map("grid_type")
+  isDefault     Boolean    @default(false) @map("is_default")
+  isShared      Boolean    @default(false) @map("is_shared")
+  // configuration: full dashboard state snapshot
+  // { gridLayout, cellCameraIds, customCols, customRows }
+  configuration Json?      @db.JsonB
+  createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt     DateTime   @updatedAt @map("updated_at") @db.Timestamptz()
+  deletedAt     DateTime?  @map("deleted_at") @db.Timestamptz()
 
-  owner       User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  cells       LayoutCell[]
+  owner         User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  cells         LayoutCell[]
 
   @@index([ownerId], name: "idx_layouts_owner")
   @@index([isShared], name: "idx_layouts_shared")
