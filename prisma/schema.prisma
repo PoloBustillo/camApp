@@ -1,0 +1,259 @@
+// CamWatch Platform — Prisma Schema
+// Basado en el diseño de BD aprobado (docs/fase-3-diseno-tecnico/03-diseno-base-datos.md)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────
+
+enum UserRole {
+  admin
+  operator
+  viewer
+}
+
+enum UserStatus {
+  active
+  inactive
+  locked
+}
+
+enum GridType {
+  single
+  quad
+  hexa
+  nine
+}
+
+enum EdgeStatus {
+  online
+  offline
+  unknown
+}
+
+enum CameraStatus {
+  online
+  offline
+  unknown
+  error
+}
+
+enum CameraCodec {
+  h264
+  h265
+  unknown
+}
+
+enum StreamEventType {
+  online
+  offline
+  error
+  reconnecting
+}
+
+enum AuditAction {
+  user_login
+  user_logout
+  user_created
+  user_updated
+  user_deleted
+  camera_created
+  camera_updated
+  camera_deleted
+  camera_viewed
+  layout_created
+  layout_updated
+  layout_deleted
+  location_created
+  location_updated
+  location_deleted
+  stream_access
+  auth_failure
+  system_event
+}
+
+// ─────────────────────────────────────────
+// MODELS
+// ─────────────────────────────────────────
+
+model User {
+  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name           String      @db.VarChar(255)
+  email          String      @db.VarChar(255)
+  passwordHash   String      @map("password_hash") @db.VarChar(255)
+  role           UserRole    @default(viewer)
+  status         UserStatus  @default(active)
+  failedAttempts Int         @default(0) @map("failed_attempts") @db.SmallInt
+  lockedUntil    DateTime?   @map("locked_until") @db.Timestamptz()
+  lastLoginAt    DateTime?   @map("last_login_at") @db.Timestamptz()
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz()
+  deletedAt      DateTime?   @map("deleted_at") @db.Timestamptz()
+
+  refreshTokens  RefreshToken[]
+  layouts        Layout[]
+  auditLogs      AuditLog[]
+
+  @@unique([email], name: "users_email_unique")
+  @@index([email], name: "idx_users_email")
+  @@index([role], name: "idx_users_role")
+  @@map("users")
+}
+
+model EdgeServer {
+  id               String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name             String      @db.VarChar(255)
+  tailscaleIp      String      @unique @map("tailscale_ip") @db.VarChar(50)
+  mediamtxApiPort  Int         @default(9997) @map("mediamtx_api_port") @db.SmallInt
+  webrtcPort       Int         @default(8889) @map("webrtc_port") @db.SmallInt
+  publicHost       String      @map("public_host") @db.VarChar(255)
+  status           EdgeStatus  @default(unknown)
+  lastSeenAt       DateTime?   @map("last_seen_at") @db.Timestamptz()
+  createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt        DateTime    @updatedAt @map("updated_at") @db.Timestamptz()
+
+  locations        Location[]
+  cameras          Camera[]
+
+  @@map("edge_servers")
+}
+
+model Location {
+  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  edgeServerId   String      @map("edge_server_id") @db.Uuid
+  name           String      @db.VarChar(255)
+  description    String?     @db.Text
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz()
+  deletedAt      DateTime?   @map("deleted_at") @db.Timestamptz()
+
+  edgeServer     EdgeServer  @relation(fields: [edgeServerId], references: [id])
+  cameras        Camera[]
+
+  @@index([edgeServerId], name: "idx_locations_edge_server")
+  @@map("locations")
+}
+
+model Camera {
+  id                 String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  edgeServerId       String        @map("edge_server_id") @db.Uuid
+  locationId         String?       @map("location_id") @db.Uuid
+  name               String        @db.VarChar(255)
+  // slug: nombre del path en MediaMTX (ej: "cam-entrada")
+  slug               String        @db.VarChar(100)
+  description        String?       @db.Text
+  // rtsp_url_encrypted: AES-256-GCM, formato: base64(iv):base64(ciphertext):base64(authTag)
+  rtspUrlEncrypted   String        @map("rtsp_url_encrypted") @db.Text
+  resolution         String?       @db.VarChar(20)
+  codec              CameraCodec   @default(unknown)
+  status             CameraStatus  @default(unknown)
+  lastStatusAt       DateTime?     @map("last_status_at") @db.Timestamptz()
+  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt          DateTime      @updatedAt @map("updated_at") @db.Timestamptz()
+  deletedAt          DateTime?     @map("deleted_at") @db.Timestamptz()
+
+  edgeServer         EdgeServer    @relation(fields: [edgeServerId], references: [id])
+  location           Location?     @relation(fields: [locationId], references: [id])
+  layoutCells        LayoutCell[]
+  streamEvents       StreamEvent[]
+
+  @@unique([slug], name: "cameras_slug_unique")
+  @@index([edgeServerId], name: "idx_cameras_edge_server")
+  @@index([locationId], name: "idx_cameras_location")
+  @@index([status], name: "idx_cameras_status")
+  @@index([slug], name: "idx_cameras_slug")
+  @@map("cameras")
+}
+
+model Layout {
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId     String     @map("owner_id") @db.Uuid
+  name        String     @db.VarChar(255)
+  gridType    GridType   @default(quad) @map("grid_type")
+  isDefault   Boolean    @default(false) @map("is_default")
+  isShared    Boolean    @default(false) @map("is_shared")
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime   @updatedAt @map("updated_at") @db.Timestamptz()
+  deletedAt   DateTime?  @map("deleted_at") @db.Timestamptz()
+
+  owner       User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  cells       LayoutCell[]
+
+  @@index([ownerId], name: "idx_layouts_owner")
+  @@index([isShared], name: "idx_layouts_shared")
+  @@map("layouts")
+}
+
+model LayoutCell {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  layoutId   String    @map("layout_id") @db.Uuid
+  cameraId   String?   @map("camera_id") @db.Uuid
+  position   Int       @db.SmallInt
+  label      String?   @db.VarChar(100)
+
+  layout     Layout    @relation(fields: [layoutId], references: [id], onDelete: Cascade)
+  camera     Camera?   @relation(fields: [cameraId], references: [id], onDelete: SetNull)
+
+  @@unique([layoutId, position], name: "layout_cells_position_unique")
+  @@index([layoutId], name: "idx_layout_cells_layout")
+  @@index([cameraId], name: "idx_layout_cells_camera")
+  @@map("layout_cells")
+}
+
+model RefreshToken {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  // jti: JWT ID claim, usado para revocar tokens específicos
+  jti        String    @unique @db.Uuid
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz()
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz()
+  userAgent  String?   @map("user_agent") @db.Text
+  ipAddress  String?   @map("ip_address") @db.VarChar(50)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], name: "idx_refresh_tokens_user")
+  @@index([jti], name: "idx_refresh_tokens_jti")
+  @@index([expiresAt], name: "idx_refresh_tokens_expires")
+  @@map("refresh_tokens")
+}
+
+model StreamEvent {
+  id         String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cameraId   String           @map("camera_id") @db.Uuid
+  eventType  StreamEventType  @map("event_type")
+  message    String?          @db.Text
+  createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz()
+
+  camera     Camera           @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+
+  @@index([cameraId, createdAt(sort: Desc)], name: "idx_stream_events_camera")
+  @@map("stream_events")
+}
+
+model AuditLog {
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String?      @map("user_id") @db.Uuid
+  action       AuditAction
+  resourceType String?      @map("resource_type") @db.VarChar(50)
+  resourceId   String?      @map("resource_id") @db.Uuid
+  metadata     Json?        @db.JsonB
+  ipAddress    String?      @map("ip_address") @db.VarChar(50)
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz()
+
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt], name: "idx_audit_logs_user")
+  @@index([action, createdAt], name: "idx_audit_logs_action")
+  @@index([resourceType, resourceId], name: "idx_audit_logs_resource")
+  @@map("audit_logs")
+}

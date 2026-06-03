@@ -1,0 +1,78 @@
+services:
+  # ─── Base de Datos ───────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: camwatch-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-camwatch}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-camwatch_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-camwatch}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-camwatch}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Caché / Token Store ─────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: camwatch-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Aplicación Next.js ──────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: camwatch-web
+    restart: unless-stopped
+    env_file: .env.local
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-camwatch}:${POSTGRES_PASSWORD:-camwatch_dev_password}@postgres:5432/${POSTGRES_DB:-camwatch}
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: npm run dev
+
+  # ─── Reverse Proxy ───────────────────────────────────────
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: camwatch-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./docker/nginx/nginx.dev.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - web
+    profiles:
+      - with-nginx
+
+volumes:
+  postgres-data:
+  redis-data:
