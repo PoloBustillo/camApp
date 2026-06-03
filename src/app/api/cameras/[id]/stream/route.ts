@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/middleware";
 import { decryptRtspUrl } from "@/lib/crypto";
-import { signStreamToken } from "@/lib/auth";
+import { signStreamToken } from "@/lib/stream";
 import { Errors } from "@/lib/errors";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -13,7 +13,7 @@ type RouteParams = { params: Promise<{ id: string }> };
  * El backend verifica credenciales y retorna la URL WHEP + token firmado.
  */
 export async function POST(req: NextRequest, { params }: RouteParams) {
-  const user = await requireAuth(req);
+  const user = await requireAuth();
   if (user instanceof NextResponse) return user;
 
   const { id } = await params;
@@ -37,13 +37,13 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     );
   }
 
-  const streamToken = await signStreamToken(camera.id, user.sub);
+  const streamToken = await signStreamToken(camera.id, user.id);
 
   const whepUrl = `http://${camera.edgeServer.publicHost}:${camera.edgeServer.webrtcPort}/${camera.slug}/whep`;
 
   await prisma.auditLog.create({
     data: {
-      userId: user.sub,
+      userId: user.id,
       action: "stream_access",
       resourceType: "camera",
       resourceId: camera.id,

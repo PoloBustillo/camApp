@@ -212,3 +212,31 @@ camera-platform/
 - **Formato de fechas:** ISO 8601 (`YYYY-MM-DD`)
 - **Versionado:** Semantic Versioning (`MAJOR.MINOR.PATCH`)
 - **Ramas Git:** `main`, `develop`, `feature/`, `fix/`, `release/`
+
+## Autenticación
+
+La plataforma usa **Auth.js v5** (next-auth@beta) con proveedor Credentials y sesiones JWT almacenadas en cookies HttpOnly.
+
+### Flujo de login
+
+1. El usuario accede a `/login` y completa el formulario (`LoginForm`)
+2. Se invoca la Server Action `loginAction` → `signIn("credentials")`
+3. Auth.js llama a `authorizeCredentials()` en `src/lib/authorize.ts`
+4. Se verifica bcrypt y se registra auditoría; en éxito devuelve `{ id, name, email, role }`
+5. Auth.js firma un JWT con `AUTH_SECRET` y lo almacena en una cookie HttpOnly
+6. El middleware protege todas las rutas: API sin sesión → 401, páginas sin sesión → redirect `/login`
+
+### Variables de entorno requeridas
+
+```bash
+AUTH_SECRET="$(openssl rand -base64 32)"
+AUTH_URL="http://localhost:3000"
+```
+
+### Protección de rutas
+
+- **Middleware** (`src/middleware.ts`): protección global de rutas
+- **`requireSession()`** (`src/lib/session.ts`): para Server Components
+- **`requireAuth()`** (`src/lib/middleware.ts`): para API Routes
+
+Ver documentación detallada en [`docs/fase-3-diseno-tecnico/auth-authjs.md`](./docs/fase-3-diseno-tecnico/auth-authjs.md).

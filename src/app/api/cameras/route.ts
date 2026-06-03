@@ -21,7 +21,7 @@ const createCameraSchema = z.object({
 });
 
 export async function GET(req: NextRequest) {
-  const user = await requireAuth(req);
+  const user = await requireAuth();
   if (user instanceof NextResponse) return user;
 
   const { searchParams } = new URL(req.url);
@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const user = await requireAuth(req);
+  const user = await requireAuth();
   if (user instanceof NextResponse) return user;
 
   const roleError = requireRole(user, ["admin"]);
@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
 
   await prisma.auditLog.create({
     data: {
-      userId: user.sub,
+      userId: user.id,
       action: "camera_created",
       resourceType: "camera",
       resourceId: camera.id,

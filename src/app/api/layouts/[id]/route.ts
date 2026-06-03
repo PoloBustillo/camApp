@@ -45,7 +45,7 @@ async function getLayoutOrFail(id: string, userId: string, role: string) {
 }
 
 export async function GET(req: NextRequest, { params }: RouteParams) {
-  const user = await requireAuth(req);
+  const user = await requireAuth();
   if (user instanceof NextResponse) return user;
 
   const { id } = await params;
@@ -55,7 +55,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       id,
       deletedAt: null,
       ...(user.role !== "admin" && {
-        OR: [{ ownerId: user.sub }, { isShared: true }],
+        OR: [{ ownerId: user.id }, { isShared: true }],
       }),
     },
     include: {
@@ -75,11 +75,11 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 }
 
 export async function PATCH(req: NextRequest, { params }: RouteParams) {
-  const user = await requireAuth(req);
+  const user = await requireAuth();
   if (user instanceof NextResponse) return user;
 
   const { id } = await params;
-  const layout = await getLayoutOrFail(id, user.sub, user.role);
+  const layout = await getLayoutOrFail(id, user.id, user.role);
   if (!layout) return Errors.notFound("Layout");
 
   const body = await req.json().catch(() => null);
@@ -132,7 +132,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
   await prisma.auditLog.create({
     data: {
-      userId: user.sub,
+      userId: user.id,
       action: "layout_updated",
       resourceType: "layout",
       resourceId: id,
@@ -143,11 +143,11 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 }
 
 export async function DELETE(req: NextRequest, { params }: RouteParams) {
-  const user = await requireAuth(req);
+  const user = await requireAuth();
   if (user instanceof NextResponse) return user;
 
   const { id } = await params;
-  const layout = await getLayoutOrFail(id, user.sub, user.role);
+  const layout = await getLayoutOrFail(id, user.id, user.role);
   if (!layout) return Errors.notFound("Layout");
 
   await prisma.layout.update({
@@ -157,7 +157,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
 
   await prisma.auditLog.create({
     data: {
-      userId: user.sub,
+      userId: user.id,
       action: "layout_deleted",
       resourceType: "layout",
       resourceId: id,

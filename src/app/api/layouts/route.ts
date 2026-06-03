@@ -19,7 +19,7 @@ const createLayoutSchema = z.object({
 });
 
 export async function GET(req: NextRequest) {
-  const user = await requireAuth(req);
+  const user = await requireAuth();
   if (user instanceof NextResponse) return user;
 
   const { searchParams } = new URL(req.url);
@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
       ? { deletedAt: null }
       : {
           deletedAt: null,
-          OR: [{ ownerId: user.sub }, { isShared: true }],
+          OR: [{ ownerId: user.id }, { isShared: true }],
         };
 
   const [layouts, total] = await Promise.all([
@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const user = await requireAuth(req);
+  const user = await requireAuth();
   if (user instanceof NextResponse) return user;
 
   const body = await req.json().catch(() => null);
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
   // Si se marca como default, quitar el default anterior
   if (isDefault) {
     await prisma.layout.updateMany({
-      where: { ownerId: user.sub, isDefault: true, deletedAt: null },
+      where: { ownerId: user.id, isDefault: true, deletedAt: null },
       data: { isDefault: false },
     });
   }
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
       ...rest,
       gridType,
       isDefault: isDefault ?? false,
-      ownerId: user.sub,
+      ownerId: user.id,
       cells: {
         createMany: {
           data: Array.from({ length: cellCount }, (_, i) => ({ position: i })),
@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
 
   await prisma.auditLog.create({
     data: {
-      userId: user.sub,
+      userId: user.id,
       action: "layout_created",
       resourceType: "layout",
       resourceId: layout.id,

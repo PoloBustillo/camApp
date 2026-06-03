@@ -1,3 +1,5 @@
+import { LoginForm } from "@/components/auth/login-form"
+
 export default function LoginPage() {
   return (
     <main className="min-h-screen flex items-center justify-center bg-background">
@@ -8,11 +10,10 @@ export default function LoginPage() {
             Ingresa tus credenciales para continuar
           </p>
         </div>
-        {/* LoginForm — se implementa en Sprint 1 */}
-        <div className="rounded-lg border border-border p-6 text-center text-muted-foreground text-sm">
-          Formulario de login — Sprint 1
+        <div className="rounded-lg border border-border p-6">
+          <LoginForm />
         </div>
       </div>
     </main>
-  );
+  )
 }

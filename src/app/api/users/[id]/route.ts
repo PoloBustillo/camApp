@@ -14,13 +14,13 @@ const updateUserSchema = z.object({
 type RouteParams = { params: Promise<{ id: string }> };
 
 export async function GET(req: NextRequest, { params }: RouteParams) {
-  const authUser = await requireAuth(req);
+  const authUser = await requireAuth();
   if (authUser instanceof NextResponse) return authUser;
 
   const { id } = await params;
 
   // Viewer/Operator solo puede ver su propio perfil
-  if (authUser.role !== "admin" && authUser.sub !== id) {
+  if (authUser.role !== "admin" && authUser.id !== id) {
     return Errors.forbidden();
   }
 
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 }
 
 export async function PATCH(req: NextRequest, { params }: RouteParams) {
-  const authUser = await requireAuth(req);
+  const authUser = await requireAuth();
   if (authUser instanceof NextResponse) return authUser;
 
   const roleError = requireRole(authUser, ["admin"]);
@@ -76,7 +76,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
   await prisma.auditLog.create({
     data: {
-      userId: authUser.sub,
+      userId: authUser.id,
       action: "user_updated",
       resourceType: "user",
       resourceId: user.id,
@@ -87,7 +87,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 }
 
 export async function DELETE(req: NextRequest, { params }: RouteParams) {
-  const authUser = await requireAuth(req);
+  const authUser = await requireAuth();
   if (authUser instanceof NextResponse) return authUser;
 
   const roleError = requireRole(authUser, ["admin"]);
@@ -96,7 +96,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
   const { id } = await params;
 
   // No puede eliminarse a sí mismo
-  if (authUser.sub === id) {
+  if (authUser.id === id) {
     return Errors.forbidden("No puedes eliminar tu propia cuenta");
   }
 
@@ -112,7 +112,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
 
   await prisma.auditLog.create({
     data: {
-      userId: authUser.sub,
+      userId: authUser.id,
       action: "user_deleted",
       resourceType: "user",
       resourceId: id,

@@ -1,29 +1,13 @@
-import { create } from "zustand";
+import { create } from "zustand"
 
-interface AuthUser {
-  id: string;
-  name: string;
-  email: string;
-  role: "admin" | "operator" | "viewer";
-}
-
+// Auth.js handles the actual session via HttpOnly cookies.
+// This store is only for UI state that needs to be tracked client-side.
 interface AuthState {
-  user: AuthUser | null;
-  // El access token se guarda solo en memoria (no localStorage)
-  accessToken: string | null;
-  isLoading: boolean;
-
-  setAuth: (user: AuthUser, accessToken: string) => void;
-  clearAuth: () => void;
-  setLoading: (loading: boolean) => void;
+  isLoading: boolean
+  setLoading: (loading: boolean) => void
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  accessToken: null,
-  isLoading: true,
-
-  setAuth: (user, accessToken) => set({ user, accessToken, isLoading: false }),
-  clearAuth: () => set({ user: null, accessToken: null, isLoading: false }),
+  isLoading: false,
   setLoading: (isLoading) => set({ isLoading }),
-}));
+}))

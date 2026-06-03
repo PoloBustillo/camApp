@@ -13,7 +13,7 @@ const createEdgeServerSchema = z.object({
 });
 
 export async function GET(req: NextRequest) {
-  const user = await requireAuth(req);
+  const user = await requireAuth();
   if (user instanceof NextResponse) return user;
 
   const servers = await prisma.edgeServer.findMany({
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const user = await requireAuth(req);
+  const user = await requireAuth();
   if (user instanceof NextResponse) return user;
 
   const roleError = requireRole(user, ["admin"]);

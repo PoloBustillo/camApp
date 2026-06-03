@@ -1,43 +1,34 @@
-import { NextRequest, NextResponse } from "next/server";
-import { verifyAccessToken, extractBearerToken } from "@/lib/auth";
+import { auth } from "@/auth"
+import { NextResponse } from "next/server"
 
-const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/auth/refresh"];
+export default auth((req) => {
+  const { nextUrl } = req
+  const isAuthenticated = !!req.auth?.user
 
-export async function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
+  const isPublicAuthApi = nextUrl.pathname.startsWith("/api/auth")
+  const isApiRoute = nextUrl.pathname.startsWith("/api")
+  const isLoginPage = nextUrl.pathname === "/login"
 
-  // Rutas públicas — pasar sin verificar
-  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
-    return NextResponse.next();
+  if (isPublicAuthApi) return NextResponse.next()
+
+  if (isApiRoute && !isAuthenticated) {
+    return NextResponse.json(
+      { error: { code: "UNAUTHORIZED", message: "No autorizado" } },
+      { status: 401 },
+    )
   }
 
-  // API routes — verificar JWT en header
-  if (pathname.startsWith("/api/")) {
-    const token = extractBearerToken(req.headers.get("authorization"));
-    if (!token) {
-      return NextResponse.json(
-        { error: { code: "UNAUTHORIZED", message: "No autorizado" } },
-        { status: 401 },
-      );
-    }
-    try {
-      await verifyAccessToken(token);
-      return NextResponse.next();
-    } catch {
-      return NextResponse.json(
-        {
-          error: { code: "UNAUTHORIZED", message: "Token inválido o expirado" },
-        },
-        { status: 401 },
-      );
-    }
+  if (isLoginPage && isAuthenticated) {
+    return NextResponse.redirect(new URL("/dashboard", nextUrl))
   }
 
-  // Páginas — verificar sesión via cookie (el access token lo maneja el cliente)
-  // En el MVP el cliente maneja la redirección si no hay token en memoria.
-  return NextResponse.next();
-}
+  if (!isLoginPage && !isApiRoute && !isAuthenticated) {
+    return NextResponse.redirect(new URL("/login", nextUrl))
+  }
+
+  return NextResponse.next()
+})
 
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
-};
+}

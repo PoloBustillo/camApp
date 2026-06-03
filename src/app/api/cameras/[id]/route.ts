@@ -17,7 +17,7 @@ const updateCameraSchema = z.object({
 type RouteParams = { params: Promise<{ id: string }> };
 
 export async function GET(req: NextRequest, { params }: RouteParams) {
-  const user = await requireAuth(req);
+  const user = await requireAuth();
   if (user instanceof NextResponse) return user;
 
   const { id } = await params;
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
   await prisma.auditLog.create({
     data: {
-      userId: user.sub,
+      userId: user.id,
       action: "camera_viewed",
       resourceType: "camera",
       resourceId: camera.id,
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 }
 
 export async function PATCH(req: NextRequest, { params }: RouteParams) {
-  const user = await requireAuth(req);
+  const user = await requireAuth();
   if (user instanceof NextResponse) return user;
 
   const roleError = requireRole(user, ["admin"]);
@@ -96,7 +96,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
   await prisma.auditLog.create({
     data: {
-      userId: user.sub,
+      userId: user.id,
       action: "camera_updated",
       resourceType: "camera",
       resourceId: camera.id,
@@ -107,7 +107,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 }
 
 export async function DELETE(req: NextRequest, { params }: RouteParams) {
-  const user = await requireAuth(req);
+  const user = await requireAuth();
   if (user instanceof NextResponse) return user;
 
   const roleError = requireRole(user, ["admin"]);
@@ -127,7 +127,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
 
   await prisma.auditLog.create({
     data: {
-      userId: user.sub,
+      userId: user.id,
       action: "camera_deleted",
       resourceType: "camera",
       resourceId: id,
