@@ -128,6 +128,11 @@ camera-platform/
 | DELETE | `/api/users/:id` | Eliminar usuario | Admin |
 | GET | `/api/edge-servers` | Listar servidores edge | Todos |
 | POST | `/api/edge-servers` | Registrar servidor | Admin |
+| GET | `/api/sites` | Listar sitios | Todos |
+| POST | `/api/sites` | Crear sitio | Admin, Operator |
+| GET | `/api/sites/:id` | Ver sitio | Todos |
+| PATCH | `/api/sites/:id` | Editar sitio | Admin, Operator |
+| DELETE | `/api/sites/:id` | Eliminar sitio | Admin |
 
 ---
 
@@ -213,6 +218,23 @@ camera-platform/
 - **Versionado:** Semantic Versioning (`MAJOR.MINOR.PATCH`)
 - **Ramas Git:** `main`, `develop`, `feature/`, `fix/`, `release/`
 
+## Entidades del Dominio
+
+| Entidad | Tabla | Descripción |
+|---------|-------|-------------|
+| User | `users` | Usuarios con roles RBAC y lockout |
+| Site | `sites` | Ubicaciones/instalaciones (timezone, activo) |
+| EdgeServer | `edge_servers` | Servidores MediaMTX remotos |
+| Location | `locations` | Ubicaciones físicas en un EdgeServer |
+| Camera | `cameras` | Cámaras IP con URL RTSP cifrada |
+| Layout | `layouts` | Grillas de monitoreo multi-cámara |
+| LayoutCell | `layout_cells` | Celdas individuales de un Layout |
+| RefreshToken | `refresh_tokens` | Tokens de renovación de sesión |
+| StreamEvent | `stream_events` | Eventos de estado de streams |
+| AuditLog | `audit_logs` | Registro de acciones del sistema |
+
+---
+
 ## Autenticación
 
 La plataforma usa **Auth.js v5** (next-auth@beta) con proveedor Credentials y sesiones JWT almacenadas en cookies HttpOnly.
@@ -240,3 +262,66 @@ AUTH_URL="http://localhost:3000"
 - **`requireAuth()`** (`src/lib/middleware.ts`): para API Routes
 
 Ver documentación detallada en [`docs/fase-3-diseno-tecnico/auth-authjs.md`](./docs/fase-3-diseno-tecnico/auth-authjs.md).
+
+---
+
+## Sitios (Epic 2)
+
+Los **Sitios** representan ubicaciones físicas o lógicas que agrupan cámaras y recursos.
+
+### Entidad Site
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| id | UUID | Identificador único |
+| name | string | Nombre único del sitio (max 255) |
+| description | string? | Descripción opcional (max 1000) |
+| timezone | string | Zona horaria IANA (default: UTC) |
+| active | boolean | Si el sitio está activo (default: true) |
+| createdAt / updatedAt / deletedAt | timestamp | Lifecycle |
+
+### Soft delete
+
+Los sitios usan **soft delete** (`deletedAt`). Para restaurar, usa `PATCH /api/sites/:id` con un `PUT` equivalente (o directamente en Prisma Studio).
+
+---
+
+## Deploy en Producción
+
+### Servidor: `camapp.modest-benz.50-21-179-210.plesk.page`
+
+```bash
+# 1. Clonar repo en el servidor
+git clone <tu-repo> /var/www/camwatch
+cd /var/www/camwatch
+
+# 2. Crear .env (Docker Compose lo lee automáticamente)
+cp .env.example .env
+# Editar .env con valores reales:
+#   POSTGRES_PASSWORD=<password_seguro>
+#   AUTH_SECRET=$(openssl rand -base64 32)
+#   MEDIAMTX_JWT_SECRET=$(openssl rand -hex 32)
+#   ENCRYPTION_KEY=$(openssl rand -hex 32)  # debe ser 64 hex chars
+#   AUTH_URL=https://camapp.modest-benz.50-21-179-210.plesk.page
+#   NEXT_PUBLIC_APP_URL=https://camapp.modest-benz.50-21-179-210.plesk.page
+
+# 3. Deploy con script automatizado
+chmod +x deploy.sh
+./deploy.sh
+```
+
+### Variables de entorno Docker Compose
+
+`${POSTGRES_USER:-camwatch}` lee del `.env` (no `.env.local`). Si la variable no está en `.env`, usa el valor por defecto `camwatch`.
+
+| Variable | Default (dev) | Producción requerida |
+|----------|---------------|----------------------|
+| POSTGRES_USER | camwatch | ✅ en `.env` |
+| POSTGRES_PASSWORD | camwatch_dev_password | 🔴 cambiar |
+| POSTGRES_DB | camwatch | ✅ en `.env` |
+| AUTH_SECRET | — | 🔴 generar con openssl |
+| ENCRYPTION_KEY | — | 🔴 64 hex chars |
+
+### Nota sobre Plesk + Nginx
+
+Si Plesk gestiona el Nginx externo y el SSL, usa `docker-compose.prod.yml` **sin** el servicio `nginx` (Plesk hace proxy al puerto 3000 directamente). Añade en Plesk un Virtual Host → Proxy → `http://localhost:3000`.

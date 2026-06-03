@@ -75,6 +75,9 @@ enum AuditAction {
   location_created
   location_updated
   location_deleted
+  site_created
+  site_updated
+  site_deleted
   stream_access
   auth_failure
   system_event
@@ -256,4 +259,18 @@ model AuditLog {
   @@index([action, createdAt], name: "idx_audit_logs_action")
   @@index([resourceType, resourceId], name: "idx_audit_logs_resource")
   @@map("audit_logs")
+}
+
+model Site {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String    @db.VarChar(255)
+  description String?   @db.Text
+  timezone    String    @default("UTC") @db.VarChar(100)
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz()
+
+  @@index([active], name: "idx_sites_active")
+  @@map("sites")
 }
