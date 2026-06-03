@@ -29,6 +29,14 @@ export interface DashboardCamera {
   siteName: string;
 }
 
+/** Shape stored in Layout.configuration (JSON field) */
+export interface LayoutConfiguration {
+  gridLayout: GridLayout;
+  cellCameraIds: (string | null)[];
+  customCols: number;
+  customRows: number;
+}
+
 interface DashboardState {
   layout: GridLayout;
   customCols: number;
@@ -44,6 +52,10 @@ interface DashboardState {
   moveCells: (fromIndex: number, toIndex: number) => void;
   setFullscreen: (cameraId: string | null) => void;
   resetCells: () => void;
+  /** Snapshot the current state as a LayoutConfiguration for saving */
+  getConfiguration: () => LayoutConfiguration;
+  /** Apply a saved LayoutConfiguration to the store */
+  loadConfiguration: (cfg: LayoutConfiguration) => void;
 }
 
 function buildEmptyCells(cols: number, rows: number): null[] {
@@ -98,6 +110,21 @@ export const useDashboardStore = create<DashboardState>()(
         const rows = layout === "custom" ? customRows : config.rows;
         set({ cellCameraIds: buildEmptyCells(cols, rows) });
       },
+
+      getConfiguration(): LayoutConfiguration {
+        const { layout, cellCameraIds, customCols, customRows } = get();
+        return { gridLayout: layout, cellCameraIds, customCols, customRows };
+      },
+
+      loadConfiguration(cfg: LayoutConfiguration) {
+        set({
+          layout: cfg.gridLayout,
+          cellCameraIds: cfg.cellCameraIds,
+          customCols: cfg.customCols,
+          customRows: cfg.customRows,
+          fullscreenCameraId: null,
+        });
+      },
     }),
     {
       name: "camwatch-dashboard",
@@ -110,3 +137,4 @@ export const useDashboardStore = create<DashboardState>()(
     },
   ),
 );
+

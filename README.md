@@ -2,7 +2,7 @@
 
 > **Rol:** Arquitecto de Software Senior / Product Owner / Tech Lead  
 > **Fecha:** Junio 2026  
-> **Estado:** Sprint 2 — Auth + Sites + Cameras + MediaMTX + Dashboard implementados ✅
+> **Estado:** Sprint 3 — Auth + Sites + Cameras + MediaMTX + Dashboard + Layouts implementados ✅
 
 ---
 
@@ -124,6 +124,7 @@ camera-platform/
 | POST | `/api/layouts` | Crear layout | Todos |
 | PATCH | `/api/layouts/:id` | Editar layout + celdas | Dueño/Admin |
 | DELETE | `/api/layouts/:id` | Eliminar layout | Dueño/Admin |
+| POST | `/api/layouts/:id/duplicate` | Duplicar layout | Todos |
 | GET | `/api/users` | Listar usuarios | Admin |
 | POST | `/api/users` | Crear usuario | Admin |
 | PATCH | `/api/users/:id` | Editar usuario | Admin |
@@ -510,6 +511,81 @@ bun run test -- src/__tests__/dashboard/
 ```
 
 21 tests: `camera-card.test.tsx` (14) + `camera-grid.test.tsx` (7).
+
+---
+
+## Layouts (Epic 6)
+
+Permite guardar y cargar configuraciones del dashboard como **layouts persistentes** en base de datos.
+
+### Entidad Layout
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| id | UUID | Identificador único |
+| userId | UUID | Propietario del layout |
+| name | string | Nombre (max 100, trim) |
+| configuration | JSONB | Snapshot del estado del dashboard (ver abajo) |
+| isDefault | boolean | Si es el layout predeterminado del usuario |
+| isShared | boolean | Visible por otros usuarios |
+| createdAt / updatedAt / deletedAt | timestamp | Lifecycle + soft delete |
+
+### LayoutConfiguration (campo JSON)
+
+```typescript
+interface LayoutConfiguration {
+  gridLayout: "1x1" | "2x2" | "3x3" | "4x4" | "custom";
+  cellCameraIds: (string | null)[];  // UUIDs de cámaras por celda
+  customCols: number;  // 1–6
+  customRows: number;  // 1–6
+}
+```
+
+El campo `configuration` es un snapshot exacto del estado del store de Zustand.
+
+### API Routes
+
+| Método | Ruta | Descripción | Roles |
+|--------|------|-------------|-------|
+| GET | `/api/layouts` | Listar layouts (propios + compartidos) | Todos |
+| POST | `/api/layouts` | Crear layout con configuración | Todos |
+| GET | `/api/layouts/:id` | Ver layout | Dueño/Admin |
+| PATCH | `/api/layouts/:id` | Editar nombre, isDefault, isShared, configuration | Dueño/Admin |
+| DELETE | `/api/layouts/:id` | Soft delete | Dueño/Admin |
+| POST | `/api/layouts/:id/duplicate` | Duplicar layout con nuevo nombre | Todos |
+
+### Flujo de uso
+
+1. Desde el **Dashboard** → botón **"💾 Guardar"** en la barra de herramientas
+2. Modal: nombre + opciones → `POST /api/layouts` con `configuration` del store
+3. Desde **Layouts** (`/layouts`) → ver lista de layouts guardados
+4. Click **"Aplicar"** → `loadConfiguration()` en el store → redirect a `/dashboard`
+5. Click **"⎘"** (duplicar) → prompt de nombre → `POST /api/layouts/:id/duplicate`
+6. Click **"★"** → marcar como predeterminado → `PATCH /api/layouts/:id { isDefault: true }`
+
+### Estado global (Zustand)
+
+Nuevas acciones en `useDashboardStore`:
+
+```typescript
+// Tomar snapshot del estado actual para guardar
+const cfg = useDashboardStore.getState().getConfiguration();
+
+// Cargar un layout guardado (reemplaza el estado actual)
+useDashboardStore.getState().loadConfiguration(cfg);
+```
+
+### Página de Layouts
+
+`/layouts` — tabla con columnas: Nombre, Grid, Creado por, Actualizado, Acciones.
+
+### Tests
+
+```bash
+bun run test -- src/__tests__/layouts/
+```
+
+23 tests cubriendo todas las variantes de `layoutConfigurationSchema`, `createLayoutSchema`, `updateLayoutSchema` y `duplicateLayoutSchema`.
 
 ---
 

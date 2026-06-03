@@ -24,6 +24,7 @@ import {
 } from "@/stores/dashboard.store";
 import { CameraPlayer } from "./camera-player";
 import { CameraCard } from "./camera-card";
+import { SaveLayoutModal } from "@/components/layouts/save-layout-modal";
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -244,6 +245,7 @@ export function CameraGrid({
   } = useDashboardStore();
 
   const [cameras, setCameras] = useState<DashboardCamera[]>(initialCameras);
+  const [showSaveModal, setShowSaveModal] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // ── Polling for real-time updates ─────────────────────────
@@ -317,6 +319,14 @@ export function CameraGrid({
         <LayoutSelector />
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span>{cameras.filter((c) => c.online).length}/{cameras.length} online</span>
+          <button
+            type="button"
+            onClick={() => setShowSaveModal(true)}
+            title="Guardar layout actual"
+            className="px-2 py-1 rounded border border-border hover:bg-muted transition-colors text-foreground"
+          >
+            💾 Guardar
+          </button>
           {onRefresh && (
             <button
               type="button"
@@ -331,6 +341,10 @@ export function CameraGrid({
           )}
         </div>
       </div>
+
+      {showSaveModal && (
+        <SaveLayoutModal onClose={() => setShowSaveModal(false)} />
+      )}
 
       {/* Grid */}
       <DndContext

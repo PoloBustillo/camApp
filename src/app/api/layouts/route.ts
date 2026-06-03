@@ -1,22 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/middleware";
 import { Errors } from "@/lib/errors";
-
-const GRID_SIZES: Record<string, number> = {
-  single: 1,
-  quad: 4,
-  hexa: 6,
-  nine: 9,
-};
-
-const createLayoutSchema = z.object({
-  name: z.string().min(1).max(255),
-  gridType: z.enum(["single", "quad", "hexa", "nine"]),
-  isDefault: z.boolean().optional(),
-  isShared: z.boolean().optional(),
-});
+import { createLayoutSchema } from "@/lib/validations/layout";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth();
@@ -24,41 +10,30 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const page = Math.max(1, Number(searchParams.get("page") ?? 1));
-  const limit = Math.min(
-    100,
-    Math.max(1, Number(searchParams.get("limit") ?? 20)),
-  );
+  const limit = Math.min(100, Math.max(1, Number(searchParams.get("limit") ?? 20)));
 
-  // Admin ve todos; operator/viewer solo los propios + los compartidos
   const where =
     user.role === "admin"
       ? { deletedAt: null }
-      : {
-          deletedAt: null,
-          OR: [{ ownerId: user.id }, { isShared: true }],
-        };
+      : { deletedAt: null, OR: [{ ownerId: user.id }, { isShared: true }] };
 
   const [layouts, total] = await Promise.all([
     prisma.layout.findMany({
       where,
-      include: {
-        cells: {
-          include: {
-            camera: {
-              select: {
-                id: true,
-                name: true,
-                enabled: true,
-                online: true,
-              },
-            },
-          },
-          orderBy: { position: "asc" },
-        },
+      select: {
+        id: true,
+        name: true,
+        configuration: true,
+        isDefault: true,
+        isShared: true,
+        ownerId: true,
+        owner: { select: { name: true, email: true } },
+        createdAt: true,
+        updatedAt: true,
       },
       skip: (page - 1) * limit,
       take: limit,
-      orderBy: { updatedAt: "desc" },
+      orderBy: [{ isDefault: "desc" }, { updatedAt: "desc" }],
     }),
     prisma.layout.count({ where }),
   ]);
@@ -77,10 +52,8 @@ export async function POST(req: NextRequest) {
   const parsed = createLayoutSchema.safeParse(body);
   if (!parsed.success) return Errors.validation(parsed.error.flatten());
 
-  const { gridType, isDefault, ...rest } = parsed.data;
-  const cellCount = GRID_SIZES[gridType];
+  const { isDefault, ...data } = parsed.data;
 
-  // Si se marca como default, quitar el default anterior
   if (isDefault) {
     await prisma.layout.updateMany({
       where: { ownerId: user.id, isDefault: true, deletedAt: null },
@@ -90,18 +63,21 @@ export async function POST(req: NextRequest) {
 
   const layout = await prisma.layout.create({
     data: {
-      ...rest,
-      gridType,
+      name: data.name,
+      configuration: data.configuration,
       isDefault: isDefault ?? false,
+      isShared: data.isShared ?? false,
       ownerId: user.id,
-      cells: {
-        createMany: {
-          data: Array.from({ length: cellCount }, (_, i) => ({ position: i })),
-        },
-      },
     },
-    include: {
-      cells: { orderBy: { position: "asc" } },
+    select: {
+      id: true,
+      name: true,
+      configuration: true,
+      isDefault: true,
+      isShared: true,
+      ownerId: true,
+      createdAt: true,
+      updatedAt: true,
     },
   });
 
