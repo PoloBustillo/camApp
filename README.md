@@ -129,6 +129,9 @@ camera-platform/
 | DELETE | `/api/users/:id` | Eliminar usuario | Admin |
 | GET | `/api/edge-servers` | Listar servidores edge | Todos |
 | POST | `/api/edge-servers` | Registrar servidor | Admin |
+| GET | `/api/edge-servers/:id/health` | Health check MediaMTX | Todos |
+| GET | `/api/edge-servers/:id/streams` | Listar streams activos | Todos |
+| POST | `/api/edge-servers/:id/sync` | Sincronizar estado online | Admin, Operator |
 | GET | `/api/sites` | Listar sitios | Todos |
 | POST | `/api/sites` | Crear sitio | Admin, Operator |
 | GET | `/api/sites/:id` | Ver sitio | Todos |
@@ -366,3 +369,162 @@ bun run test -- src/__tests__/cameras/
 ```
 
 18 tests cubriendo `createCameraSchema` y `updateCameraSchema`.
+
+---
+
+## Integración MediaMTX (Epic 4)
+
+Sincronización entre las cámaras registradas en la plataforma y los streams activos en MediaMTX.
+
+### Servicio `MediaMtxClient`
+
+Archivo: `src/lib/mediamtx/client.ts`
+
+| Método | Descripción |
+|--------|-------------|
+| `healthCheck()` | Ping rápido a `/v3/paths/list`. Devuelve `healthy`, `latencyMs`, `streamCount` |
+| `validateConnection()` | Verifica conectividad vía `/v3/config/global/get` con fallback al listado |
+| `listStreams()` | Lista todos los streams activos (nombre, estado `ready`, tracks, bytes) |
+| `getStream(name)` | Obtiene un stream por nombre; devuelve `null` si no existe (404) |
+
+```typescript
+import { MediaMtxClient } from "@/lib/mediamtx/client";
+
+const client = MediaMtxClient.fromEdgeServer(edgeServer);
+
+const health = await client.healthCheck();
+// { healthy: true, latencyMs: 12, streamCount: 3 }
+
+const streams = await client.listStreams();
+// [{ name: "camera-uuid", ready: true, tracks: ["H264"], ... }]
+```
+
+### API Routes
+
+| Método | Ruta | Descripción | Roles |
+|--------|------|-------------|-------|
+| GET | `/api/edge-servers/:id/health` | Health check + actualiza `status`/`lastSeenAt` | Todos |
+| GET | `/api/edge-servers/:id/streams` | Lista streams activos en MediaMTX | Todos |
+| POST | `/api/edge-servers/:id/sync` | Sincroniza `camera.online` con MediaMTX | Admin, Operator |
+
+### Convención de nombres
+
+MediaMTX identifica streams por **nombre de path**. La plataforma usa el **UUID de la cámara** como nombre de path en MediaMTX. Ejemplo:
+
+```
+# En MediaMTX config:
+paths:
+  550e8400-e29b-41d4-a716-446655440000:
+    source: rtsp://admin:pass@192.168.1.100:554/stream
+```
+
+### Sincronización
+
+El endpoint `POST /api/edge-servers/:id/sync`:
+1. Verifica health del EdgeServer
+2. Lista todos los streams desde MediaMTX
+3. Compara con cámaras en BD (`enabled=true`)
+4. Actualiza `camera.online` y registra `StreamEvent` por cada cambio
+5. Devuelve resumen: `{ synced, online, offline, errors, latencyMs }`
+
+### Tests
+
+```bash
+bun run test -- src/__tests__/mediamtx/
+```
+
+18 tests cubriendo constructor, `healthCheck`, `validateConnection`, `listStreams` y `getStream`.
+
+---
+
+## Plesk — Configurar subdominio para Docker
+
+### Contexto
+
+- Dominio: `camapp.modest-benz.50-21-179-210.plesk.page`
+- Docker expone Next.js en el **puerto 3000** del servidor
+- Plesk gestiona Nginx externo + SSL
+
+### Paso a paso
+
+#### 1. Levantar la aplicación Docker
+
+```bash
+ssh root@50.21.179.210
+cd /var/www/camwatch
+./deploy.sh          # primera vez
+# O para actualizaciones:
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
+```
+
+Verifica que el contenedor está corriendo en el puerto 3000:
+
+```bash
+curl -I http://localhost:3000
+# HTTP/1.1 200 OK
+```
+
+#### 2. Plesk → Sitio → Hosting → Modo Proxy
+
+1. Accede a **Plesk Panel** → selecciona el dominio `camapp.modest-benz.50-21-179-210.plesk.page`
+2. Ve a **Hosting Settings** → habilita **"Proxy mode"** (si está disponible en tu versión)
+3. Establece la URL de destino: `http://localhost:3000`
+
+#### 3. (Alternativa) Plesk → Configuración Nginx adicional
+
+Si no tienes Proxy Mode, usa directivas Nginx personalizadas:
+
+1. Ve al dominio → **Apache & Nginx Settings**
+2. Busca el campo **"Additional nginx directives"** (o "Nginx include")
+3. Pega lo siguiente:
+
+```nginx
+location / {
+    proxy_pass         http://127.0.0.1:3000;
+    proxy_http_version 1.1;
+    proxy_set_header   Upgrade $http_upgrade;
+    proxy_set_header   Connection 'upgrade';
+    proxy_set_header   Host $host;
+    proxy_set_header   X-Real-IP $remote_addr;
+    proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header   X-Forwarded-Proto $scheme;
+    proxy_cache_bypass $http_upgrade;
+    proxy_read_timeout 86400;
+}
+```
+
+4. Haz clic en **Apply** / **OK**
+
+#### 4. Habilitar SSL (Let's Encrypt)
+
+1. En Plesk, ve a tu dominio → **SSL/TLS Certificates**
+2. Haz clic en **Let's Encrypt**
+3. Marca "Redirect HTTP to HTTPS"
+4. Emite el certificado
+
+#### 5. Verificar variables de entorno en producción
+
+Asegúrate de que tu `.env` en el servidor tenga:
+
+```bash
+AUTH_URL=https://camapp.modest-benz.50-21-179-210.plesk.page
+NEXT_PUBLIC_APP_URL=https://camapp.modest-benz.50-21-179-210.plesk.page
+NODE_ENV=production
+```
+
+#### 6. Verificar al final
+
+```bash
+curl -I https://camapp.modest-benz.50-21-179-210.plesk.page
+# HTTP/2 200
+```
+
+### Resumen de puertos
+
+| Servicio | Puerto | Expuesto |
+|----------|--------|----------|
+| Next.js (web) | 3000 | Solo localhost (Plesk hace proxy) |
+| PostgreSQL | 5432 | Solo interno Docker |
+| Redis | 6379 | Solo interno Docker |
+| MediaMTX API | 9997 | Tailscale únicamente |

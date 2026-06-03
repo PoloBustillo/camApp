@@ -1,9 +1,10 @@
 import { defineConfig } from "vitest/config"
 import tsconfigPaths from "vite-tsconfig-paths"
 import { resolve } from "path"
+import react from "@vitejs/plugin-react"
 
 export default defineConfig({
-  plugins: [tsconfigPaths()],
+  plugins: [tsconfigPaths(), react()],
   resolve: {
     alias: {
       "next/server": resolve("node_modules/next/server.js"),
@@ -15,9 +16,13 @@ export default defineConfig({
     environment: "node",
     globals: true,
     include: ["src/__tests__/**/*.test.ts", "src/__tests__/**/*.test.tsx"],
+    environmentMatchGlobs: [
+      ["src/__tests__/dashboard/**/*.test.tsx", "jsdom"],
+    ],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
     },
   },
 })
+

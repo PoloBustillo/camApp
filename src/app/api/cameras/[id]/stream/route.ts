@@ -8,7 +8,12 @@ type RouteParams = { params: Promise<{ id: string }> };
 
 /**
  * POST /api/cameras/:id/stream
- * Genera un token temporal (30s) para acceder al stream de la cámara vía MediaMTX.
+ *
+ * Genera un token temporal (30s) para acceder al stream vía MediaMTX WebRTC (WHEP).
+ * Devuelve:
+ *   - streamToken: JWT para autenticar en MediaMTX
+ *   - whepUrl: URL completa WHEP para RTCPeerConnection
+ *   - cameraId
  */
 export async function POST(_req: NextRequest, { params }: RouteParams) {
   const user = await requireAuth();
@@ -36,6 +41,10 @@ export async function POST(_req: NextRequest, { params }: RouteParams) {
 
   const streamToken = await signStreamToken(camera.id, user.id);
 
+  // WHEP URL: configured base + /{cameraId}/whep
+  const webrtcBase = process.env.MEDIAMTX_WEBRTC_URL ?? "";
+  const whepUrl = webrtcBase ? `${webrtcBase.replace(/\/$/, "")}/${camera.id}/whep` : null;
+
   await prisma.auditLog.create({
     data: {
       userId: user.id,
@@ -45,5 +54,10 @@ export async function POST(_req: NextRequest, { params }: RouteParams) {
     },
   });
 
-  return NextResponse.json({ streamToken, cameraId: camera.id, expiresIn: 30 });
+  return NextResponse.json({
+    streamToken,
+    cameraId: camera.id,
+    whepUrl,
+    expiresIn: 30,
+  });
 }
