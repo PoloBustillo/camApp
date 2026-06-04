@@ -20,8 +20,8 @@ docker compose --profile migration -f docker-compose.prod.yml build migrate
 echo "⬆️  Starting postgres and redis..."
 docker compose -f docker-compose.prod.yml up -d postgres redis
 
-echo "⏳ Waiting for database to be healthy..."
-docker compose -f docker-compose.prod.yml wait postgres
+# echo "⏳ Waiting for database to be healthy..."
+# docker compose -f docker-compose.prod.yml wait postgres
 
 echo "📊 Running database migrations..."
 docker compose --profile migration -f docker-compose.prod.yml run --rm migrate
