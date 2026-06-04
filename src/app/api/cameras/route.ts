@@ -44,6 +44,9 @@ export async function GET(req: NextRequest) {
         online: true,
         createdAt: true,
         updatedAt: true,
+        mediaMtxPath: true,
+        substreamPath: true,
+        edgeServerId: true,
         site: { select: { id: true, name: true } },
         // pathEncrypted nunca se expone al cliente
       },
@@ -55,7 +58,13 @@ export async function GET(req: NextRequest) {
   ]);
 
   return NextResponse.json({
-    data: cameras,
+    data: cameras.map((c) => ({
+      ...c,
+      streamName: c.mediaMtxPath ?? null,
+      substreamName: c.substreamPath ?? null,
+      siteName: c.site?.name ?? "",
+      edgeServerId: c.edgeServerId ?? null,
+    })),
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   });
 }

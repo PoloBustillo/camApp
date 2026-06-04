@@ -1,59 +1,58 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
-import { CameraGrid } from "@/components/dashboard/camera-grid";
-import type { DashboardCamera } from "@/stores/dashboard.store";
+import { CameraViewerGrid } from "@/components/camera-viewer/camera-grid";
+import type { CameraViewerItem } from "@/types/camera-viewer";
 
 export const metadata: Metadata = { title: "Dashboard — CamWatch" };
 
-async function fetchCameras(): Promise<DashboardCamera[]> {
+async function fetchCamerasForViewer(): Promise<CameraViewerItem[]> {
   const rows = await prisma.camera.findMany({
-    where: { enabled: true, site: { deletedAt: null } },
-    orderBy: { name: "asc" },
+    where: { enabled: true },
+    orderBy: [{ online: "desc" }, { name: "asc" }],
     select: {
       id: true,
       name: true,
-      description: true,
       protocol: true,
       enabled: true,
       online: true,
-      siteId: true,
+      mediaMtxPath: true,
+      substreamPath: true,
+      edgeServerId: true,
       site: { select: { name: true } },
     },
   });
-  return rows.map((c) => ({ ...c, siteName: c.site?.name ?? "" }));
+
+  return rows.map((c) => ({
+    id: c.id,
+    name: c.name,
+    siteName: c.site?.name ?? "",
+    edgeServerId: c.edgeServerId ?? null,
+    streamName: c.mediaMtxPath ?? null,
+    substreamName: c.substreamPath ?? null,
+    enabled: c.enabled,
+    online: c.online,
+    protocol: c.protocol,
+  }));
 }
 
 export default async function DashboardPage() {
   await requireSession();
-  const cameras = await fetchCameras();
-
+  const cameras = await fetchCamerasForViewer();
   const onlineCount = cameras.filter((c) => c.online).length;
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Monitoreo en vivo</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {onlineCount}/{cameras.length} cámaras online
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">Monitoreo en vivo</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          {onlineCount}/{cameras.length} cámaras activas
+        </p>
       </div>
-
-      {cameras.length === 0 ? (
-        <div className="rounded-lg border border-border p-12 text-center">
-          <p className="text-muted-foreground text-sm">
-            No hay cámaras habilitadas.{" "}
-            <a href="/cameras" className="underline hover:text-foreground">
-              Agregar cámaras
-            </a>
-          </p>
-        </div>
-      ) : (
-        <CameraGrid cameras={cameras} pollingInterval={10000} />
-      )}
+      <CameraViewerGrid
+        cameras={cameras}
+        title="Vista en vivo"
+      />
     </div>
   );
 }

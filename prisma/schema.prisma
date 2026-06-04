@@ -117,6 +117,7 @@ model EdgeServer {
   updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz()
 
   locations Location[]
+  cameras   Camera[]
 
   @@map("edge_servers")
 }
@@ -156,6 +157,8 @@ model Camera {
   siteId           String?        @map("site_id") @db.Uuid
   mediaMtxServerId String?        @map("mediamtx_server_id") @db.Uuid
   mediaMtxPath     String?        @map("mediamtx_path") @db.VarChar(500)
+  edgeServerId     String?        @map("edge_server_id") @db.Uuid
+  substreamPath    String?        @map("substream_path") @db.VarChar(500)
   name             String         @db.VarChar(255)
   description      String?        @db.Text
   // pathEncrypted: AES-256-GCM. Formato base64(iv):base64(ciphertext):base64(authTag)
@@ -169,12 +172,14 @@ model Camera {
 
   site           Site?           @relation(fields: [siteId], references: [id])
   mediaMtxServer MediaMtxServer? @relation(fields: [mediaMtxServerId], references: [id], onDelete: SetNull)
+  edgeServer     EdgeServer?     @relation(fields: [edgeServerId], references: [id], onDelete: SetNull)
   layoutCells    LayoutCell[]
   streamEvents   StreamEvent[]
 
   @@index([siteId], name: "idx_cameras_site")
   @@index([enabled], name: "idx_cameras_enabled")
   @@index([mediaMtxServerId], name: "idx_cameras_mediamtx_server")
+  @@index([edgeServerId], name: "idx_cameras_edge_server")
   @@map("cameras")
 }
 
