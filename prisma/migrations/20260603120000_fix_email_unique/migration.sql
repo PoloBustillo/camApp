@@ -1,10 +1,13 @@
--- Fix email unique constraint
--- Before: @@unique([email], name: "users_email_unique") → exposed as `users_email_unique` in Prisma where input
--- After:  @unique on field → exposed as `email` in Prisma where input (standard behavior)
-
--- Drop old named constraint and index
+-- Fix email unique constraint (idempotent)
+-- Drop old named constraint/index only if they exist
 DROP INDEX IF EXISTS "users_email_unique";
 DROP INDEX IF EXISTS "idx_users_email";
 
--- Create standard unique constraint (Prisma @unique convention: tablename_fieldname_key)
-ALTER TABLE "users" ADD CONSTRAINT "users_email_key" UNIQUE ("email");
+-- Add standard unique constraint only if it doesn't exist
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'users_email_key'
+  ) THEN
+    ALTER TABLE "users" ADD CONSTRAINT "users_email_key" UNIQUE ("email");
+  END IF;
+END $$;
