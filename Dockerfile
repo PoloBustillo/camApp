@@ -27,7 +27,6 @@ RUN bun run build
 FROM base AS migrator
 COPY --from=deps /app/node_modules ./node_modules
 COPY prisma ./prisma
-COPY prisma.config.ts ./
 COPY package.json ./
 CMD ["./node_modules/.bin/prisma", "migrate", "deploy"]
 
