@@ -28,8 +28,5 @@ docker compose -f docker-compose.prod.yml exec web bunx prisma migrate deploy
 echo "🌱 Running seed..."
 docker compose -f docker-compose.prod.yml exec web bun run db:seed
 
-echo "🌐 Starting web and nginx..."
-docker compose -f docker-compose.prod.yml up -d web nginx
-
 echo "✅ Deploy completo!"
 echo "🔗 https://camapp.modest-benz.50-21-179-210.plesk.page"
