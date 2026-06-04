@@ -13,6 +13,11 @@ export interface MediaMtxClientConfig {
   timeout?: number;
 }
 
+export interface MediaMtxServerRecord {
+  apiUrl: string;
+  timeout?: number;
+}
+
 /**
  * HTTP client for the MediaMTX v3 REST API.
  * Communicates with a MediaMTX instance over Tailscale or local network.
@@ -25,6 +30,16 @@ export class MediaMtxClient {
     const port = config.apiPort ?? 9997;
     this.baseUrl = `http://${config.tailscaleIp}:${port}`;
     this.timeout = config.timeout ?? 5000;
+  }
+
+  /** Create a client directly from an API URL (e.g. http://host:9997) */
+  static fromApiUrl(apiUrl: string, timeout = 5000): MediaMtxClient {
+    // Strip trailing slash so baseUrl is always consistent
+    const normalised = apiUrl.replace(/\/$/, "");
+    const client = new MediaMtxClient({ tailscaleIp: "placeholder", timeout });
+    // Override the computed baseUrl with the provided one
+    (client as { baseUrl: string }).baseUrl = normalised;
+    return client;
   }
 
   /** Create a client from an EdgeServer record */
@@ -152,6 +167,53 @@ export class MediaMtxClient {
       }
       throw err;
     }
+  }
+
+  /**
+   * Tests connectivity. Returns { ok, latencyMs, streamCount?, error? }.
+   * Alias for validateConnection() but uses healthCheck() semantics.
+   */
+  async testConnection(): Promise<{
+    ok: boolean;
+    latencyMs: number;
+    streamCount?: number;
+    error?: string;
+  }> {
+    try {
+      const { data, latencyMs } = await this.fetchWithTimeout("/v3/paths/list");
+      const list = data as MediaMtxPathListResponse;
+      const streamCount = list.itemCount ?? list.items?.length ?? 0;
+      return { ok: true, latencyMs, streamCount };
+    } catch (err) {
+      return {
+        ok: false,
+        latencyMs: this.timeout,
+        error: err instanceof Error ? err.message : "Unknown error",
+      };
+    }
+  }
+
+  /**
+   * Returns all paths from MediaMTX with their name and ready status.
+   */
+  async getPaths(): Promise<
+    Array<{ name: string; ready: boolean; readyTime: string | null }>
+  > {
+    const { data } = await this.fetchWithTimeout("/v3/paths/list");
+    const list = data as MediaMtxPathListResponse;
+    return (list.items ?? []).map((p) => ({
+      name: p.name,
+      ready: p.ready,
+      readyTime: p.readyTime ?? null,
+    }));
+  }
+
+  /**
+   * Calls /v3/config/global/get and returns the raw config object.
+   */
+  async getServerInfo(): Promise<Record<string, unknown>> {
+    const { data } = await this.fetchWithTimeout("/v3/config/global/get");
+    return data as Record<string, unknown>;
   }
 }
 

@@ -136,26 +136,45 @@ model Location {
   @@map("locations")
 }
 
+model MediaMtxServer {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String   @db.VarChar(255)
+  baseUrl     String   @map("base_url") @db.VarChar(500)
+  apiUrl      String   @map("api_url") @db.VarChar(500)
+  description String?  @db.Text
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  cameras Camera[]
+
+  @@map("mediamtx_servers")
+}
+
 model Camera {
-  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  siteId        String         @map("site_id") @db.Uuid
-  name          String         @db.VarChar(255)
-  description   String?        @db.Text
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  siteId           String?        @map("site_id") @db.Uuid
+  mediaMtxServerId String?        @map("mediamtx_server_id") @db.Uuid
+  mediaMtxPath     String?        @map("mediamtx_path") @db.VarChar(500)
+  name             String         @db.VarChar(255)
+  description      String?        @db.Text
   // pathEncrypted: AES-256-GCM. Formato base64(iv):base64(ciphertext):base64(authTag)
   // Almacena la URL completa (ej: rtsp://user:pass@host:554/stream) cifrada
-  pathEncrypted String         @map("path_encrypted") @db.Text
-  protocol      CameraProtocol @default(rtsp)
-  enabled       Boolean        @default(true)
-  online        Boolean        @default(false)
-  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz()
+  pathEncrypted    String         @map("path_encrypted") @db.Text
+  protocol         CameraProtocol @default(rtsp)
+  enabled          Boolean        @default(true)
+  online           Boolean        @default(false)
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt        DateTime       @updatedAt @map("updated_at") @db.Timestamptz()
 
-  site         Site          @relation(fields: [siteId], references: [id])
-  layoutCells  LayoutCell[]
-  streamEvents StreamEvent[]
+  site           Site?           @relation(fields: [siteId], references: [id])
+  mediaMtxServer MediaMtxServer? @relation(fields: [mediaMtxServerId], references: [id], onDelete: SetNull)
+  layoutCells    LayoutCell[]
+  streamEvents   StreamEvent[]
 
   @@index([siteId], name: "idx_cameras_site")
   @@index([enabled], name: "idx_cameras_enabled")
+  @@index([mediaMtxServerId], name: "idx_cameras_mediamtx_server")
   @@map("cameras")
 }
 

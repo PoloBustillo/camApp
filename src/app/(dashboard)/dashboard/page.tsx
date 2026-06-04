@@ -21,7 +21,7 @@ async function fetchCameras(): Promise<DashboardCamera[]> {
       site: { select: { name: true } },
     },
   });
-  return rows.map((c) => ({ ...c, siteName: c.site.name }));
+  return rows.map((c) => ({ ...c, siteName: c.site?.name ?? "" }));
 }
 
 export default async function DashboardPage() {

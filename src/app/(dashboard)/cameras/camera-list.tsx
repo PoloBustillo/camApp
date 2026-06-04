@@ -4,7 +4,7 @@ import { useState, useTransition, useMemo } from "react";
 import type { Camera, Site } from "@prisma/client";
 import { createCameraAction, updateCameraAction, deleteCameraAction } from "./actions";
 
-type CameraWithSite = Camera & { site: { id: string; name: string } };
+type CameraWithSite = Camera & { site: { id: string; name: string } | null };
 
 const PROTOCOLS = ["rtsp", "rtmp", "webrtc", "hls"] as const;
 
@@ -220,7 +220,7 @@ export function CameraList({ cameras: initialCameras, sites }: Props) {
                       <div className="text-xs text-muted-foreground truncate max-w-xs">{camera.description}</div>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">{camera.site.name}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{camera.site?.name ?? <span className="text-muted-foreground/50">—</span>}</td>
                   <td className="px-4 py-3">
                     <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono bg-muted text-muted-foreground">
                       {camera.protocol.toUpperCase()}

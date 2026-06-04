@@ -25,7 +25,7 @@ export interface DashboardCamera {
   protocol: string;
   enabled: boolean;
   online: boolean;
-  siteId: string;
+  siteId: string | null;
   siteName: string;
 }
 

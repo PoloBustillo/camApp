@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
-import { CameraList } from "./camera-list";
+import { CameraPageClient } from "./camera-page-client";
 
 export const metadata: Metadata = { title: "Cámaras — CamWatch" };
 
 export default async function CamerasPage() {
   await requireSession();
 
-  const [cameras, sites] = await Promise.all([
+  const [cameras, sites, servers] = await Promise.all([
     prisma.camera.findMany({
       orderBy: { name: "asc" },
       include: { site: { select: { id: true, name: true } } },
@@ -17,6 +17,10 @@ export default async function CamerasPage() {
       where: { deletedAt: null, active: true },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
+    }),
+    prisma.mediaMtxServer.findMany({
+      orderBy: { name: "asc" },
+      include: { _count: { select: { cameras: true } } },
     }),
   ]);
 
@@ -28,7 +32,7 @@ export default async function CamerasPage() {
           Gestiona las cámaras administradas por MediaMTX
         </p>
       </div>
-      <CameraList cameras={cameras} sites={sites} />
+      <CameraPageClient cameras={cameras} sites={sites} servers={servers} />
     </div>
   );
 }

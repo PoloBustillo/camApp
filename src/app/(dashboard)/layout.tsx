@@ -10,6 +10,7 @@ export const metadata: Metadata = {
 const mainLinks = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/cameras", label: "Cámaras" },
+  { href: "/cameras/discovery", label: "↳ Descubrir cámaras" },
   { href: "/layouts", label: "Layouts" },
   { href: "/sites", label: "Sitios" },
 ]
