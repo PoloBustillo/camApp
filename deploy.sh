@@ -17,7 +17,7 @@ echo "🔨 Building Docker image..."
 docker compose -f docker-compose.prod.yml build --no-cache web
 
 echo "⬆️  Starting all services (postgres, redis, web)..."
-docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml up -d --force-recreate
 
 echo "⏳ Waiting for services to be healthy (20s)..."
 sleep 20
