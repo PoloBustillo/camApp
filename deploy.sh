@@ -1,5 +1,5 @@
 #!/bin/bash
-# deploy.sh — Script de deploy en producción con Bun
+# deploy.sh — Script de deploy en producción con Bun + Plesk
 # Uso: ./deploy.sh
 set -e
 
@@ -16,17 +16,17 @@ git pull origin main
 echo "🔨 Building Docker image..."
 docker compose -f docker-compose.prod.yml build --no-cache web
 
-echo "⬆️  Starting postgres and redis..."
-docker compose -f docker-compose.prod.yml up -d postgres redis
+echo "⬆️  Starting all services (postgres, redis, web)..."
+docker compose -f docker-compose.prod.yml up -d
 
-echo "⏳ Waiting for database (15s)..."
-sleep 15
+echo "⏳ Waiting for services to be healthy (20s)..."
+sleep 20
 
 echo "📊 Running database migrations..."
 docker compose -f docker-compose.prod.yml exec web bunx prisma migrate deploy
 
-echo "🌱 Running seed..."
-docker compose -f docker-compose.prod.yml exec web bun run db:seed
+echo "🌱 Running seed (skip if already seeded)..."
+docker compose -f docker-compose.prod.yml exec web bun run db:seed || true
 
 echo "✅ Deploy completo!"
 echo "🔗 https://camapp.modest-benz.50-21-179-210.plesk.page"
