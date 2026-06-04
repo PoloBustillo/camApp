@@ -50,6 +50,23 @@ services:
         condition: service_healthy
     command: bun server.js
 
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: migrator
+    container_name: camwatch-migrate
+    env_file: .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Se ejecuta con `docker compose run --rm migrate`
+    # No se levanta con `up -d`
+    profiles:
+      - migration
+
   # Nginx no incluido — Plesk gestiona el proxy reverso al puerto 3000
   # Ver README sección "Plesk — Configurar subdominio para Docker"
 

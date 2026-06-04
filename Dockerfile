@@ -4,16 +4,14 @@ RUN apk add --no-cache libc6-compat
 
 # ─── Dependencias ────────────────────────────────────────
 FROM base AS deps
-COPY package.json bun.lock ./
+COPY package.json bun.lock* ./
 RUN bun install --frozen-lockfile
 
 # ─── Desarrollo ──────────────────────────────────────────
 FROM base AS development
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN bunx prisma --version
-RUN cat package.json | grep prisma
-RUN bunx prisma generate
+RUN ./node_modules/.bin/prisma generate
 EXPOSE 3000
 CMD ["bun", "run", "dev"]
 
@@ -21,11 +19,17 @@ CMD ["bun", "run", "dev"]
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN bunx prisma --version
-RUN cat package.json | grep prisma
-RUN bunx prisma generate
+RUN ./node_modules/.bin/prisma generate
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN bun run build
+
+# ─── Migrador (etapa dedicada con CLI de Prisma) ─────────
+FROM base AS migrator
+COPY --from=deps /app/node_modules ./node_modules
+COPY prisma ./prisma
+COPY prisma.config.ts ./
+COPY package.json ./
+CMD ["./node_modules/.bin/prisma", "migrate", "deploy"]
 
 # ─── Producción ──────────────────────────────────────────
 FROM base AS production
