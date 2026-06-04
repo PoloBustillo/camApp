@@ -42,7 +42,7 @@ services:
       target: development
     container_name: camwatch-web
     restart: unless-stopped
-    env_file: .env.local
+    env_file: .env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-camwatch}:${POSTGRES_PASSWORD:-camwatch_dev_password}@postgres:5432/${POSTGRES_DB:-camwatch}
       REDIS_URL: redis://redis:6379
