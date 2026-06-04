@@ -25,8 +25,8 @@ sleep 15
 echo "📊 Running database migrations..."
 docker compose -f docker-compose.prod.yml exec web bunx prisma migrate deploy
 
-echo "🌱 Running seed if needed..."
-docker compose -f docker-compose.prod.yml run --rm web bun run db:seed
+echo "🌱 Running seed..."
+docker compose -f docker-compose.prod.yml exec web bun run db:seed
 
 echo "🌐 Starting web and nginx..."
 docker compose -f docker-compose.prod.yml up -d web nginx
