@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/middleware";
+import { MediaMtxClient } from "@/lib/mediamtx/client";
 
 /**
  * GET /api/debug/mediamtx
@@ -51,7 +52,14 @@ export async function GET() {
       let streamCount = 0;
 
       try {
-        const res = await fetch(apiUrl, { signal: AbortSignal.timeout(3000) });
+        const authHeader = MediaMtxClient.buildAuthHeader(
+          process.env.MEDIAMTX_USER,
+          process.env.MEDIAMTX_PASSWORD,
+        );
+        const res = await fetch(apiUrl, {
+          signal: AbortSignal.timeout(3000),
+          headers: authHeader ? { Authorization: authHeader } : undefined,
+        });
         if (res.ok) {
           const data = await res.json();
           streamCount = data.items?.length ?? 0;

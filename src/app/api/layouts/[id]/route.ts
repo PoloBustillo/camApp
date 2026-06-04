@@ -67,7 +67,12 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
   if (isDefault) {
     await prisma.layout.updateMany({
-      where: { ownerId: existing.ownerId, isDefault: true, deletedAt: null, id: { not: id } },
+      where: {
+        ownerId: existing.ownerId,
+        isDefault: true,
+        deletedAt: null,
+        id: { not: id },
+      },
       data: { isDefault: false },
     });
   }
@@ -105,7 +110,10 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     return Errors.forbidden("No tienes permiso para eliminar este layout");
   }
 
-  await prisma.layout.update({ where: { id }, data: { deletedAt: new Date() } });
+  await prisma.layout.update({
+    where: { id },
+    data: { deletedAt: new Date() },
+  });
 
   await prisma.auditLog.create({
     data: {

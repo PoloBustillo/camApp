@@ -27,7 +27,12 @@ export async function POST(_req: NextRequest, { params }: Params) {
   let livePaths: Map<string, boolean>;
   const errors: string[] = [];
   try {
-    const client = MediaMtxClient.fromApiUrl(server.apiUrl);
+    const client = MediaMtxClient.fromApiUrl(
+      server.apiUrl,
+      5000,
+      process.env.MEDIAMTX_USER,
+      process.env.MEDIAMTX_PASSWORD,
+    );
     const paths = await client.getPaths();
     livePaths = new Map(paths.map((p) => [p.name, p.ready]));
   } catch (err) {

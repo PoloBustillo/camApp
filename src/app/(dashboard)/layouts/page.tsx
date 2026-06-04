@@ -2,7 +2,10 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { useDashboardStore, type LayoutConfiguration } from "@/stores/dashboard.store";
+import {
+  useDashboardStore,
+  type LayoutConfiguration,
+} from "@/stores/dashboard.store";
 import { SaveLayoutModal } from "@/components/layouts/save-layout-modal";
 
 interface LayoutRow {
@@ -37,7 +40,9 @@ export default function LayoutsPage() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchLayouts(); }, [fetchLayouts]);
+  useEffect(() => {
+    fetchLayouts();
+  }, [fetchLayouts]);
 
   async function handleApply(layout: LayoutRow) {
     if (!layout.configuration) return;
@@ -46,7 +51,10 @@ export default function LayoutsPage() {
   }
 
   async function handleDuplicate(layout: LayoutRow) {
-    const newName = window.prompt("Nombre para la copia:", `${layout.name} (copia)`);
+    const newName = window.prompt(
+      "Nombre para la copia:",
+      `${layout.name} (copia)`,
+    );
     if (!newName?.trim()) return;
     setDuplicating(layout.id);
 
@@ -82,7 +90,9 @@ export default function LayoutsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Layouts guardados</h1>
+          <h1 className="text-2xl font-bold text-foreground">
+            Layouts guardados
+          </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Guarda y carga configuraciones del dashboard
           </p>
@@ -110,15 +120,24 @@ export default function LayoutsPage() {
             <thead className="bg-muted/50 text-muted-foreground text-xs uppercase">
               <tr>
                 <th className="text-left px-4 py-3">Nombre</th>
-                <th className="text-left px-4 py-3 hidden sm:table-cell">Grid</th>
-                <th className="text-left px-4 py-3 hidden md:table-cell">Creado por</th>
-                <th className="text-left px-4 py-3 hidden md:table-cell">Actualizado</th>
+                <th className="text-left px-4 py-3 hidden sm:table-cell">
+                  Grid
+                </th>
+                <th className="text-left px-4 py-3 hidden md:table-cell">
+                  Creado por
+                </th>
+                <th className="text-left px-4 py-3 hidden md:table-cell">
+                  Actualizado
+                </th>
                 <th className="text-right px-4 py-3">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {layouts.map((layout) => (
-                <tr key={layout.id} className="hover:bg-muted/30 transition-colors">
+                <tr
+                  key={layout.id}
+                  className="hover:bg-muted/30 transition-colors"
+                >
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-foreground truncate max-w-[200px]">
@@ -144,7 +163,9 @@ export default function LayoutsPage() {
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell text-muted-foreground text-xs">
                     {new Date(layout.updatedAt).toLocaleDateString("es-MX", {
-                      day: "2-digit", month: "short", year: "numeric",
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
                     })}
                   </td>
                   <td className="px-4 py-3">
@@ -205,4 +226,3 @@ export default function LayoutsPage() {
     </div>
   );
 }
-

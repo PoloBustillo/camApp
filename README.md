@@ -15,6 +15,7 @@ Plataforma web para monitoreo en tiempo real de cámaras IP ubicadas en una inst
 ## Inicio Rápido
 
 ### Requisitos
+
 - Bun 1.x
 - Docker + Docker Compose v2
 
@@ -46,6 +47,7 @@ bun run dev
 La aplicación estará disponible en `http://localhost:3000`.
 
 **Credenciales de desarrollo por defecto:**
+
 - Email: `admin@camwatch.local`
 - Password: `Admin123!`
 
@@ -109,38 +111,38 @@ camera-platform/
 
 ## API Endpoints
 
-| Método | Ruta | Descripción | Roles |
-|--------|------|-------------|-------|
-| POST | `/api/auth/login` | Autenticación | Público |
-| POST | `/api/auth/logout` | Cierre de sesión | Autenticado |
-| POST | `/api/auth/refresh` | Renovar access token | Cookie |
-| GET | `/api/cameras` | Listar cámaras (filtros: siteId, protocol, enabled, online) | Todos |
-| POST | `/api/cameras` | Crear cámara | Admin |
-| GET | `/api/cameras/:id` | Ver cámara | Todos |
-| PUT | `/api/cameras/:id` | Editar cámara completa | Admin |
-| DELETE | `/api/cameras/:id` | Eliminar cámara | Admin |
-| POST | `/api/cameras/:id/stream` | Token de stream WebRTC | Todos |
-| GET | `/api/layouts` | Listar layouts | Todos |
-| POST | `/api/layouts` | Crear layout | Todos |
-| PATCH | `/api/layouts/:id` | Editar layout + celdas | Dueño/Admin |
-| DELETE | `/api/layouts/:id` | Eliminar layout | Dueño/Admin |
-| POST | `/api/layouts/:id/duplicate` | Duplicar layout | Todos |
-| GET | `/api/users` | Listar usuarios | Admin |
-| POST | `/api/users` | Crear usuario | Admin |
-| GET | `/api/users/:id` | Ver perfil de usuario | Admin / Propio |
-| PATCH | `/api/users/:id` | Editar usuario | Admin |
-| DELETE | `/api/users/:id` | Soft-delete usuario | Admin |
-| GET | `/api/audit` | Log de auditoría paginado con filtros | Admin |
-| GET | `/api/edge-servers` | Listar servidores edge | Todos |
-| POST | `/api/edge-servers` | Registrar servidor | Admin |
-| GET | `/api/edge-servers/:id/health` | Health check MediaMTX | Todos |
-| GET | `/api/edge-servers/:id/streams` | Listar streams activos | Todos |
-| POST | `/api/edge-servers/:id/sync` | Sincronizar estado online | Admin, Operator |
-| GET | `/api/sites` | Listar sitios | Todos |
-| POST | `/api/sites` | Crear sitio | Admin, Operator |
-| GET | `/api/sites/:id` | Ver sitio | Todos |
-| PATCH | `/api/sites/:id` | Editar sitio | Admin, Operator |
-| DELETE | `/api/sites/:id` | Eliminar sitio | Admin |
+| Método | Ruta                            | Descripción                                                 | Roles           |
+| ------ | ------------------------------- | ----------------------------------------------------------- | --------------- |
+| POST   | `/api/auth/login`               | Autenticación                                               | Público         |
+| POST   | `/api/auth/logout`              | Cierre de sesión                                            | Autenticado     |
+| POST   | `/api/auth/refresh`             | Renovar access token                                        | Cookie          |
+| GET    | `/api/cameras`                  | Listar cámaras (filtros: siteId, protocol, enabled, online) | Todos           |
+| POST   | `/api/cameras`                  | Crear cámara                                                | Admin           |
+| GET    | `/api/cameras/:id`              | Ver cámara                                                  | Todos           |
+| PUT    | `/api/cameras/:id`              | Editar cámara completa                                      | Admin           |
+| DELETE | `/api/cameras/:id`              | Eliminar cámara                                             | Admin           |
+| POST   | `/api/cameras/:id/stream`       | Token de stream WebRTC                                      | Todos           |
+| GET    | `/api/layouts`                  | Listar layouts                                              | Todos           |
+| POST   | `/api/layouts`                  | Crear layout                                                | Todos           |
+| PATCH  | `/api/layouts/:id`              | Editar layout + celdas                                      | Dueño/Admin     |
+| DELETE | `/api/layouts/:id`              | Eliminar layout                                             | Dueño/Admin     |
+| POST   | `/api/layouts/:id/duplicate`    | Duplicar layout                                             | Todos           |
+| GET    | `/api/users`                    | Listar usuarios                                             | Admin           |
+| POST   | `/api/users`                    | Crear usuario                                               | Admin           |
+| GET    | `/api/users/:id`                | Ver perfil de usuario                                       | Admin / Propio  |
+| PATCH  | `/api/users/:id`                | Editar usuario                                              | Admin           |
+| DELETE | `/api/users/:id`                | Soft-delete usuario                                         | Admin           |
+| GET    | `/api/audit`                    | Log de auditoría paginado con filtros                       | Admin           |
+| GET    | `/api/edge-servers`             | Listar servidores edge                                      | Todos           |
+| POST   | `/api/edge-servers`             | Registrar servidor                                          | Admin           |
+| GET    | `/api/edge-servers/:id/health`  | Health check MediaMTX                                       | Todos           |
+| GET    | `/api/edge-servers/:id/streams` | Listar streams activos                                      | Todos           |
+| POST   | `/api/edge-servers/:id/sync`    | Sincronizar estado online                                   | Admin, Operator |
+| GET    | `/api/sites`                    | Listar sitios                                               | Todos           |
+| POST   | `/api/sites`                    | Crear sitio                                                 | Admin, Operator |
+| GET    | `/api/sites/:id`                | Ver sitio                                                   | Todos           |
+| PATCH  | `/api/sites/:id`                | Editar sitio                                                | Admin, Operator |
+| DELETE | `/api/sites/:id`                | Eliminar sitio                                              | Admin           |
 
 ---
 
@@ -149,72 +151,78 @@ camera-platform/
 ## Índice de Documentación
 
 ### FASE 1 — Descubrimiento
-| # | Documento | Descripción |
-|---|-----------|-------------|
-| 1.1 | [Visión del Producto](./fase-1-descubrimiento/01-vision-producto.md) | Objetivos, propuesta de valor, criterios de éxito |
-| 1.2 | [Casos de Uso](./fase-1-descubrimiento/02-casos-de-uso.md) | Flujos funcionales principales y alternativos |
-| 1.3 | [Personas de Usuario](./fase-1-descubrimiento/03-personas-usuario.md) | Arquetipos de usuarios y sus necesidades |
-| 1.4 | [Restricciones Técnicas](./fase-1-descubrimiento/04-restricciones-tecnicas.md) | Límites tecnológicos, de infraestructura y de negocio |
-| 1.5 | [Riesgos Técnicos](./fase-1-descubrimiento/05-riesgos-tecnicos.md) | Registro de riesgos con probabilidad, impacto y mitigación |
-| 1.6 | [Supuestos](./fase-1-descubrimiento/06-supuestos.md) | Supuestos que sustentan las decisiones de diseño |
-| 1.7 | [Preguntas Abiertas](./fase-1-descubrimiento/07-preguntas-abiertas.md) | Incógnitas que requieren respuesta antes de implementar |
+
+| #   | Documento                                                                      | Descripción                                                |
+| --- | ------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| 1.1 | [Visión del Producto](./fase-1-descubrimiento/01-vision-producto.md)           | Objetivos, propuesta de valor, criterios de éxito          |
+| 1.2 | [Casos de Uso](./fase-1-descubrimiento/02-casos-de-uso.md)                     | Flujos funcionales principales y alternativos              |
+| 1.3 | [Personas de Usuario](./fase-1-descubrimiento/03-personas-usuario.md)          | Arquetipos de usuarios y sus necesidades                   |
+| 1.4 | [Restricciones Técnicas](./fase-1-descubrimiento/04-restricciones-tecnicas.md) | Límites tecnológicos, de infraestructura y de negocio      |
+| 1.5 | [Riesgos Técnicos](./fase-1-descubrimiento/05-riesgos-tecnicos.md)             | Registro de riesgos con probabilidad, impacto y mitigación |
+| 1.6 | [Supuestos](./fase-1-descubrimiento/06-supuestos.md)                           | Supuestos que sustentan las decisiones de diseño           |
+| 1.7 | [Preguntas Abiertas](./fase-1-descubrimiento/07-preguntas-abiertas.md)         | Incógnitas que requieren respuesta antes de implementar    |
 
 ### FASE 2 — Arquitectura
-| # | Documento | Descripción |
-|---|-----------|-------------|
-| 2.1 | [Arquitectura de Alto Nivel](./fase-2-arquitectura/01-arquitectura-alto-nivel.md) | Visión general del sistema, capas y responsabilidades |
-| 2.2 | [Diagramas de Componentes](./fase-2-arquitectura/02-diagramas-componentes.md) | Componentes internos de cada capa |
-| 2.3 | [Diagramas de Despliegue](./fase-2-arquitectura/03-diagramas-despliegue.md) | Infraestructura física y virtual |
-| 2.4 | [Flujo de Video](./fase-2-arquitectura/04-flujo-video.md) | Pipeline completo de RTSP a WebRTC en browser |
-| 2.5 | [Flujo de Autenticación](./fase-2-arquitectura/05-flujo-autenticacion.md) | Flujos JWT, refresh tokens, sesiones |
-| 2.6 | [Integración MediaMTX](./fase-2-arquitectura/06-integracion-mediamtx.md) | API, configuración y control de streams |
-| 2.7 | [Integración Tailscale](./fase-2-arquitectura/07-integracion-tailscale.md) | Topología de red privada y acceso seguro |
-| 2.8 | [Estrategia de Escalabilidad](./fase-2-arquitectura/08-estrategia-escalabilidad.md) | Crecimiento horizontal y vertical planificado |
-| 2.9 | [Estrategia de Seguridad](./fase-2-arquitectura/09-estrategia-seguridad.md) | Modelo de amenazas y controles de seguridad |
+
+| #   | Documento                                                                           | Descripción                                           |
+| --- | ----------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| 2.1 | [Arquitectura de Alto Nivel](./fase-2-arquitectura/01-arquitectura-alto-nivel.md)   | Visión general del sistema, capas y responsabilidades |
+| 2.2 | [Diagramas de Componentes](./fase-2-arquitectura/02-diagramas-componentes.md)       | Componentes internos de cada capa                     |
+| 2.3 | [Diagramas de Despliegue](./fase-2-arquitectura/03-diagramas-despliegue.md)         | Infraestructura física y virtual                      |
+| 2.4 | [Flujo de Video](./fase-2-arquitectura/04-flujo-video.md)                           | Pipeline completo de RTSP a WebRTC en browser         |
+| 2.5 | [Flujo de Autenticación](./fase-2-arquitectura/05-flujo-autenticacion.md)           | Flujos JWT, refresh tokens, sesiones                  |
+| 2.6 | [Integración MediaMTX](./fase-2-arquitectura/06-integracion-mediamtx.md)            | API, configuración y control de streams               |
+| 2.7 | [Integración Tailscale](./fase-2-arquitectura/07-integracion-tailscale.md)          | Topología de red privada y acceso seguro              |
+| 2.8 | [Estrategia de Escalabilidad](./fase-2-arquitectura/08-estrategia-escalabilidad.md) | Crecimiento horizontal y vertical planificado         |
+| 2.9 | [Estrategia de Seguridad](./fase-2-arquitectura/09-estrategia-seguridad.md)         | Modelo de amenazas y controles de seguridad           |
 
 ### FASE 3 — Diseño Técnico
-| # | Documento | Descripción |
-|---|-----------|-------------|
-| 3.1 | [Modelo de Dominio](./fase-3-diseno-tecnico/01-modelo-dominio.md) | Entidades, agregados y relaciones del negocio |
-| 3.2 | [Modelo Entidad-Relación](./fase-3-diseno-tecnico/02-modelo-er.md) | ER completo con atributos y cardinalidades |
-| 3.3 | [Diseño de Base de Datos](./fase-3-diseno-tecnico/03-diseno-base-datos.md) | Esquemas, índices, particionamiento, migraciones |
-| 3.4 | [APIs REST](./fase-3-diseno-tecnico/04-apis-rest.md) | Contratos de API completos con ejemplos |
-| 3.5 | [Eventos del Sistema](./fase-3-diseno-tecnico/05-eventos.md) | Eventos de dominio y mensajería asíncrona |
-| 3.6 | [DTOs](./fase-3-diseno-tecnico/06-dtos.md) | Objetos de transferencia de datos para cada operación |
-| 3.7 | [Autenticación y Autorización](./fase-3-diseno-tecnico/07-autenticacion-autorizacion.md) | RBAC, JWT, políticas de acceso |
-| 3.8 | [Manejo de Errores](./fase-3-diseno-tecnico/08-manejo-errores.md) | Estrategia global de errores y códigos |
-| 3.9 | [Logging](./fase-3-diseno-tecnico/09-logging.md) | Estructura de logs, niveles y retención |
-| 3.10 | [Observabilidad](./fase-3-diseno-tecnico/10-observabilidad.md) | Métricas, trazas distribuidas, alertas |
+
+| #    | Documento                                                                                | Descripción                                           |
+| ---- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| 3.1  | [Modelo de Dominio](./fase-3-diseno-tecnico/01-modelo-dominio.md)                        | Entidades, agregados y relaciones del negocio         |
+| 3.2  | [Modelo Entidad-Relación](./fase-3-diseno-tecnico/02-modelo-er.md)                       | ER completo con atributos y cardinalidades            |
+| 3.3  | [Diseño de Base de Datos](./fase-3-diseno-tecnico/03-diseno-base-datos.md)               | Esquemas, índices, particionamiento, migraciones      |
+| 3.4  | [APIs REST](./fase-3-diseno-tecnico/04-apis-rest.md)                                     | Contratos de API completos con ejemplos               |
+| 3.5  | [Eventos del Sistema](./fase-3-diseno-tecnico/05-eventos.md)                             | Eventos de dominio y mensajería asíncrona             |
+| 3.6  | [DTOs](./fase-3-diseno-tecnico/06-dtos.md)                                               | Objetos de transferencia de datos para cada operación |
+| 3.7  | [Autenticación y Autorización](./fase-3-diseno-tecnico/07-autenticacion-autorizacion.md) | RBAC, JWT, políticas de acceso                        |
+| 3.8  | [Manejo de Errores](./fase-3-diseno-tecnico/08-manejo-errores.md)                        | Estrategia global de errores y códigos                |
+| 3.9  | [Logging](./fase-3-diseno-tecnico/09-logging.md)                                         | Estructura de logs, niveles y retención               |
+| 3.10 | [Observabilidad](./fase-3-diseno-tecnico/10-observabilidad.md)                           | Métricas, trazas distribuidas, alertas                |
 
 ### FASE 4 — Product Backlog
-| # | Documento | Descripción |
-|---|-----------|-------------|
+
+| #   | Documento                                               | Descripción                                              |
+| --- | ------------------------------------------------------- | -------------------------------------------------------- |
 | 4.1 | [Backlog Completo](./fase-4-product-backlog/backlog.md) | Épicas, features, user stories con criterios y estimados |
 
 ### FASE 5 — Roadmap
-| # | Documento | Descripción |
-|---|-----------|-------------|
+
+| #   | Documento                                          | Descripción                                          |
+| --- | -------------------------------------------------- | ---------------------------------------------------- |
 | 5.1 | [Roadmap por Sprints](./fase-5-roadmap/roadmap.md) | Sprint 0 al 4, objetivos, entregables y dependencias |
 
 ### FASE 6 — Plan de Implementación
-| # | Documento | Descripción |
-|---|-----------|-------------|
+
+| #   | Documento                                                              | Descripción                                              |
+| --- | ---------------------------------------------------------------------- | -------------------------------------------------------- |
 | 6.1 | [Stack Tecnológico](./fase-6-plan-implementacion/stack-tecnologico.md) | Tecnologías seleccionadas con justificación en cada capa |
 
 ---
 
 ## Decisiones Arquitectónicas Clave (ADR Summary)
 
-| ID | Decisión | Estado |
-|----|----------|--------|
-| ADR-001 | WebRTC como protocolo de streaming hacia el browser | Aprobado |
-| ADR-002 | MediaMTX como servidor de medios (no Nginx-RTMP, no Wowza) | Aprobado |
-| ADR-003 | Tailscale para conectividad segura sin VPN compleja | Aprobado |
-| ADR-004 | JWT + Refresh Tokens para autenticación sin estado | Aprobado |
-| ADR-005 | PostgreSQL como base de datos principal | Aprobado |
-| ADR-006 | Next.js (App Router) para el frontend | Aprobado |
+| ID      | Decisión                                                                             | Estado              |
+| ------- | ------------------------------------------------------------------------------------ | ------------------- |
+| ADR-001 | WebRTC como protocolo de streaming hacia el browser                                  | Aprobado            |
+| ADR-002 | MediaMTX como servidor de medios (no Nginx-RTMP, no Wowza)                           | Aprobado            |
+| ADR-003 | Tailscale para conectividad segura sin VPN compleja                                  | Aprobado            |
+| ADR-004 | JWT + Refresh Tokens para autenticación sin estado                                   | Aprobado            |
+| ADR-005 | PostgreSQL como base de datos principal                                              | Aprobado            |
+| ADR-006 | Next.js (App Router) para el frontend                                                | Aprobado            |
 | ADR-007 | Next.js 15 (App Router + API Routes) como solución full-stack — sin backend separado | Aprobado (revisado) |
-| ADR-008 | RBAC de 3 niveles: Admin, Operator, Viewer | Aprobado |
+| ADR-008 | RBAC de 3 niveles: Admin, Operator, Viewer                                           | Aprobado            |
 
 ---
 
@@ -228,18 +236,18 @@ camera-platform/
 
 ## Entidades del Dominio
 
-| Entidad | Tabla | Descripción |
-|---------|-------|-------------|
-| User | `users` | Usuarios con roles RBAC y lockout |
-| Site | `sites` | Ubicaciones/instalaciones (timezone, activo) |
-| EdgeServer | `edge_servers` | Servidores MediaMTX remotos |
-| Location | `locations` | Ubicaciones físicas en un EdgeServer |
-| Camera | `cameras` | Cámaras IP con path cifrado AES-256 y protocolo (RTSP/RTMP/WebRTC/HLS) |
-| Layout | `layouts` | Grillas de monitoreo multi-cámara |
-| LayoutCell | `layout_cells` | Celdas individuales de un Layout |
-| RefreshToken | `refresh_tokens` | Tokens de renovación de sesión |
-| StreamEvent | `stream_events` | Eventos de estado de streams |
-| AuditLog | `audit_logs` | Registro de acciones del sistema |
+| Entidad      | Tabla            | Descripción                                                            |
+| ------------ | ---------------- | ---------------------------------------------------------------------- |
+| User         | `users`          | Usuarios con roles RBAC y lockout                                      |
+| Site         | `sites`          | Ubicaciones/instalaciones (timezone, activo)                           |
+| EdgeServer   | `edge_servers`   | Servidores MediaMTX remotos                                            |
+| Location     | `locations`      | Ubicaciones físicas en un EdgeServer                                   |
+| Camera       | `cameras`        | Cámaras IP con path cifrado AES-256 y protocolo (RTSP/RTMP/WebRTC/HLS) |
+| Layout       | `layouts`        | Grillas de monitoreo multi-cámara                                      |
+| LayoutCell   | `layout_cells`   | Celdas individuales de un Layout                                       |
+| RefreshToken | `refresh_tokens` | Tokens de renovación de sesión                                         |
+| StreamEvent  | `stream_events`  | Eventos de estado de streams                                           |
+| AuditLog     | `audit_logs`     | Registro de acciones del sistema                                       |
 
 ---
 
@@ -279,14 +287,14 @@ Los **Sitios** representan ubicaciones físicas o lógicas que agrupan cámaras 
 
 ### Entidad Site
 
-| Campo | Tipo | Descripción |
-|-------|------|-------------|
-| id | UUID | Identificador único |
-| name | string | Nombre único del sitio (max 255) |
-| description | string? | Descripción opcional (max 1000) |
-| timezone | string | Zona horaria IANA (default: UTC) |
-| active | boolean | Si el sitio está activo (default: true) |
-| createdAt / updatedAt / deletedAt | timestamp | Lifecycle |
+| Campo                             | Tipo      | Descripción                             |
+| --------------------------------- | --------- | --------------------------------------- |
+| id                                | UUID      | Identificador único                     |
+| name                              | string    | Nombre único del sitio (max 255)        |
+| description                       | string?   | Descripción opcional (max 1000)         |
+| timezone                          | string    | Zona horaria IANA (default: UTC)        |
+| active                            | boolean   | Si el sitio está activo (default: true) |
+| createdAt / updatedAt / deletedAt | timestamp | Lifecycle                               |
 
 ### Soft delete
 
@@ -322,13 +330,13 @@ chmod +x deploy.sh
 
 `${POSTGRES_USER:-camwatch}` lee del `.env` (no `.env.local`). Si la variable no está en `.env`, usa el valor por defecto `camwatch`.
 
-| Variable | Default (dev) | Producción requerida |
-|----------|---------------|----------------------|
-| POSTGRES_USER | camwatch | ✅ en `.env` |
-| POSTGRES_PASSWORD | camwatch_dev_password | 🔴 cambiar |
-| POSTGRES_DB | camwatch | ✅ en `.env` |
-| AUTH_SECRET | — | 🔴 generar con openssl |
-| ENCRYPTION_KEY | — | 🔴 64 hex chars |
+| Variable          | Default (dev)         | Producción requerida   |
+| ----------------- | --------------------- | ---------------------- |
+| POSTGRES_USER     | camwatch              | ✅ en `.env`           |
+| POSTGRES_PASSWORD | camwatch_dev_password | 🔴 cambiar             |
+| POSTGRES_DB       | camwatch              | ✅ en `.env`           |
+| AUTH_SECRET       | —                     | 🔴 generar con openssl |
+| ENCRYPTION_KEY    | —                     | 🔴 64 hex chars        |
 
 ### Nota sobre Plesk + Nginx
 
@@ -342,17 +350,17 @@ Las **Cámaras** representan dispositivos IP registrados en la plataforma y gest
 
 ### Entidad Camera
 
-| Campo | Tipo | Descripción |
-|-------|------|-------------|
-| id | UUID | Identificador único |
-| siteId | UUID | Sitio al que pertenece (requerido) |
-| name | string | Nombre (max 255) |
-| description | string? | Descripción opcional (max 1000) |
-| path | string | URL/path del stream (guardado cifrado con AES-256-GCM) |
-| protocol | enum | `rtsp` \| `rtmp` \| `webrtc` \| `hls` (default: rtsp) |
-| enabled | boolean | Si la cámara está habilitada (default: true) |
-| online | boolean | Estado de conectividad en tiempo real (default: false) |
-| createdAt / updatedAt | timestamp | Lifecycle |
+| Campo                 | Tipo      | Descripción                                            |
+| --------------------- | --------- | ------------------------------------------------------ |
+| id                    | UUID      | Identificador único                                    |
+| siteId                | UUID      | Sitio al que pertenece (requerido)                     |
+| name                  | string    | Nombre (max 255)                                       |
+| description           | string?   | Descripción opcional (max 1000)                        |
+| path                  | string    | URL/path del stream (guardado cifrado con AES-256-GCM) |
+| protocol              | enum      | `rtsp` \| `rtmp` \| `webrtc` \| `hls` (default: rtsp)  |
+| enabled               | boolean   | Si la cámara está habilitada (default: true)           |
+| online                | boolean   | Estado de conectividad en tiempo real (default: false) |
+| createdAt / updatedAt | timestamp | Lifecycle                                              |
 
 ### Seguridad
 
@@ -384,12 +392,12 @@ Sincronización entre las cámaras registradas en la plataforma y los streams ac
 
 Archivo: `src/lib/mediamtx/client.ts`
 
-| Método | Descripción |
-|--------|-------------|
-| `healthCheck()` | Ping rápido a `/v3/paths/list`. Devuelve `healthy`, `latencyMs`, `streamCount` |
-| `validateConnection()` | Verifica conectividad vía `/v3/config/global/get` con fallback al listado |
-| `listStreams()` | Lista todos los streams activos (nombre, estado `ready`, tracks, bytes) |
-| `getStream(name)` | Obtiene un stream por nombre; devuelve `null` si no existe (404) |
+| Método                 | Descripción                                                                    |
+| ---------------------- | ------------------------------------------------------------------------------ |
+| `healthCheck()`        | Ping rápido a `/v3/paths/list`. Devuelve `healthy`, `latencyMs`, `streamCount` |
+| `validateConnection()` | Verifica conectividad vía `/v3/config/global/get` con fallback al listado      |
+| `listStreams()`        | Lista todos los streams activos (nombre, estado `ready`, tracks, bytes)        |
+| `getStream(name)`      | Obtiene un stream por nombre; devuelve `null` si no existe (404)               |
 
 ```typescript
 import { MediaMtxClient } from "@/lib/mediamtx/client";
@@ -405,11 +413,11 @@ const streams = await client.listStreams();
 
 ### API Routes
 
-| Método | Ruta | Descripción | Roles |
-|--------|------|-------------|-------|
-| GET | `/api/edge-servers/:id/health` | Health check + actualiza `status`/`lastSeenAt` | Todos |
-| GET | `/api/edge-servers/:id/streams` | Lista streams activos en MediaMTX | Todos |
-| POST | `/api/edge-servers/:id/sync` | Sincroniza `camera.online` con MediaMTX | Admin, Operator |
+| Método | Ruta                            | Descripción                                    | Roles           |
+| ------ | ------------------------------- | ---------------------------------------------- | --------------- |
+| GET    | `/api/edge-servers/:id/health`  | Health check + actualiza `status`/`lastSeenAt` | Todos           |
+| GET    | `/api/edge-servers/:id/streams` | Lista streams activos en MediaMTX              | Todos           |
+| POST   | `/api/edge-servers/:id/sync`    | Sincroniza `camera.online` con MediaMTX        | Admin, Operator |
 
 ### Convención de nombres
 
@@ -425,6 +433,7 @@ paths:
 ### Sincronización
 
 El endpoint `POST /api/edge-servers/:id/sync`:
+
 1. Verifica health del EdgeServer
 2. Lista todos los streams desde MediaMTX
 3. Compara con cámaras en BD (`enabled=true`)
@@ -447,20 +456,20 @@ Visualización en tiempo real de múltiples cámaras con soporte para WebRTC, dr
 
 ### Layouts disponibles
 
-| Layout | Celdas | Descripción |
-|--------|--------|-------------|
-| 1×1 | 1 | Foco en una sola cámara |
-| 2×2 | 4 | Vista cuádruple |
-| 3×3 | 9 | Vista 9 cámaras |
-| 4×4 | 16 | Vista 16 cámaras |
-| Custom | N×M | Definir columnas y filas (máx 6×6) |
+| Layout | Celdas | Descripción                        |
+| ------ | ------ | ---------------------------------- |
+| 1×1    | 1      | Foco en una sola cámara            |
+| 2×2    | 4      | Vista cuádruple                    |
+| 3×3    | 9      | Vista 9 cámaras                    |
+| 4×4    | 16     | Vista 16 cámaras                   |
+| Custom | N×M    | Definir columnas y filas (máx 6×6) |
 
 ### Componentes principales
 
-| Componente | Archivo | Descripción |
-|------------|---------|-------------|
-| `CameraGrid` | `src/components/dashboard/camera-grid.tsx` | Grilla principal con dnd-kit sortable + LayoutSelector + polling |
-| `CameraCard` | `src/components/dashboard/camera-card.tsx` | Tarjeta de cámara con indicador online/offline, badge de protocolo |
+| Componente     | Archivo                                      | Descripción                                                             |
+| -------------- | -------------------------------------------- | ----------------------------------------------------------------------- |
+| `CameraGrid`   | `src/components/dashboard/camera-grid.tsx`   | Grilla principal con dnd-kit sortable + LayoutSelector + polling        |
+| `CameraCard`   | `src/components/dashboard/camera-card.tsx`   | Tarjeta de cámara con indicador online/offline, badge de protocolo      |
 | `CameraPlayer` | `src/components/dashboard/camera-player.tsx` | Reproductor WebRTC/WHEP con estados: idle/loading/playing/error/offline |
 
 ### Estado global (Zustand)
@@ -502,6 +511,7 @@ bun run build-storybook    # Build estático
 ```
 
 Stories disponibles:
+
 - `Dashboard/CameraCard` — variantes Online, Offline, Compact, Protocols, Selected
 - `Dashboard/CameraPlayer` — Idle, AutoPlay, ErrorState
 - `Dashboard/CameraGrid` — Default, NoCameras, AllOffline, SingleCamera, SixteenCameras
@@ -522,24 +532,24 @@ Permite guardar y cargar configuraciones del dashboard como **layouts persistent
 
 ### Entidad Layout
 
-| Campo | Tipo | Descripción |
-|-------|------|-------------|
-| id | UUID | Identificador único |
-| userId | UUID | Propietario del layout |
-| name | string | Nombre (max 100, trim) |
-| configuration | JSONB | Snapshot del estado del dashboard (ver abajo) |
-| isDefault | boolean | Si es el layout predeterminado del usuario |
-| isShared | boolean | Visible por otros usuarios |
-| createdAt / updatedAt / deletedAt | timestamp | Lifecycle + soft delete |
+| Campo                             | Tipo      | Descripción                                   |
+| --------------------------------- | --------- | --------------------------------------------- |
+| id                                | UUID      | Identificador único                           |
+| userId                            | UUID      | Propietario del layout                        |
+| name                              | string    | Nombre (max 100, trim)                        |
+| configuration                     | JSONB     | Snapshot del estado del dashboard (ver abajo) |
+| isDefault                         | boolean   | Si es el layout predeterminado del usuario    |
+| isShared                          | boolean   | Visible por otros usuarios                    |
+| createdAt / updatedAt / deletedAt | timestamp | Lifecycle + soft delete                       |
 
 ### LayoutConfiguration (campo JSON)
 
 ```typescript
 interface LayoutConfiguration {
   gridLayout: "1x1" | "2x2" | "3x3" | "4x4" | "custom";
-  cellCameraIds: (string | null)[];  // UUIDs de cámaras por celda
-  customCols: number;  // 1–6
-  customRows: number;  // 1–6
+  cellCameraIds: (string | null)[]; // UUIDs de cámaras por celda
+  customCols: number; // 1–6
+  customRows: number; // 1–6
 }
 ```
 
@@ -547,14 +557,14 @@ El campo `configuration` es un snapshot exacto del estado del store de Zustand.
 
 ### API Routes
 
-| Método | Ruta | Descripción | Roles |
-|--------|------|-------------|-------|
-| GET | `/api/layouts` | Listar layouts (propios + compartidos) | Todos |
-| POST | `/api/layouts` | Crear layout con configuración | Todos |
-| GET | `/api/layouts/:id` | Ver layout | Dueño/Admin |
-| PATCH | `/api/layouts/:id` | Editar nombre, isDefault, isShared, configuration | Dueño/Admin |
-| DELETE | `/api/layouts/:id` | Soft delete | Dueño/Admin |
-| POST | `/api/layouts/:id/duplicate` | Duplicar layout con nuevo nombre | Todos |
+| Método | Ruta                         | Descripción                                       | Roles       |
+| ------ | ---------------------------- | ------------------------------------------------- | ----------- |
+| GET    | `/api/layouts`               | Listar layouts (propios + compartidos)            | Todos       |
+| POST   | `/api/layouts`               | Crear layout con configuración                    | Todos       |
+| GET    | `/api/layouts/:id`           | Ver layout                                        | Dueño/Admin |
+| PATCH  | `/api/layouts/:id`           | Editar nombre, isDefault, isShared, configuration | Dueño/Admin |
+| DELETE | `/api/layouts/:id`           | Soft delete                                       | Dueño/Admin |
+| POST   | `/api/layouts/:id/duplicate` | Duplicar layout con nuevo nombre                  | Todos       |
 
 ### Flujo de uso
 
@@ -597,27 +607,27 @@ Panel de administración para gestión de usuarios, visualización de roles y au
 
 ### Páginas de administración
 
-| Ruta | Descripción | Acceso |
-|------|-------------|--------|
-| `/admin/users` | CRUD de usuarios: crear, editar rol/estado, eliminar (soft delete) | Admin |
-| `/admin/roles` | Vista de roles con conteo de usuarios y matriz de permisos | Admin |
-| `/admin/audit` | Log de auditoría paginado con filtros | Admin |
+| Ruta           | Descripción                                                        | Acceso |
+| -------------- | ------------------------------------------------------------------ | ------ |
+| `/admin/users` | CRUD de usuarios: crear, editar rol/estado, eliminar (soft delete) | Admin  |
+| `/admin/roles` | Vista de roles con conteo de usuarios y matriz de permisos         | Admin  |
+| `/admin/audit` | Log de auditoría paginado con filtros                              | Admin  |
 
 ### Registro de Auditoría
 
 Todas las acciones sensibles se registran automáticamente en `audit_logs`:
 
-| Acción | Cuándo |
-|--------|--------|
-| `user_login` | Login exitoso |
-| `auth_failure` | Credenciales incorrectas |
-| `user_logout` | Sesión cerrada (Auth.js `events.signOut`) |
-| `user_created` | Creación de usuario vía `/admin/users` |
-| `user_updated` | Edición de usuario (rol, estado, nombre) |
-| `user_deleted` | Eliminación (soft delete) de usuario |
-| `camera_created` | Nueva cámara creada |
-| `camera_deleted` | Cámara eliminada |
-| `layout_duplicated` | Layout duplicado |
+| Acción              | Cuándo                                    |
+| ------------------- | ----------------------------------------- |
+| `user_login`        | Login exitoso                             |
+| `auth_failure`      | Credenciales incorrectas                  |
+| `user_logout`       | Sesión cerrada (Auth.js `events.signOut`) |
+| `user_created`      | Creación de usuario vía `/admin/users`    |
+| `user_updated`      | Edición de usuario (rol, estado, nombre)  |
+| `user_deleted`      | Eliminación (soft delete) de usuario      |
+| `camera_created`    | Nueva cámara creada                       |
+| `camera_deleted`    | Cámara eliminada                          |
+| `layout_duplicated` | Layout duplicado                          |
 
 ### API Route de Auditoría
 
@@ -743,9 +753,9 @@ curl -I https://camapp.modest-benz.50-21-179-210.plesk.page
 
 ### Resumen de puertos
 
-| Servicio | Puerto | Expuesto |
-|----------|--------|----------|
-| Next.js (web) | 3000 | Solo localhost (Plesk hace proxy) |
-| PostgreSQL | 5432 | Solo interno Docker |
-| Redis | 6379 | Solo interno Docker |
-| MediaMTX API | 9997 | Tailscale únicamente |
+| Servicio      | Puerto | Expuesto                          |
+| ------------- | ------ | --------------------------------- |
+| Next.js (web) | 3000   | Solo localhost (Plesk hace proxy) |
+| PostgreSQL    | 5432   | Solo interno Docker               |
+| Redis         | 6379   | Solo interno Docker               |
+| MediaMTX API  | 9997   | Tailscale únicamente              |

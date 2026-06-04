@@ -30,7 +30,11 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   const server = await prisma.edgeServer.findUnique({ where: { id } });
   if (!server) return Errors.notFound("Servidor Edge");
 
-  const client = MediaMtxClient.fromEdgeServer(server);
+  const client = MediaMtxClient.fromEdgeServer(
+    server,
+    process.env.MEDIAMTX_USER,
+    process.env.MEDIAMTX_PASSWORD,
+  );
   const syncErrors: string[] = [];
   const start = Date.now();
 

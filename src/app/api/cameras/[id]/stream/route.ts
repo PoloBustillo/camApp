@@ -27,7 +27,12 @@ export async function POST(_req: NextRequest, { params }: RouteParams) {
 
   if (!camera.enabled) {
     return NextResponse.json(
-      { error: { code: "CAMERA_DISABLED", message: "La cámara está deshabilitada" } },
+      {
+        error: {
+          code: "CAMERA_DISABLED",
+          message: "La cámara está deshabilitada",
+        },
+      },
       { status: 503 },
     );
   }
@@ -43,7 +48,9 @@ export async function POST(_req: NextRequest, { params }: RouteParams) {
 
   // WHEP URL: configured base + /{cameraId}/whep
   const webrtcBase = process.env.MEDIAMTX_WEBRTC_URL ?? "";
-  const whepUrl = webrtcBase ? `${webrtcBase.replace(/\/$/, "")}/${camera.id}/whep` : null;
+  const whepUrl = webrtcBase
+    ? `${webrtcBase.replace(/\/$/, "")}/${camera.id}/whep`
+    : null;
 
   await prisma.auditLog.create({
     data: {

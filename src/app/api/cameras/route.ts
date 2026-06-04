@@ -11,7 +11,10 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const page = Math.max(1, Number(searchParams.get("page") ?? 1));
-  const limit = Math.min(100, Math.max(1, Number(searchParams.get("limit") ?? 20)));
+  const limit = Math.min(
+    100,
+    Math.max(1, Number(searchParams.get("limit") ?? 20)),
+  );
   const siteId = searchParams.get("siteId");
   const protocol = searchParams.get("protocol");
   const enabled = searchParams.get("enabled");
@@ -20,9 +23,13 @@ export async function GET(req: NextRequest) {
 
   const where = {
     ...(siteId && { siteId }),
-    ...(protocol && { protocol: protocol as "rtsp" | "rtmp" | "webrtc" | "hls" }),
-    ...(enabled !== null && enabled !== undefined && { enabled: enabled === "true" }),
-    ...(online !== null && online !== undefined && { online: online === "true" }),
+    ...(protocol && {
+      protocol: protocol as "rtsp" | "rtmp" | "webrtc" | "hls",
+    }),
+    ...(enabled !== null &&
+      enabled !== undefined && { enabled: enabled === "true" }),
+    ...(online !== null &&
+      online !== undefined && { online: online === "true" }),
     ...(search && {
       OR: [
         { name: { contains: search, mode: "insensitive" as const } },

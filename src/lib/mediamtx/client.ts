@@ -11,11 +11,17 @@ export interface MediaMtxClientConfig {
   apiPort?: number;
   /** Request timeout in ms (default: 5000) */
   timeout?: number;
+  /** Basic-auth username */
+  username?: string;
+  /** Basic-auth password */
+  password?: string;
 }
 
 export interface MediaMtxServerRecord {
   apiUrl: string;
   timeout?: number;
+  username?: string;
+  password?: string;
 }
 
 /**
@@ -25,32 +31,54 @@ export interface MediaMtxServerRecord {
 export class MediaMtxClient {
   readonly baseUrl: string;
   private readonly timeout: number;
+  private readonly authHeader: string | null;
 
   constructor(config: MediaMtxClientConfig) {
     const port = config.apiPort ?? 9997;
     this.baseUrl = `http://${config.tailscaleIp}:${port}`;
     this.timeout = config.timeout ?? 5000;
+    this.authHeader = MediaMtxClient.buildAuthHeader(config.username, config.password);
   }
 
   /** Create a client directly from an API URL (e.g. http://host:9997) */
-  static fromApiUrl(apiUrl: string, timeout = 5000): MediaMtxClient {
-    // Strip trailing slash so baseUrl is always consistent
+  static fromApiUrl(
+    apiUrl: string,
+    timeout = 5000,
+    username?: string,
+    password?: string,
+  ): MediaMtxClient {
     const normalised = apiUrl.replace(/\/$/, "");
-    const client = new MediaMtxClient({ tailscaleIp: "placeholder", timeout });
-    // Override the computed baseUrl with the provided one
+    const client = new MediaMtxClient({ tailscaleIp: "placeholder", timeout, username, password });
     (client as { baseUrl: string }).baseUrl = normalised;
     return client;
   }
 
   /** Create a client from an EdgeServer record */
-  static fromEdgeServer(server: {
-    tailscaleIp: string;
-    mediamtxApiPort: number;
-  }): MediaMtxClient {
+  static fromEdgeServer(
+    server: { tailscaleIp: string; mediamtxApiPort: number },
+    username?: string,
+    password?: string,
+  ): MediaMtxClient {
     return new MediaMtxClient({
       tailscaleIp: server.tailscaleIp,
       apiPort: server.mediamtxApiPort,
+      username,
+      password,
     });
+  }
+
+  /**
+   * Builds a Basic Auth header from explicit credentials.
+   * Both username AND password must be non-empty strings; otherwise returns null.
+   * Env vars (MEDIAMTX_USER / MEDIAMTX_PASSWORD) must be resolved by the caller
+   * (server-side route) before constructing the client, keeping this library
+   * free of Node-only globals (process, Buffer) and safe for any runtime.
+   */
+  static buildAuthHeader(username?: string, password?: string): string | null {
+    if (!username || !password) return null;
+    // btoa is available in Node 16+, Edge runtime, and browsers.
+    const encoded = btoa(`${username}:${password}`);
+    return `Basic ${encoded}`;
   }
 
   // ─── Internal fetch helper ──────────────────────────────────
@@ -63,9 +91,12 @@ export class MediaMtxClient {
     const start = Date.now();
 
     try {
+      const headers: HeadersInit = { Accept: "application/json" };
+      if (this.authHeader) headers["Authorization"] = this.authHeader;
+
       const res = await fetch(`${this.baseUrl}${path}`, {
         signal: controller.signal,
-        headers: { Accept: "application/json" },
+        headers,
       });
 
       const latencyMs = Date.now() - start;

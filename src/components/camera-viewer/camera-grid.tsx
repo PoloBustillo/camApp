@@ -26,7 +26,11 @@ interface CameraViewerGridProps {
  * - Single camera modal opens with main stream
  * - Dark theme (zinc/black palette) for security monitoring context
  */
-export function CameraViewerGrid({ cameras, title, favoriteIds }: CameraViewerGridProps) {
+export function CameraViewerGrid({
+  cameras,
+  title,
+  favoriteIds,
+}: CameraViewerGridProps) {
   const {
     page,
     totalPages,
@@ -38,15 +42,17 @@ export function CameraViewerGrid({ cameras, title, favoriteIds }: CameraViewerGr
     prevPage,
   } = useCameraPage(cameras);
 
-  const [selectedCamera, setSelectedCamera] = useState<CameraViewerItem | null>(null);
+  const [selectedCamera, setSelectedCamera] = useState<CameraViewerItem | null>(
+    null,
+  );
   const [showHelp, setShowHelp] = useState(false);
 
-  const favoriteSet = useMemo(
-    () => new Set(favoriteIds ?? []),
-    [favoriteIds],
-  );
+  const favoriteSet = useMemo(() => new Set(favoriteIds ?? []), [favoriteIds]);
 
-  const onlineCount = useMemo(() => cameras.filter((c) => c.online).length, [cameras]);
+  const onlineCount = useMemo(
+    () => cameras.filter((c) => c.online).length,
+    [cameras],
+  );
 
   const handleTileClick = useCallback((cam: CameraViewerItem) => {
     setSelectedCamera(cam);
@@ -63,11 +69,22 @@ export function CameraViewerGrid({ cameras, title, favoriteIds }: CameraViewerGr
         case "grid-1x1":
           goToPage(1);
           break;
+        case "fullscreen":
+          if (typeof document !== "undefined") {
+            if (!document.fullscreenElement) {
+              document.documentElement.requestFullscreen().catch(() => {});
+            } else {
+              document.exitFullscreen().catch(() => {});
+            }
+          }
+          break;
         case "help":
           setShowHelp((v) => !v);
           break;
         case "escape":
           if (showHelp) setShowHelp(false);
+          else if (typeof document !== "undefined" && document.fullscreenElement)
+            document.exitFullscreen().catch(() => {});
           else setSelectedCamera(null);
           break;
       }
@@ -102,11 +119,24 @@ export function CameraViewerGrid({ cameras, title, favoriteIds }: CameraViewerGr
         {cameras.length === 0 ? (
           <div className="aspect-video flex items-center justify-center">
             <div className="text-center">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" className="w-12 h-12 text-zinc-700 mx-auto mb-3">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1"
+                className="w-12 h-12 text-zinc-700 mx-auto mb-3"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z"
+                />
               </svg>
               <p className="text-zinc-600 text-sm">Sin cámaras configuradas</p>
-              <a href="/cameras" className="text-zinc-500 text-xs hover:text-zinc-400 underline mt-1 block">
+              <a
+                href="/cameras"
+                className="text-zinc-500 text-xs hover:text-zinc-400 underline mt-1 block"
+              >
                 Ir a configuración
               </a>
             </div>
@@ -127,18 +157,28 @@ export function CameraViewerGrid({ cameras, title, favoriteIds }: CameraViewerGr
               ))}
 
               {/* Empty slots to maintain 2×2 grid */}
-              {Array.from({ length: Math.max(0, 4 - visibleCameras.length) }).map(
-                (_, i) => (
-                  <div
-                    key={`empty-${i}`}
-                    className="aspect-video rounded-xl bg-zinc-900/50 border border-dashed border-zinc-800 flex items-center justify-center"
+              {Array.from({
+                length: Math.max(0, 4 - visibleCameras.length),
+              }).map((_, i) => (
+                <div
+                  key={`empty-${i}`}
+                  className="aspect-video rounded-xl bg-zinc-900/50 border border-dashed border-zinc-800 flex items-center justify-center"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1"
+                    className="w-8 h-8 text-zinc-800"
                   >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" className="w-8 h-8 text-zinc-800">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
-                    </svg>
-                  </div>
-                ),
-              )}
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z"
+                    />
+                  </svg>
+                </div>
+              ))}
             </div>
 
             {/* Pagination */}
@@ -155,8 +195,12 @@ export function CameraViewerGrid({ cameras, title, favoriteIds }: CameraViewerGr
 
             {/* Keyboard shortcut hint */}
             <div className="flex items-center justify-center gap-1.5 mt-2 opacity-40 hover:opacity-70 transition-opacity">
-              <kbd className="font-mono text-[10px] px-1 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-400">?</kbd>
-              <span className="text-zinc-500 text-[10px]">atajos de teclado</span>
+              <kbd className="font-mono text-[10px] px-1 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-400">
+                ?
+              </kbd>
+              <span className="text-zinc-500 text-[10px]">
+                atajos de teclado
+              </span>
             </div>
           </>
         )}
@@ -172,4 +216,3 @@ export function CameraViewerGrid({ cameras, title, favoriteIds }: CameraViewerGr
     </div>
   );
 }
-

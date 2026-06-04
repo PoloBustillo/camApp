@@ -14,7 +14,12 @@ export async function POST(_req: NextRequest, { params }: Params) {
   const server = await prisma.mediaMtxServer.findUnique({ where: { id } });
   if (!server) return Errors.notFound("Servidor MediaMTX");
 
-  const client = MediaMtxClient.fromApiUrl(server.apiUrl);
+  const client = MediaMtxClient.fromApiUrl(
+    server.apiUrl,
+    5000,
+    process.env.MEDIAMTX_USER,
+    process.env.MEDIAMTX_PASSWORD,
+  );
   const result = await client.testConnection();
 
   return NextResponse.json({ data: result });
