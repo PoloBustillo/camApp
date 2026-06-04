@@ -56,6 +56,7 @@ export function CameraViewerGrid({ cameras, title, favoriteIds }: CameraViewerGr
     setSelectedCamera(null);
   }, []);
 
+  // ESC must work even when help is open (to close it)
   useKeyboardShortcuts({
     onAction: (action) => {
       switch (action) {
@@ -63,15 +64,15 @@ export function CameraViewerGrid({ cameras, title, favoriteIds }: CameraViewerGr
           goToPage(1);
           break;
         case "help":
-          setShowHelp(true);
+          setShowHelp((v) => !v);
           break;
         case "escape":
-          setSelectedCamera(null);
-          setShowHelp(false);
+          if (showHelp) setShowHelp(false);
+          else setSelectedCamera(null);
           break;
       }
     },
-    enabled: !selectedCamera && !showHelp,
+    enabled: !selectedCamera || showHelp,
   });
 
   return (
@@ -153,9 +154,10 @@ export function CameraViewerGrid({ cameras, title, favoriteIds }: CameraViewerGr
             />
 
             {/* Keyboard shortcut hint */}
-            <p className="text-center text-zinc-700 text-[10px] mt-2">
-              Presiona <kbd className="font-mono">?</kbd> para ver atajos de teclado
-            </p>
+            <div className="flex items-center justify-center gap-1.5 mt-2 opacity-40 hover:opacity-70 transition-opacity">
+              <kbd className="font-mono text-[10px] px-1 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-400">?</kbd>
+              <span className="text-zinc-500 text-[10px]">atajos de teclado</span>
+            </div>
           </>
         )}
       </div>

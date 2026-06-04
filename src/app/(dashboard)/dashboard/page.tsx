@@ -44,21 +44,22 @@ export default async function DashboardPage() {
   const offlineCount = cameras.length - onlineCount;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Monitoreo en vivo</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {onlineCount}/{cameras.length} cámaras activas
-        </p>
+    <div className="space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-foreground">Monitoreo en vivo</h1>
+        </div>
+        <div className="pt-1 min-w-0">
+          <HealthWidget
+            initial={{
+              total: cameras.length,
+              online: onlineCount,
+              offline: offlineCount,
+              lastUpdated: new Date(),
+            }}
+          />
+        </div>
       </div>
-      <HealthWidget
-        initial={{
-          total: cameras.length,
-          online: onlineCount,
-          offline: offlineCount,
-          lastUpdated: new Date(),
-        }}
-      />
       <CameraViewerGrid
         cameras={cameras}
         title="Vista en vivo"
