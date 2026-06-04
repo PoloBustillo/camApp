@@ -21,9 +21,11 @@ import {
   GRID_LAYOUTS,
   type GridLayout,
   type DashboardCamera,
+  type DashboardState,
 } from "@/stores/dashboard.store";
 import { CameraPlayer } from "./camera-player";
 import { CameraCard } from "./camera-card";
+import { MobileCameraViewer } from "./mobile-camera-viewer";
 import { SaveLayoutModal } from "@/components/layouts/save-layout-modal";
 
 // ─── Types ────────────────────────────────────────────────────
@@ -42,11 +44,13 @@ function SortableCell({
   index,
   camera,
   isFullscreen,
+  onTapToExpand,
 }: {
   id: string;
   index: number;
   camera: DashboardCamera | undefined;
   isFullscreen: boolean;
+  onTapToExpand?: (index: number) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id });
@@ -85,6 +89,10 @@ function SortableCell({
             <CameraPlayer
               cameraId={camera.id}
               cameraName={camera.name}
+              siteName={camera.siteName}
+              protocol={camera.protocol}
+              compact
+              onTapToExpand={() => onTapToExpand?.(index)}
               className="w-full h-full"
             />
           ) : (
@@ -180,8 +188,8 @@ function LayoutSelector() {
     useDashboardStore();
 
   return (
-    <div className="flex items-center gap-2 flex-wrap">
-      <span className="text-xs text-muted-foreground">Layout:</span>
+    <div className="flex items-center gap-2 overflow-x-auto pb-1 flex-nowrap md:flex-wrap">
+      <span className="text-xs text-muted-foreground hidden md:inline shrink-0">Layout:</span>
       {GRID_LAYOUTS.map((gl) => (
         <button
           key={gl.type}
@@ -189,7 +197,7 @@ function LayoutSelector() {
           onClick={() => setLayout(gl.type)}
           data-testid={`layout-btn-${gl.type}`}
           className={[
-            "text-xs px-2.5 py-1 rounded border transition-colors",
+            "text-xs px-2.5 py-1 rounded border transition-colors shrink-0",
             layout === gl.type
               ? "bg-primary text-primary-foreground border-primary"
               : "border-border text-muted-foreground hover:border-muted-foreground hover:text-foreground",
@@ -200,7 +208,7 @@ function LayoutSelector() {
       ))}
 
       {layout === "custom" && (
-        <div className="flex items-center gap-1 text-xs">
+        <div className="flex items-center gap-1 text-xs shrink-0">
           <input
             type="number"
             min={1}
@@ -226,6 +234,25 @@ function LayoutSelector() {
   );
 }
 
+// ─── Grid cols helper ─────────────────────────────────────────
+
+function getGridClass(layout: GridLayout, cols: number): string {
+  if (layout === "1x1") return "grid-cols-1";
+  if (layout === "2x2") return "grid-cols-2";
+  if (layout === "3x3") return "grid-cols-2 md:grid-cols-3";
+  if (layout === "4x4") return "grid-cols-2 lg:grid-cols-4";
+  // custom
+  const desktopClass = ({
+    1: "md:grid-cols-1",
+    2: "md:grid-cols-2",
+    3: "md:grid-cols-3",
+    4: "md:grid-cols-4",
+    5: "md:grid-cols-5",
+    6: "md:grid-cols-6",
+  } as Record<number, string>)[cols] ?? "md:grid-cols-2";
+  return `grid-cols-2 ${desktopClass}`;
+}
+
 // ─── Main CameraGrid ──────────────────────────────────────────
 
 export function CameraGrid({
@@ -243,6 +270,12 @@ export function CameraGrid({
     setFullscreen,
     resetCells,
   } = useDashboardStore();
+
+  // Read new fields with safe defaults for test environments
+  const activeView = useDashboardStore((s) => (s as DashboardState).activeView ?? "grid");
+  const activeCameraIndex = useDashboardStore((s) => (s as DashboardState).activeCameraIndex ?? 0);
+  const openSingleView = useDashboardStore((s) => (s as DashboardState).openSingleView);
+  const closeSingleView = useDashboardStore((s) => (s as DashboardState).closeSingleView);
 
   const [cameras, setCameras] = useState<DashboardCamera[]>(initialCameras);
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -284,10 +317,6 @@ export function CameraGrid({
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
-    const fromIndex = cellCameraIds.indexOf(active.id as string | null);
-    const toIndex = cellCameraIds.indexOf(over.id as string | null);
-
-    // If dragging by cell index strings
     const fromIdx = Number(active.id);
     const toIdx = Number(over.id);
     if (!isNaN(fromIdx) && !isNaN(toIdx)) {
@@ -303,14 +332,10 @@ export function CameraGrid({
   // ── Sortable IDs (use cell index as string id) ────────────
   const cellIds = Array.from({ length: totalCells }, (_, i) => String(i));
 
-  const colsClass: Record<number, string> = {
-    1: "grid-cols-1",
-    2: "grid-cols-2",
-    3: "grid-cols-3",
-    4: "grid-cols-4",
-    5: "grid-cols-5",
-    6: "grid-cols-6",
-  };
+  // ── Online cameras list for single view ──────────────────
+  const onlineCamerasInCells: DashboardCamera[] = cellCameraIds
+    .map((id) => (id ? cameraMap.get(id) : undefined))
+    .filter((c): c is DashboardCamera => !!c);
 
   return (
     <div data-testid="camera-grid" className="space-y-4">
@@ -354,7 +379,7 @@ export function CameraGrid({
       >
         <SortableContext items={cellIds} strategy={rectSortingStrategy}>
           <div
-            className={["grid gap-2", colsClass[cols] ?? "grid-cols-2"].join(" ")}
+            className={["grid gap-2", getGridClass(layout, cols)].join(" ")}
             data-testid="grid-container"
           >
             {cellIds.map((cellId, index) => {
@@ -367,6 +392,7 @@ export function CameraGrid({
                   index={index}
                   camera={camera}
                   isFullscreen={!!fullscreenCameraId}
+                  onTapToExpand={openSingleView}
                 />
               );
             })}
@@ -395,10 +421,21 @@ export function CameraGrid({
             <CameraPlayer
               cameraId={fullscreenCamera.id}
               cameraName={fullscreenCamera.name}
+              siteName={fullscreenCamera.siteName}
+              protocol={fullscreenCamera.protocol}
               className="w-full h-full"
             />
           </div>
         </div>
+      )}
+
+      {/* Mobile single view overlay */}
+      {activeView === "single" && onlineCamerasInCells.length > 0 && closeSingleView && (
+        <MobileCameraViewer
+          cameras={onlineCamerasInCells}
+          initialIndex={Math.min(activeCameraIndex, onlineCamerasInCells.length - 1)}
+          onClose={closeSingleView}
+        />
       )}
 
       {/* Camera sidebar — quick status list */}

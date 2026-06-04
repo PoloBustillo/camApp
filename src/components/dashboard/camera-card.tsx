@@ -5,11 +5,9 @@ import type { DashboardCamera } from "@/stores/dashboard.store";
 
 interface CameraCardProps {
   camera: DashboardCamera;
-  /** If true renders in compact grid mode (no description) */
   compact?: boolean;
   onSelect?: (id: string) => void;
   selected?: boolean;
-  /** data-testid for testing */
   "data-testid"?: string;
 }
 
@@ -34,91 +32,132 @@ export function CameraCard({
     setFullscreen(camera.id);
   }
 
+  if (compact) {
+    return (
+      <div
+        data-testid={testId ?? `camera-card-${camera.id}`}
+        onClick={() => onSelect?.(camera.id)}
+        className={[
+          "relative bg-black aspect-video rounded-lg overflow-hidden flex flex-col items-center justify-center",
+          selected ? "ring-2 ring-primary" : "",
+          onSelect ? "cursor-pointer" : "",
+        ].filter(Boolean).join(" ")}
+      >
+        {/* Status indicator */}
+        <span
+          data-testid="status-indicator"
+          className={[
+            "absolute top-2 right-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium z-10",
+            camera.online ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600",
+          ].join(" ")}
+        >
+          <span className={["h-1.5 w-1.5 rounded-full", camera.online ? "bg-green-500 animate-pulse" : "bg-red-400"].join(" ")} />
+          {camera.online ? "Online" : "Offline"}
+        </span>
+
+        {/* Center content */}
+        <span className="text-2xl mb-1">📷</span>
+        <p
+          data-testid="camera-name"
+          className="text-xs text-white font-medium truncate max-w-[90%] text-center"
+        >
+          {camera.name}
+        </p>
+
+        {/* Bottom bar */}
+        <div className="absolute bottom-0 left-0 right-0 bg-black/60 flex items-center justify-between px-2 py-1">
+          <span
+            data-testid="protocol-badge"
+            className={["text-xs px-1.5 py-0.5 rounded font-mono uppercase", PROTOCOL_COLORS[camera.protocol] ?? "bg-gray-100 text-gray-600"].join(" ")}
+          >
+            {camera.protocol}
+          </span>
+          {camera.online && (
+            <button
+              type="button"
+              onClick={handleFullscreen}
+              title="Pantalla completa"
+              className="text-xs text-white/70 hover:text-white transition-colors p-0.5 rounded hover:bg-white/10"
+              aria-label="Pantalla completa"
+            >
+              ⛶
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Full list/detail mode
   return (
     <div
       data-testid={testId ?? `camera-card-${camera.id}`}
       onClick={() => onSelect?.(camera.id)}
       className={[
-        "relative rounded-lg border bg-card text-card-foreground shadow-sm transition-all",
+        "relative rounded-xl border bg-card text-card-foreground shadow-sm transition-all min-h-[72px]",
+        "overflow-hidden",
         selected ? "ring-2 ring-primary border-primary" : "border-border hover:border-muted-foreground",
         onSelect ? "cursor-pointer" : "",
-        compact ? "p-2" : "p-4",
-      ]
-        .filter(Boolean)
-        .join(" ")}
+      ].filter(Boolean).join(" ")}
     >
-      {/* Status indicator */}
-      <span
-        data-testid="status-indicator"
+      {/* Left status bar */}
+      <div
         className={[
-          "absolute top-2 right-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
-          camera.online
-            ? "bg-green-100 text-green-700"
-            : "bg-red-100 text-red-600",
+          "absolute left-0 top-0 bottom-0 w-0.5",
+          camera.online ? "bg-green-500" : "bg-red-400",
         ].join(" ")}
-      >
-        <span
-          className={[
-            "h-1.5 w-1.5 rounded-full",
-            camera.online ? "bg-green-500 animate-pulse" : "bg-red-400",
-          ].join(" ")}
-        />
-        {camera.online ? "Online" : "Offline"}
-      </span>
+      />
 
-      {/* Camera name */}
-      <p
-        data-testid="camera-name"
-        className={[
-          "font-medium text-foreground pr-16 truncate",
-          compact ? "text-xs" : "text-sm",
-        ].join(" ")}
-      >
-        {camera.name}
-      </p>
-
-      {!compact && (
-        <>
-          {/* Site name */}
-          <p className="text-xs text-muted-foreground mt-0.5 truncate">
-            {camera.siteName}
-          </p>
-
-          {/* Description */}
-          {camera.description && (
-            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-              {camera.description}
+      <div className="pl-4 pr-4 py-3 flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p
+              data-testid="camera-name"
+              className="font-semibold text-sm text-foreground truncate"
+            >
+              {camera.name}
             </p>
+            <span
+              data-testid="status-indicator"
+              className={[
+                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium shrink-0",
+                camera.online ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600",
+              ].join(" ")}
+            >
+              <span className={["h-1.5 w-1.5 rounded-full", camera.online ? "bg-green-500 animate-pulse" : "bg-red-400"].join(" ")} />
+              {camera.online ? "Online" : "Offline"}
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5 truncate">{camera.siteName}</p>
+          {camera.description && (
+            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{camera.description}</p>
           )}
-        </>
-      )}
+          <div className="flex items-center gap-2 mt-1.5">
+            <span
+              data-testid="protocol-badge"
+              className={["text-xs px-1.5 py-0.5 rounded font-mono uppercase", PROTOCOL_COLORS[camera.protocol] ?? "bg-gray-100 text-gray-600"].join(" ")}
+            >
+              {camera.protocol}
+            </span>
+            {!camera.enabled && (
+              <span className="text-xs text-muted-foreground">Deshabilitada</span>
+            )}
+          </div>
+        </div>
 
-      {/* Footer: protocol badge + fullscreen button */}
-      <div className="flex items-center justify-between mt-2">
-        <span
-          data-testid="protocol-badge"
-          className={[
-            "text-xs px-1.5 py-0.5 rounded font-mono uppercase",
-            PROTOCOL_COLORS[camera.protocol] ?? "bg-gray-100 text-gray-600",
-          ].join(" ")}
-        >
-          {camera.protocol}
-        </span>
-
-        {!camera.enabled && (
-          <span className="text-xs text-muted-foreground">Deshabilitada</span>
-        )}
-
-        {camera.online && (
+        {/* Right: fullscreen or chevron */}
+        {camera.online ? (
           <button
             type="button"
             onClick={handleFullscreen}
             title="Pantalla completa"
-            className="ml-auto text-xs text-muted-foreground hover:text-foreground transition-colors p-1 rounded hover:bg-muted"
+            className="shrink-0 text-muted-foreground hover:text-foreground transition-colors p-1 rounded hover:bg-muted"
             aria-label="Pantalla completa"
           >
             ⛶
           </button>
+        ) : (
+          <span className="shrink-0 text-muted-foreground text-sm">›</span>
         )}
       </div>
     </div>

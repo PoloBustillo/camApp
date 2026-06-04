@@ -12,11 +12,19 @@ interface StreamInfo {
 interface CameraPlayerProps {
   cameraId: string;
   cameraName: string;
+  siteName?: string;
+  protocol?: string;
   /** Auto-start playback on mount */
   autoPlay?: boolean;
   className?: string;
-  onError?: (message: string) => void;
+  onError?: (msg: string) => void;
   onPlay?: () => void;
+  /** Compact mode for grid cells: minimal chrome */
+  compact?: boolean;
+  /** Called when user taps video in compact mode */
+  onTapToExpand?: () => void;
+  /** Show back button + call this when tapped */
+  onBack?: () => void;
   /** data-testid */
   "data-testid"?: string;
 }
@@ -38,10 +46,15 @@ type PlayerState = "idle" | "loading" | "playing" | "error" | "offline";
 export function CameraPlayer({
   cameraId,
   cameraName,
+  siteName,
+  protocol,
   autoPlay = true,
   className = "",
   onError,
   onPlay,
+  compact = false,
+  onTapToExpand,
+  onBack,
   "data-testid": testId,
 }: CameraPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -49,6 +62,8 @@ export function CameraPlayer({
   const [state, setState] = useState<PlayerState>("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const controlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const cleanup = useCallback(() => {
@@ -159,6 +174,37 @@ export function CameraPlayer({
     return cleanup;
   }, [autoPlay, startStream, cleanup]);
 
+  const showControlsTemporarily = useCallback(() => {
+    setControlsVisible(true);
+    if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+    controlsTimerRef.current = setTimeout(() => setControlsVisible(false), 3000);
+  }, []);
+
+  const toggleControls = useCallback(() => {
+    if (compact) {
+      onTapToExpand?.();
+      return;
+    }
+    setControlsVisible((v) => {
+      if (!v) {
+        if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+        controlsTimerRef.current = setTimeout(() => setControlsVisible(false), 3000);
+        return true;
+      }
+      if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+      return false;
+    });
+  }, [compact, onTapToExpand]);
+
+  useEffect(() => {
+    if (!compact && state === "playing") {
+      showControlsTemporarily();
+    }
+    return () => {
+      if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+    };
+  }, [state, compact, showControlsTemporarily]);
+
   // Fullscreen support
   const toggleFullscreen = useCallback(async () => {
     if (!containerRef.current) return;
@@ -187,6 +233,7 @@ export function CameraPlayer({
         "relative bg-black rounded-lg overflow-hidden flex items-center justify-center",
         className,
       ].join(" ")}
+      onClick={toggleControls}
     >
       {/* Video element */}
       <video
@@ -215,7 +262,7 @@ export function CameraPlayer({
       {state === "idle" && (
         <button
           data-testid="player-start-btn"
-          onClick={startStream}
+          onClick={(e) => { e.stopPropagation(); startStream(); }}
           className="flex flex-col items-center gap-2 text-white hover:text-gray-200 transition-colors"
           aria-label="Iniciar stream"
         >
@@ -242,7 +289,7 @@ export function CameraPlayer({
           <span className="text-2xl">⚠️</span>
           <p className="text-xs text-center">{errorMsg}</p>
           <button
-            onClick={startStream}
+            onClick={(e) => { e.stopPropagation(); startStream(); }}
             className="mt-2 text-xs px-3 py-1 bg-white/20 hover:bg-white/30 rounded transition-colors"
           >
             Reintentar
@@ -250,18 +297,72 @@ export function CameraPlayer({
         </div>
       )}
 
-      {/* Camera name overlay (always visible when playing) */}
-      {state === "playing" && (
+      {/* Compact mode: bottom name bar */}
+      {compact && state === "playing" && (
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1">
           <p className="text-white text-xs font-medium truncate">{cameraName}</p>
         </div>
       )}
 
-      {/* Fullscreen button */}
-      {(state === "playing" || state === "idle") && (
+      {/* Full mode: top controls bar */}
+      {!compact && state === "playing" && (
+        <div
+          className={[
+            "absolute top-0 left-0 right-0 bg-gradient-to-b from-black/70 to-transparent px-3 py-2 flex items-center gap-2 transition-opacity duration-300",
+            controlsVisible ? "opacity-100" : "opacity-0",
+          ].join(" ")}
+        >
+          {onBack && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onBack(); }}
+              className="text-white/80 hover:text-white text-sm mr-1"
+              aria-label="Volver"
+            >
+              ←
+            </button>
+          )}
+          <p className="text-white text-xs font-medium truncate flex-1">{cameraName}</p>
+          <span className="inline-flex items-center gap-1 text-xs text-green-400 font-medium shrink-0">
+            <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
+            Live
+          </span>
+        </div>
+      )}
+
+      {/* Full mode: bottom controls bar */}
+      {!compact && state === "playing" && (
+        <div
+          className={[
+            "absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-3 py-2 flex items-center gap-2 transition-opacity duration-300",
+            controlsVisible ? "opacity-100" : "opacity-0",
+          ].join(" ")}
+        >
+          {siteName && (
+            <p className="text-white/70 text-xs truncate flex-1">{siteName}</p>
+          )}
+          {protocol && (
+            <span className="text-xs px-1.5 py-0.5 rounded bg-white/20 text-white font-mono uppercase">
+              {protocol}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
+            title={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+            aria-label={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+            className="text-white/70 hover:text-white bg-black/30 hover:bg-black/50 rounded p-1 text-xs transition-colors"
+          >
+            {isFullscreen ? "✕" : "⛶"}
+          </button>
+        </div>
+      )}
+
+      {/* Full mode idle: fullscreen button */}
+      {!compact && state === "idle" && (
         <button
           type="button"
-          onClick={toggleFullscreen}
+          onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
           title={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
           aria-label={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
           className="absolute top-2 right-2 text-white/70 hover:text-white bg-black/30 hover:bg-black/50 rounded p-1 text-xs transition-colors"

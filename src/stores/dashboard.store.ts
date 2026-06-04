@@ -37,7 +37,7 @@ export interface LayoutConfiguration {
   customRows: number;
 }
 
-interface DashboardState {
+export interface DashboardState {
   layout: GridLayout;
   customCols: number;
   customRows: number;
@@ -45,6 +45,10 @@ interface DashboardState {
   cellCameraIds: (string | null)[];
   /** Camera currently shown in fullscreen */
   fullscreenCameraId: string | null;
+  /** View mode: grid or single-camera */
+  activeView: "grid" | "single";
+  /** Index into cameras array for single view */
+  activeCameraIndex: number;
 
   setLayout: (layout: GridLayout) => void;
   setCustomDimensions: (cols: number, rows: number) => void;
@@ -56,6 +60,12 @@ interface DashboardState {
   getConfiguration: () => LayoutConfiguration;
   /** Apply a saved LayoutConfiguration to the store */
   loadConfiguration: (cfg: LayoutConfiguration) => void;
+  /** Open single-camera view at given index */
+  openSingleView: (index: number) => void;
+  /** Close single-camera view */
+  closeSingleView: () => void;
+  /** Navigate prev/next in single view */
+  navigateSingle: (direction: "prev" | "next", total: number) => void;
 }
 
 function buildEmptyCells(cols: number, rows: number): null[] {
@@ -70,6 +80,8 @@ export const useDashboardStore = create<DashboardState>()(
       customRows: 3,
       cellCameraIds: buildEmptyCells(2, 2),
       fullscreenCameraId: null,
+      activeView: "grid",
+      activeCameraIndex: 0,
 
       setLayout(layout) {
         const config = GRID_LAYOUTS.find((l) => l.type === layout)!;
@@ -125,6 +137,24 @@ export const useDashboardStore = create<DashboardState>()(
           fullscreenCameraId: null,
         });
       },
+
+      openSingleView(index: number) {
+        set({ activeView: "single", activeCameraIndex: index });
+      },
+
+      closeSingleView() {
+        set({ activeView: "grid" });
+      },
+
+      navigateSingle(direction: "prev" | "next", total: number) {
+        set((s) => {
+          const next =
+            direction === "prev"
+              ? Math.max(0, s.activeCameraIndex - 1)
+              : Math.min(total - 1, s.activeCameraIndex + 1);
+          return { activeCameraIndex: next };
+        });
+      },
     }),
     {
       name: "camwatch-dashboard",
@@ -133,6 +163,8 @@ export const useDashboardStore = create<DashboardState>()(
         customCols: s.customCols,
         customRows: s.customRows,
         cellCameraIds: s.cellCameraIds,
+        activeView: s.activeView,
+        activeCameraIndex: s.activeCameraIndex,
       }),
     },
   ),
