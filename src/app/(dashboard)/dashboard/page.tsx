@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { CameraViewerGrid } from "@/components/camera-viewer/camera-grid";
+import { HealthWidget } from "@/components/camera-viewer/health-widget";
 import type { CameraViewerItem } from "@/types/camera-viewer";
 
 export const metadata: Metadata = { title: "Dashboard — CamWatch" };
@@ -40,6 +41,7 @@ export default async function DashboardPage() {
   await requireSession();
   const cameras = await fetchCamerasForViewer();
   const onlineCount = cameras.filter((c) => c.online).length;
+  const offlineCount = cameras.length - onlineCount;
 
   return (
     <div className="space-y-6">
@@ -49,6 +51,14 @@ export default async function DashboardPage() {
           {onlineCount}/{cameras.length} cámaras activas
         </p>
       </div>
+      <HealthWidget
+        initial={{
+          total: cameras.length,
+          online: onlineCount,
+          offline: offlineCount,
+          lastUpdated: new Date(),
+        }}
+      />
       <CameraViewerGrid
         cameras={cameras}
         title="Vista en vivo"
@@ -56,3 +66,4 @@ export default async function DashboardPage() {
     </div>
   );
 }
+

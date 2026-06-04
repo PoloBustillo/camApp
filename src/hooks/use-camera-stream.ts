@@ -20,6 +20,8 @@ export interface UseCameraStreamResult {
   retry: () => Promise<void>;
 }
 
+const MAX_RECONNECT_ATTEMPTS = 3;
+
 /**
  * Manages a single WebRTC/WHEP connection for one camera.
  *
@@ -28,6 +30,7 @@ export interface UseCameraStreamResult {
  * - RTCPeerConnection is created fresh on each connect() call
  * - disconnect() closes the PC immediately and frees resources
  * - Suitable for use with IntersectionObserver (connect/disconnect on visibility)
+ * - Auto-reconnect with exponential backoff on ICE failure
  */
 export function useCameraStream({
   cameraId,
@@ -40,6 +43,11 @@ export function useCameraStream({
   const [state, setState] = useState<PlayerState>("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const reconnectAttemptsRef = useRef(0);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Forward reference so timer callbacks always call the latest connect
+  const connectRef = useRef<((isAutoRetry?: boolean) => Promise<void>) | null>(null);
+
   const setStateAndNotify = useCallback(
     (s: PlayerState) => {
       setState(s);
@@ -49,6 +57,12 @@ export function useCameraStream({
   );
 
   const disconnect = useCallback(() => {
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+    reconnectAttemptsRef.current = 0;
+
     if (pcRef.current) {
       pcRef.current.close();
       pcRef.current = null;
@@ -56,11 +70,27 @@ export function useCameraStream({
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
-    setState((prev) => (prev === "playing" || prev === "connecting" ? "idle" : prev));
+    setState((prev) => (prev === "playing" || prev === "connecting" || prev === "reconnecting" ? "idle" : prev));
   }, []);
 
-  const connect = useCallback(async () => {
-    disconnect();
+  const connect = useCallback(async (isAutoRetry = false) => {
+    if (!isAutoRetry) {
+      reconnectAttemptsRef.current = 0;
+    }
+
+    // Close any existing connection without resetting the attempts counter
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+    if (pcRef.current) {
+      pcRef.current.close();
+      pcRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+
     setStateAndNotify("connecting");
     setErrorMsg(null);
 
@@ -103,8 +133,22 @@ export function useCameraStream({
           pc.iceConnectionState === "failed" ||
           pc.iceConnectionState === "disconnected"
         ) {
-          setStateAndNotify("error");
-          setErrorMsg("Conexión perdida");
+          if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
+            const attempt = reconnectAttemptsRef.current + 1;
+            reconnectAttemptsRef.current = attempt;
+            const delay = Math.pow(2, attempt - 1) * 1000; // 1s, 2s, 4s
+            setStateAndNotify("reconnecting");
+            setErrorMsg(
+              `Reconectando... (intento ${attempt}/${MAX_RECONNECT_ATTEMPTS})`,
+            );
+            reconnectTimerRef.current = setTimeout(
+              () => connectRef.current?.(true),
+              delay,
+            );
+          } else {
+            setStateAndNotify("error");
+            setErrorMsg("No se pudo reconectar después de 3 intentos");
+          }
         }
       };
 
@@ -137,9 +181,15 @@ export function useCameraStream({
         err instanceof Error ? err.message : "Error al iniciar stream";
       setStateAndNotify("error");
       setErrorMsg(msg);
-      disconnect();
+      if (pcRef.current) {
+        pcRef.current.close();
+        pcRef.current = null;
+      }
     }
-  }, [cameraId, streamType, disconnect, setStateAndNotify]);
+  }, [cameraId, streamType, setStateAndNotify]);
+
+  // Keep forward ref up to date
+  connectRef.current = connect;
 
   // Auto-connect on mount if requested
   useEffect(() => {
@@ -149,3 +199,4 @@ export function useCameraStream({
 
   return { state, errorMsg, videoRef, connect, disconnect, retry: connect };
 }
+

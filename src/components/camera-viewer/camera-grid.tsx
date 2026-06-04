@@ -2,15 +2,19 @@
 
 import { useState, useCallback, useMemo } from "react";
 import { useCameraPage } from "@/hooks/use-camera-page";
+import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { CameraTile } from "./camera-tile";
 import { CameraModal } from "./camera-modal";
 import { CameraPagination } from "./camera-pagination";
+import { KeyboardHelp } from "./keyboard-help";
 import type { CameraViewerItem } from "@/types/camera-viewer";
 
 interface CameraViewerGridProps {
   cameras: CameraViewerItem[];
   /** Title shown in header */
   title?: string;
+  /** Set of favorited camera IDs to pass down to tiles */
+  favoriteIds?: string[];
 }
 
 /**
@@ -22,7 +26,7 @@ interface CameraViewerGridProps {
  * - Single camera modal opens with main stream
  * - Dark theme (zinc/black palette) for security monitoring context
  */
-export function CameraViewerGrid({ cameras, title }: CameraViewerGridProps) {
+export function CameraViewerGrid({ cameras, title, favoriteIds }: CameraViewerGridProps) {
   const {
     page,
     totalPages,
@@ -35,6 +39,12 @@ export function CameraViewerGrid({ cameras, title }: CameraViewerGridProps) {
   } = useCameraPage(cameras);
 
   const [selectedCamera, setSelectedCamera] = useState<CameraViewerItem | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
+
+  const favoriteSet = useMemo(
+    () => new Set(favoriteIds ?? []),
+    [favoriteIds],
+  );
 
   const onlineCount = useMemo(() => cameras.filter((c) => c.online).length, [cameras]);
 
@@ -45,6 +55,24 @@ export function CameraViewerGrid({ cameras, title }: CameraViewerGridProps) {
   const handleModalClose = useCallback(() => {
     setSelectedCamera(null);
   }, []);
+
+  useKeyboardShortcuts({
+    onAction: (action) => {
+      switch (action) {
+        case "grid-1x1":
+          goToPage(1);
+          break;
+        case "help":
+          setShowHelp(true);
+          break;
+        case "escape":
+          setSelectedCamera(null);
+          setShowHelp(false);
+          break;
+      }
+    },
+    enabled: !selectedCamera && !showHelp,
+  });
 
   return (
     <div className="bg-zinc-950 rounded-2xl overflow-hidden">
@@ -93,6 +121,7 @@ export function CameraViewerGrid({ cameras, title }: CameraViewerGridProps) {
                   streamType="sub"
                   onClick={handleTileClick}
                   pageKey={page}
+                  isFavorite={favoriteSet.has(camera.id) || camera.isFavorite}
                 />
               ))}
 
@@ -122,6 +151,11 @@ export function CameraViewerGrid({ cameras, title }: CameraViewerGridProps) {
               onPage={goToPage}
               totalCameras={cameras.length}
             />
+
+            {/* Keyboard shortcut hint */}
+            <p className="text-center text-zinc-700 text-[10px] mt-2">
+              Presiona <kbd className="font-mono">?</kbd> para ver atajos de teclado
+            </p>
           </>
         )}
       </div>
@@ -130,6 +164,10 @@ export function CameraViewerGrid({ cameras, title }: CameraViewerGridProps) {
       {selectedCamera && (
         <CameraModal camera={selectedCamera} onClose={handleModalClose} />
       )}
+
+      {/* Keyboard help overlay */}
+      {showHelp && <KeyboardHelp onClose={() => setShowHelp(false)} />}
     </div>
   );
 }
+

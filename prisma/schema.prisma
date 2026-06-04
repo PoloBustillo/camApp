@@ -99,6 +99,7 @@ model User {
   refreshTokens RefreshToken[]
   layouts       Layout[]
   auditLogs     AuditLog[]
+  favorites     UserFavorite[]
 
   @@index([role], name: "idx_users_role")
   @@map("users")
@@ -175,6 +176,7 @@ model Camera {
   edgeServer     EdgeServer?     @relation(fields: [edgeServerId], references: [id], onDelete: SetNull)
   layoutCells    LayoutCell[]
   streamEvents   StreamEvent[]
+  favoritedBy    UserFavorite[]
 
   @@index([siteId], name: "idx_cameras_site")
   @@index([enabled], name: "idx_cameras_enabled")
@@ -285,4 +287,17 @@ model Site {
 
   @@index([active], name: "idx_sites_active")
   @@map("sites")
+}
+
+model UserFavorite {
+  userId    String   @map("user_id") @db.Uuid
+  cameraId  String   @map("camera_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  camera Camera @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+
+  @@id([userId, cameraId])
+  @@index([userId], name: "idx_user_favorites_user")
+  @@map("user_favorites")
 }

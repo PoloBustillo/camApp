@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogoutButton } from "@/components/auth/logout-button";
@@ -14,18 +14,22 @@ interface NavShellProps {
 }
 
 const mainLinks = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/cameras", label: "Cámaras" },
-  { href: "/cameras/discovery", label: "↳ Descubrir cámaras" },
-  { href: "/layouts", label: "Layouts" },
-  { href: "/sites", label: "Sitios" },
+  { href: "/dashboard", label: "Dashboard", icon: "🏠" },
+  { href: "/favorites", label: "Favoritas", icon: "⭐" },
+  { href: "/cameras", label: "Cámaras", icon: "📷" },
+  { href: "/cameras/discovery", label: "Descubrir", icon: "🔍" },
+  { href: "/layouts", label: "Layouts", icon: "⊞" },
+  { href: "/sites", label: "Sitios", icon: "📍" },
+  { href: "/tv", label: "Modo TV", icon: "📺" },
 ];
 
 const adminLinks = [
-  { href: "/admin/users", label: "Usuarios" },
-  { href: "/admin/roles", label: "Roles" },
-  { href: "/admin/audit", label: "Auditoría" },
+  { href: "/admin/users", label: "Usuarios", icon: "⚙️" },
+  { href: "/admin/roles", label: "Roles", icon: "⚙️" },
+  { href: "/admin/audit", label: "Auditoría", icon: "⚙️" },
 ];
+
+const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
 
 export function NavShell({
   userName,
@@ -35,7 +39,32 @@ export function NavShell({
   children,
 }: NavShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const pathname = usePathname();
+
+  // Hydrate collapsed state from localStorage after mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+      if (stored === "true") setCollapsed(true);
+    } catch {
+      // ignore
+    }
+    setHydrated(true);
+  }, []);
+
+  const toggleSidebar = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
@@ -77,6 +106,8 @@ export function NavShell({
       )}
     </>
   );
+
+  const sidebarWidth = hydrated && collapsed ? "w-16" : "w-64";
 
   return (
     <div className="md:flex bg-background min-h-screen">
@@ -145,17 +176,83 @@ export function NavShell({
       )}
 
       {/* ── Desktop sidebar ── */}
-      <aside className="hidden md:flex w-64 border-r border-border p-4 flex-col min-h-screen">
-        <div className="text-sm font-semibold text-foreground mb-4">CamWatch</div>
-        <nav className="space-y-1 text-sm flex-1">
-          <NavLinks />
-        </nav>
-        <div className="border-t border-border pt-4 mt-4 space-y-1">
-          <p className="text-xs text-muted-foreground truncate">{userName}</p>
-          <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
-          <p className="text-[10px] text-muted-foreground/60 capitalize">{userRole}</p>
-          <LogoutButton />
+      <aside
+        className={[
+          "hidden md:flex border-r border-border p-4 flex-col min-h-screen transition-all duration-200",
+          sidebarWidth,
+        ].join(" ")}
+      >
+        {/* Logo */}
+        <div className="text-sm font-semibold text-foreground mb-4 truncate">
+          {hydrated && collapsed ? "C" : "CamWatch"}
         </div>
+
+        {/* Nav */}
+        <nav className="space-y-1 text-sm flex-1">
+          {hydrated && collapsed ? (
+            /* Collapsed: icons only */
+            <>
+              {mainLinks.map(({ href, label, icon }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  title={label}
+                  className={[
+                    "flex items-center justify-center py-2 rounded transition-colors",
+                    isActive(href)
+                      ? "bg-muted text-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  ].join(" ")}
+                >
+                  <span className="text-lg">{icon}</span>
+                </Link>
+              ))}
+              {isAdmin && (
+                <>
+                  <div className="border-t border-border my-2" />
+                  {adminLinks.map(({ href, label, icon }) => (
+                    <Link
+                      key={href}
+                      href={href}
+                      title={label}
+                      className={[
+                        "flex items-center justify-center py-2 rounded transition-colors",
+                        isActive(href)
+                          ? "bg-muted text-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                      ].join(" ")}
+                    >
+                      <span className="text-lg">{icon}</span>
+                    </Link>
+                  ))}
+                </>
+              )}
+            </>
+          ) : (
+            /* Expanded: full labels */
+            <NavLinks />
+          )}
+        </nav>
+
+        {/* User info — only when expanded */}
+        {(!hydrated || !collapsed) && (
+          <div className="border-t border-border pt-4 mt-4 space-y-1">
+            <p className="text-xs text-muted-foreground truncate">{userName}</p>
+            <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
+            <p className="text-[10px] text-muted-foreground/60 capitalize">{userRole}</p>
+            <LogoutButton />
+          </div>
+        )}
+
+        {/* Collapse toggle */}
+        <button
+          type="button"
+          onClick={toggleSidebar}
+          className="w-full flex items-center justify-center py-2 text-muted-foreground hover:text-foreground transition-colors border-t border-border mt-2"
+          aria-label={collapsed ? "Expandir sidebar" : "Colapsar sidebar"}
+        >
+          {hydrated && collapsed ? "→" : "←"}
+        </button>
       </aside>
 
       {/* ── Main content ── */}
@@ -185,6 +282,16 @@ export function NavShell({
           <span className="text-lg leading-none">📷</span>
           <span>Cámaras</span>
         </Link>
+        <Link
+          href="/favorites"
+          className={[
+            "flex-1 flex flex-col items-center justify-center gap-0.5 text-xs py-2",
+            isActive("/favorites") ? "text-primary font-medium" : "text-muted-foreground",
+          ].join(" ")}
+        >
+          <span className="text-lg leading-none">⭐</span>
+          <span>Favoritas</span>
+        </Link>
         <button
           type="button"
           onClick={() => setDrawerOpen(true)}
@@ -198,3 +305,4 @@ export function NavShell({
     </div>
   );
 }
+

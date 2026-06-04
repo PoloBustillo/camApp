@@ -11,10 +11,11 @@ export interface CameraViewerItem {
   enabled: boolean;
   online: boolean;
   protocol: string;
+  isFavorite?: boolean;
 }
 
 export type StreamType = "main" | "sub";
-export type PlayerState = "idle" | "connecting" | "playing" | "error" | "offline";
+export type PlayerState = "idle" | "connecting" | "playing" | "error" | "offline" | "reconnecting";
 
 export interface WebRtcStreamInfo {
   /** Full WHEP URL built server-side (never exposes internal IPs) */
