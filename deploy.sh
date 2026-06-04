@@ -23,7 +23,7 @@ echo "⏳ Waiting for services to be healthy (20s)..."
 sleep 20
 
 echo "📊 Running database migrations..."
-docker compose -f docker-compose.prod.yml exec web bunx prisma migrate deploy
+docker compose -f docker-compose.prod.yml exec web bun run db:migrate:prod
 
 echo "🌱 Running seed (skip if already seeded)..."
 docker compose -f docker-compose.prod.yml exec web bun run db:seed || true
