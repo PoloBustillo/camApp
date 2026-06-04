@@ -71,13 +71,14 @@ function makeRequest(body?: unknown) {
 }
 
 function makeIdRequest(method = "GET", body?: unknown) {
-  return new NextRequest("http://localhost/api/users/user-1", {
-    method,
-    ...(body && {
+  if (body) {
+    return new NextRequest("http://localhost/api/users/user-1", {
+      method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-    }),
-  });
+    });
+  }
+  return new NextRequest("http://localhost/api/users/user-1", { method });
 }
 
 function makeParams(id = "user-1") {

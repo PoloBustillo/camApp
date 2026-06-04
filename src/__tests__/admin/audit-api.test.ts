@@ -164,8 +164,10 @@ describe("GET /api/audit", () => {
 
   it("selects user name and email in response", async () => {
     await GET(makeRequest());
-    const call = vi.mocked(prisma.auditLog.findMany).mock.calls[0][0];
-    expect(call.select).toMatchObject({
+    const calls = vi.mocked(prisma.auditLog.findMany).mock.calls;
+    expect(calls.length).toBeGreaterThan(0);
+    const firstArg = vi.mocked(prisma.auditLog.findMany).mock.calls.flat()[0];
+    expect(firstArg?.select).toMatchObject({
       user: { select: { id: true, name: true, email: true, role: true } },
     });
   });

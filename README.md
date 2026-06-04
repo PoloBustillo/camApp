@@ -2,7 +2,7 @@
 
 > **Rol:** Arquitecto de Software Senior / Product Owner / Tech Lead  
 > **Fecha:** Junio 2026  
-> **Estado:** Sprint 3 — Auth + Sites + Cameras + MediaMTX + Dashboard + Layouts implementados ✅
+> **Estado:** Sprint 4 — Auth + Sites + Cameras + MediaMTX + Dashboard + Layouts + Admin implementados ✅
 
 ---
 
@@ -127,8 +127,10 @@ camera-platform/
 | POST | `/api/layouts/:id/duplicate` | Duplicar layout | Todos |
 | GET | `/api/users` | Listar usuarios | Admin |
 | POST | `/api/users` | Crear usuario | Admin |
+| GET | `/api/users/:id` | Ver perfil de usuario | Admin / Propio |
 | PATCH | `/api/users/:id` | Editar usuario | Admin |
-| DELETE | `/api/users/:id` | Eliminar usuario | Admin |
+| DELETE | `/api/users/:id` | Soft-delete usuario | Admin |
+| GET | `/api/audit` | Log de auditoría paginado con filtros | Admin |
 | GET | `/api/edge-servers` | Listar servidores edge | Todos |
 | POST | `/api/edge-servers` | Registrar servidor | Admin |
 | GET | `/api/edge-servers/:id/health` | Health check MediaMTX | Todos |
@@ -586,6 +588,73 @@ bun run test -- src/__tests__/layouts/
 ```
 
 23 tests cubriendo todas las variantes de `layoutConfigurationSchema`, `createLayoutSchema`, `updateLayoutSchema` y `duplicateLayoutSchema`.
+
+---
+
+## Administración (Epic 7)
+
+Panel de administración para gestión de usuarios, visualización de roles y auditoría de acciones.
+
+### Páginas de administración
+
+| Ruta | Descripción | Acceso |
+|------|-------------|--------|
+| `/admin/users` | CRUD de usuarios: crear, editar rol/estado, eliminar (soft delete) | Admin |
+| `/admin/roles` | Vista de roles con conteo de usuarios y matriz de permisos | Admin |
+| `/admin/audit` | Log de auditoría paginado con filtros | Admin |
+
+### Registro de Auditoría
+
+Todas las acciones sensibles se registran automáticamente en `audit_logs`:
+
+| Acción | Cuándo |
+|--------|--------|
+| `user_login` | Login exitoso |
+| `auth_failure` | Credenciales incorrectas |
+| `user_logout` | Sesión cerrada (Auth.js `events.signOut`) |
+| `user_created` | Creación de usuario vía `/admin/users` |
+| `user_updated` | Edición de usuario (rol, estado, nombre) |
+| `user_deleted` | Eliminación (soft delete) de usuario |
+| `camera_created` | Nueva cámara creada |
+| `camera_deleted` | Cámara eliminada |
+| `layout_duplicated` | Layout duplicado |
+
+### API Route de Auditoría
+
+```
+GET /api/audit?action=user_login&userId=xxx&resourceType=auth&dateFrom=2024-01-01&dateTo=2024-01-31&page=1&limit=25
+```
+
+Responde con `{ data: AuditLog[], pagination: { page, limit, total, totalPages } }`.
+
+### Tests de administración
+
+```bash
+bun run test -- src/__tests__/admin/
+```
+
+32 tests: `audit-api.test.ts` (12) + `users-api.test.ts` (20).
+
+---
+
+## Migración Prisma v7
+
+El proyecto usa **Prisma 7.x**. Esta versión elimina `url = env("DATABASE_URL")` del `schema.prisma`.
+
+La URL de base de datos se configura en `prisma.config.ts`:
+
+```typescript
+// prisma.config.ts
+import { defineConfig } from "prisma/config";
+
+export default defineConfig({
+  datasource: {
+    url: process.env.DATABASE_URL,
+  },
+});
+```
+
+> **Nota:** No usar `datasourceUrl` en el constructor de `PrismaClient` — Prisma v7 lee la URL desde `prisma.config.ts` automáticamente.
 
 ---
 

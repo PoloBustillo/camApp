@@ -4,13 +4,15 @@ RUN apk add --no-cache libc6-compat
 
 # ─── Dependencias ────────────────────────────────────────
 FROM base AS deps
-COPY package.json bun.lockb ./
+COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 
 # ─── Desarrollo ──────────────────────────────────────────
 FROM base AS development
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+RUN bunx prisma --version
+RUN cat package.json | grep prisma
 RUN bunx prisma generate
 EXPOSE 3000
 CMD ["bun", "run", "dev"]
@@ -19,6 +21,8 @@ CMD ["bun", "run", "dev"]
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+RUN bunx prisma --version
+RUN cat package.json | grep prisma
 RUN bunx prisma generate
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN bun run build
