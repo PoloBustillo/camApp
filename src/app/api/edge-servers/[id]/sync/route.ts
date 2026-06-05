@@ -3,7 +3,6 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/middleware";
 import { Errors } from "@/lib/errors";
 import { MediaMtxClient } from "@/lib/mediamtx/client";
-import { decryptPath } from "@/lib/crypto";
 import type { SyncResult } from "@/lib/mediamtx/types";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -14,7 +13,8 @@ type RouteParams = { params: Promise<{ id: string }> };
  * Syncs the online status of all cameras against the MediaMTX streams list.
  *
  * Matching convention:
- *   Each camera is expected to have a MediaMTX path named after its UUID.
+ *   Cameras are matched by mediaMtxPath if set, falling back to the camera UUID.
+ *   Only cameras assigned to this edge server are evaluated.
  *   If MediaMTX reports that path as `ready: true`, the camera is marked online.
  *
  * Requires: admin or operator role.
@@ -50,9 +50,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   });
 
   if (!health.healthy) {
-    // Mark ALL cameras as offline since server is unreachable
+    // Mark only cameras on this edge server as offline
     await prisma.camera.updateMany({
-      where: { site: { deletedAt: null } },
+      where: { edgeServerId: id, site: { deletedAt: null } },
       data: { online: false },
     });
 
@@ -89,8 +89,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
   // ─── 3. Load all active cameras ─────────────────────────────
   const cameras = await prisma.camera.findMany({
-    where: { enabled: true, site: { deletedAt: null } },
-    select: { id: true, name: true, online: true },
+    where: { edgeServerId: id, enabled: true, site: { deletedAt: null } },
+    select: { id: true, name: true, mediaMtxPath: true, online: true },
   });
 
   // ─── 4. Update each camera's online status ──────────────────
@@ -100,8 +100,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   await Promise.all(
     cameras.map(async (cam) => {
       try {
-        // Convention: MediaMTX path = camera UUID
-        const isOnline = readyStreams.has(cam.id);
+        // Match by mediaMtxPath if set, otherwise fall back to camera UUID
+        const streamKey = cam.mediaMtxPath ?? cam.id;
+        const isOnline = readyStreams.has(streamKey);
 
         if (cam.online !== isOnline) {
           await prisma.camera.update({
