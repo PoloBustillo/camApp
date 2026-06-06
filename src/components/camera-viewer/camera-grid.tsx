@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { Play, Pause } from "lucide-react";
 import { useCameraPage } from "@/hooks/use-camera-page";
 import {
   useGridPreferences,
@@ -57,6 +58,17 @@ export function CameraViewerGrid({
     null,
   );
   const [showHelp, setShowHelp] = useState(false);
+  const [autoRotate, setAutoRotate] = useState(false);
+  const autoRotateRef = useRef(autoRotate);
+  autoRotateRef.current = autoRotate;
+
+  useEffect(() => {
+    if (!autoRotate || totalPages <= 1 || selectedCamera) return;
+    const id = setInterval(() => {
+      if (autoRotateRef.current) nextPage();
+    }, 10000);
+    return () => clearInterval(id);
+  }, [autoRotate, totalPages, selectedCamera, nextPage]);
 
   const onlineCount = useMemo(
     () => displayCameras.filter((c) => c.online).length,
@@ -130,9 +142,25 @@ export function CameraViewerGrid({
             />
           )}
           {totalPages > 1 && (
-            <span className="text-zinc-600 text-xs hidden sm:block">
-              Página {page} de {totalPages}
-            </span>
+            <>
+              <button
+                type="button"
+                onClick={() => setAutoRotate((v) => !v)}
+                className={[
+                  "p-1.5 rounded-lg border transition-all",
+                  autoRotate
+                    ? "bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20"
+                    : "border-zinc-700 text-zinc-500 hover:text-zinc-300 hover:border-zinc-500",
+                ].join(" ")}
+                aria-label={autoRotate ? "Detener rotación" : "Rotar páginas cada 10s"}
+                title={autoRotate ? "Detener rotación" : "Rotar páginas cada 10s"}
+              >
+                {autoRotate ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+              </button>
+              <span className="text-zinc-600 text-xs hidden sm:block">
+                Página {page} de {totalPages}
+              </span>
+            </>
           )}
         </div>
       </div>
