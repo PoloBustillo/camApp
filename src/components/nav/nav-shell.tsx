@@ -4,11 +4,12 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogoutButton } from "@/components/auth/logout-button";
-import { Home, Satellite, Star, Tv, Menu, X, ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
+import { Home, Satellite, Star, Tv, Shield, Menu, X, ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
 
 interface NavShellProps {
   userName: string;
   userEmail: string;
+  userRole?: string;
   children: React.ReactNode;
 }
 
@@ -24,6 +25,7 @@ const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
 export function NavShell({
   userName,
   userEmail,
+  userRole,
   children,
 }: NavShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -63,6 +65,8 @@ export function NavShell({
       isActive(href) ? "bg-muted text-foreground font-medium" : "text-muted-foreground",
     ].join(" ");
 
+  const isAdmin = userRole === "admin";
+
   const NavLinks = () => (
     <>
       {mainLinks.map(({ href, label, icon: Icon }) => (
@@ -76,6 +80,16 @@ export function NavShell({
           {label}
         </Link>
       ))}
+      {isAdmin && (
+        <Link
+          href="/admin/users"
+          className={linkClass("/admin/users")}
+          onClick={() => setDrawerOpen(false)}
+        >
+          <Shield className="w-4 h-4 shrink-0" />
+          Usuarios
+        </Link>
+      )}
     </>
   );
 
@@ -174,6 +188,20 @@ export function NavShell({
                   <Icon className="w-5 h-5" />
                 </Link>
               ))}
+              {isAdmin && (
+                <Link
+                  href="/admin/users"
+                  title="Usuarios"
+                  className={[
+                    "flex items-center justify-center py-2 rounded transition-colors",
+                    isActive("/admin/users")
+                      ? "bg-muted text-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  ].join(" ")}
+                >
+                  <Shield className="w-5 h-5" />
+                </Link>
+              )}
             </>
           ) : (
             /* Expanded: full labels */

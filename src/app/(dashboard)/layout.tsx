@@ -18,6 +18,7 @@ export default async function DashboardLayout({
     <NavShell
       userName={user.name ?? ""}
       userEmail={user.email ?? ""}
+      userRole={user.role}
     >
       {children}
     </NavShell>
