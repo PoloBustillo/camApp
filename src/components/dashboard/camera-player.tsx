@@ -122,7 +122,10 @@ export function CameraPlayer({
       };
 
       pc.oniceconnectionstatechange = () => {
-        if (pc.iceConnectionState === "failed" || pc.iceConnectionState === "disconnected") {
+        if (
+          pc.iceConnectionState === "failed" ||
+          pc.iceConnectionState === "disconnected"
+        ) {
           setState("error");
           setErrorMsg("Conexión WebRTC perdida");
         }
@@ -132,12 +135,16 @@ export function CameraPlayer({
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
+      const basicAuth = Buffer.from(
+        `${process.env.MEDIAMTX_USER}:${process.env.MEDIAMTX_PASSWORD}`,
+      ).toString("base64");
+
       // Send offer to MediaMTX WHEP endpoint
       const whepRes = await fetch(info.whepUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/sdp",
-          Authorization: `Bearer ${info.streamToken}`,
+          Authorization: `Basic ${basicAuth}`,
         },
         body: pc.localDescription!.sdp,
       });
@@ -177,7 +184,10 @@ export function CameraPlayer({
   const showControlsTemporarily = useCallback(() => {
     setControlsVisible(true);
     if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
-    controlsTimerRef.current = setTimeout(() => setControlsVisible(false), 3000);
+    controlsTimerRef.current = setTimeout(
+      () => setControlsVisible(false),
+      3000,
+    );
   }, []);
 
   const toggleControls = useCallback(() => {
@@ -188,7 +198,10 @@ export function CameraPlayer({
     setControlsVisible((v) => {
       if (!v) {
         if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
-        controlsTimerRef.current = setTimeout(() => setControlsVisible(false), 3000);
+        controlsTimerRef.current = setTimeout(
+          () => setControlsVisible(false),
+          3000,
+        );
         return true;
       }
       if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
@@ -262,7 +275,10 @@ export function CameraPlayer({
       {state === "idle" && (
         <button
           data-testid="player-start-btn"
-          onClick={(e) => { e.stopPropagation(); startStream(); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            startStream();
+          }}
           className="flex flex-col items-center gap-2 text-white hover:text-gray-200 transition-colors"
           aria-label="Iniciar stream"
         >
@@ -289,7 +305,10 @@ export function CameraPlayer({
           <span className="text-2xl">⚠️</span>
           <p className="text-xs text-center">{errorMsg}</p>
           <button
-            onClick={(e) => { e.stopPropagation(); startStream(); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              startStream();
+            }}
             className="mt-2 text-xs px-3 py-1 bg-white/20 hover:bg-white/30 rounded transition-colors"
           >
             Reintentar
@@ -300,7 +319,9 @@ export function CameraPlayer({
       {/* Compact mode: bottom name bar */}
       {compact && state === "playing" && (
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1">
-          <p className="text-white text-xs font-medium truncate">{cameraName}</p>
+          <p className="text-white text-xs font-medium truncate">
+            {cameraName}
+          </p>
         </div>
       )}
 
@@ -315,14 +336,19 @@ export function CameraPlayer({
           {onBack && (
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); onBack(); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onBack();
+              }}
               className="text-white/80 hover:text-white text-sm mr-1"
               aria-label="Volver"
             >
               ←
             </button>
           )}
-          <p className="text-white text-xs font-medium truncate flex-1">{cameraName}</p>
+          <p className="text-white text-xs font-medium truncate flex-1">
+            {cameraName}
+          </p>
           <span className="inline-flex items-center gap-1 text-xs text-green-400 font-medium shrink-0">
             <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
             Live
@@ -348,9 +374,16 @@ export function CameraPlayer({
           )}
           <button
             type="button"
-            onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
-            title={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
-            aria-label={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleFullscreen();
+            }}
+            title={
+              isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"
+            }
+            aria-label={
+              isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"
+            }
             className="text-white/70 hover:text-white bg-black/30 hover:bg-black/50 rounded p-1 text-xs transition-colors"
           >
             {isFullscreen ? "✕" : "⛶"}
@@ -362,9 +395,16 @@ export function CameraPlayer({
       {!compact && state === "idle" && (
         <button
           type="button"
-          onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
-          title={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
-          aria-label={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleFullscreen();
+          }}
+          title={
+            isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"
+          }
+          aria-label={
+            isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"
+          }
           className="absolute top-2 right-2 text-white/70 hover:text-white bg-black/30 hover:bg-black/50 rounded p-1 text-xs transition-colors"
         >
           {isFullscreen ? "✕" : "⛶"}
