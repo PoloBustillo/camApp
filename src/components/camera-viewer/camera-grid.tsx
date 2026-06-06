@@ -65,10 +65,12 @@ export function CameraViewerGrid({
   useEffect(() => {
     if (!autoRotate || totalPages <= 1 || selectedCamera) return;
     const id = setInterval(() => {
-      if (autoRotateRef.current) nextPage();
+      if (!autoRotateRef.current) return;
+      if (page >= totalPages) goToPage(1);
+      else nextPage();
     }, 10000);
     return () => clearInterval(id);
-  }, [autoRotate, totalPages, selectedCamera, nextPage]);
+  }, [autoRotate, totalPages, selectedCamera, page, nextPage, goToPage]);
 
   const onlineCount = useMemo(
     () => displayCameras.filter((c) => c.online).length,
