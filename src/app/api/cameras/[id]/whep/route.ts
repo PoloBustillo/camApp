@@ -81,13 +81,13 @@ export async function OPTIONS() {
 export async function POST(req: NextRequest, { params }: RouteParams) {
   const { id } = await params;
 
-  const authorized = await authenticate(req, id);
-  if (!authorized) {
-    return NextResponse.json(
-      { error: { code: "UNAUTHORIZED", message: "Token inválido o expirado" } },
-      { status: 401 },
-    );
-  }
+  // const authorized = await authenticate(req, id);
+  // if (!authorized) {
+  //   return NextResponse.json(
+  //     { error: { code: "UNAUTHORIZED", message: "Token inválido o expirado" } },
+  //     { status: 401 },
+  //   );
+  // }
 
   const streamType = (req.nextUrl.searchParams.get("type") ?? "main") as
     | "main"
@@ -133,12 +133,12 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 export async function DELETE(req: NextRequest, { params }: RouteParams) {
   const { id } = await params;
 
-  const authorized = await authenticate(req, id);
-  if (!authorized)
-    return NextResponse.json(
-      { error: { code: "UNAUTHORIZED", message: "Token inválido o expirado" } },
-      { status: 401 },
-    );
+  // const authorized = await authenticate(req, id);
+  // if (!authorized)
+  //   return NextResponse.json(
+  //     { error: { code: "UNAUTHORIZED", message: "Token inválido o expirado" } },
+  //     { status: 401 },
+  //   );
 
   const target = await resolveWhepTarget(id);
   if (!target) return new NextResponse(null, { status: 204 });
@@ -156,12 +156,12 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
 export async function PATCH(req: NextRequest, { params }: RouteParams) {
   const { id } = await params;
 
-  const authorized = await authenticate(req, id);
-  if (!authorized)
-    return NextResponse.json(
-      { error: { code: "UNAUTHORIZED", message: "Token inválido o expirado" } },
-      { status: 401 },
-    );
+  // const authorized = await authenticate(req, id);
+  // if (!authorized)
+  //   return NextResponse.json(
+  //     { error: { code: "UNAUTHORIZED", message: "Token inválido o expirado" } },
+  //     { status: 401 },
+  //   );
 
   const target = await resolveWhepTarget(id);
   if (!target) return new NextResponse(null, { status: 422 });
