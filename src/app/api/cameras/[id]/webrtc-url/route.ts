@@ -52,17 +52,12 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     );
   }
 
-  // Build WHEP URL using publicHost (safe to expose) or env fallback
-  let whepUrl: string | null = null;
-  if (camera.edgeServer) {
-    const { publicHost, webrtcPort } = camera.edgeServer;
-    whepUrl = `http://${publicHost}:${webrtcPort}/${streamPath}/whep`;
-  } else {
-    const base = process.env.MEDIAMTX_WEBRTC_URL ?? "";
-    whepUrl = base ? `${base.replace(/\/$/, "")}/${streamPath}/whep` : null;
-  }
+  // Validate that a WHEP target can be resolved (edgeServer or env var set)
+  const hasWebrtcConfig = camera.edgeServer
+    ? !!(camera.edgeServer.publicHost && camera.edgeServer.webrtcPort)
+    : !!(process.env.MEDIAMTX_WEBRTC_URL);
 
-  if (!whepUrl) {
+  if (!hasWebrtcConfig) {
     return NextResponse.json(
       { error: { code: "NO_WEBRTC_URL", message: "URL WebRTC no configurada" } },
       { status: 422 },
@@ -70,6 +65,10 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   }
 
   const streamToken = await signStreamToken(camera.id, user.id);
+
+  // Return proxy URL — browser calls our API (same origin, no CORS).
+  // The server resolves the actual MediaMTX target internally in /whep.
+  const whepUrl = `/api/cameras/${camera.id}/whep`;
 
   // Audit log (non-blocking)
   prisma.auditLog.create({
