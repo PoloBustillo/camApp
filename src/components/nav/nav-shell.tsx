@@ -66,20 +66,24 @@ export function NavShell({
     ].join(" ");
 
   const isAdmin = userRole === "admin";
+  const canManage = userRole === "admin" || userRole === "operator";
 
   const NavLinks = () => (
     <>
-      {mainLinks.map(({ href, label, icon: Icon }) => (
-        <Link
-          key={href}
-          href={href}
-          className={linkClass(href)}
-          onClick={() => setDrawerOpen(false)}
-        >
-          <Icon className="w-4 h-4 shrink-0" />
-          {label}
-        </Link>
-      ))}
+      {mainLinks.map(({ href, label, icon: Icon }) => {
+        if (href === "/cameras" && !canManage) return null;
+        return (
+          <Link
+            key={href}
+            href={href}
+            className={linkClass(href)}
+            onClick={() => setDrawerOpen(false)}
+          >
+            <Icon className="w-4 h-4 shrink-0" />
+            {label}
+          </Link>
+        );
+      })}
       {isAdmin && (
         <Link
           href="/admin/users"
@@ -173,21 +177,24 @@ export function NavShell({
           {hydrated && collapsed ? (
             /* Collapsed: icons only */
             <>
-              {mainLinks.map(({ href, label, icon: Icon }) => (
-                <Link
-                  key={href}
-                  href={href}
-                  title={label}
-                  className={[
-                    "flex items-center justify-center py-2 rounded transition-colors",
-                    isActive(href)
-                      ? "bg-muted text-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                  ].join(" ")}
-                >
-                  <Icon className="w-5 h-5" />
-                </Link>
-              ))}
+              {mainLinks.map(({ href, label, icon: Icon }) => {
+                if (href === "/cameras" && !canManage) return null;
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    title={label}
+                    className={[
+                      "flex items-center justify-center py-2 rounded transition-colors",
+                      isActive(href)
+                        ? "bg-muted text-foreground"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    ].join(" ")}
+                  >
+                    <Icon className="w-5 h-5" />
+                  </Link>
+                );
+              })}
               {isAdmin && (
                 <Link
                   href="/admin/users"
@@ -246,16 +253,18 @@ export function NavShell({
           <Home className="w-5 h-5" />
           <span>Inicio</span>
         </Link>
-        <Link
-          href="/cameras"
-          className={[
-            "flex-1 flex flex-col items-center justify-center gap-0.5 text-xs py-2",
-            isActive("/cameras") ? "text-primary font-medium" : "text-muted-foreground",
-          ].join(" ")}
-        >
-          <Satellite className="w-5 h-5" />
-          <span>Proveedores</span>
-        </Link>
+        {canManage && (
+          <Link
+            href="/cameras"
+            className={[
+              "flex-1 flex flex-col items-center justify-center gap-0.5 text-xs py-2",
+              isActive("/cameras") ? "text-primary font-medium" : "text-muted-foreground",
+            ].join(" ")}
+          >
+            <Satellite className="w-5 h-5" />
+            <span>Proveedores</span>
+          </Link>
+        )}
         <Link
           href="/favorites"
           className={[

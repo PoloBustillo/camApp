@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
-import { requireSession } from "@/lib/session";
+import { requireSession, isAdmin, isOperator } from "@/lib/session";
+import { redirect } from "next/navigation";
 import { CameraPageClient } from "./camera-page-client";
 
 export const metadata: Metadata = { title: "Proveedores — CamWatch" };
 
 export default async function CamerasPage() {
-  await requireSession();
+  const session = await requireSession();
+  if (!(isAdmin(session.user) || isOperator(session.user))) redirect("/dashboard");
 
   const [cameras, servers] = await Promise.all([
     prisma.camera.findMany({
