@@ -4,6 +4,7 @@ import { useEffect, useRef, useCallback, memo, useState } from "react";
 import { useCameraStream } from "@/hooks/use-camera-stream";
 import { CameraStatusBadge } from "./camera-status-badge";
 import type { CameraViewerItem, StreamType } from "@/types/camera-viewer";
+import { Star, WifiOff, TriangleAlert, Play } from "lucide-react";
 
 interface CameraTileProps {
   camera: CameraViewerItem;
@@ -128,19 +129,12 @@ export const CameraTile = memo(function CameraTile({
         ].join(" ")}
         aria-label={favorited ? "Quitar de favoritas" : "Añadir a favoritas"}
       >
-        <svg
-          viewBox="0 0 24 24"
+        <Star
+          className="w-3.5 h-3.5"
           fill={favorited ? "currentColor" : "none"}
           stroke="currentColor"
           strokeWidth="2"
-          className="w-3.5 h-3.5"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.562.562 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"
-          />
-        </svg>
+        />
       </button>
 
       {/* Center overlay for non-playing states */}
@@ -161,9 +155,7 @@ export const CameraTile = memo(function CameraTile({
           {state === "offline" && (
             <>
               <div className="text-white/20 text-4xl">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-10 h-10">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72M15.75 10.5H11m4.75 0V5.75M4.5 19.5l15-15M8.25 6.75H4.5m3.75 0V10.5m0-3.75a3 3 0 013 3m0 0v3.75m0-3.75H12" />
-                </svg>
+                <WifiOff className="w-10 h-10" />
               </div>
               <p className="text-white/40 text-xs font-medium">Sin señal</p>
             </>
@@ -174,17 +166,13 @@ export const CameraTile = memo(function CameraTile({
               onClick={(e) => { e.stopPropagation(); connect(); }}
               className="flex flex-col items-center gap-2 text-white/40 hover:text-white/80 transition-colors"
             >
-              <svg viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8">
-                <path d="M8 5.14v14l11-7-11-7z" />
-              </svg>
+              <Play className="w-8 h-8" />
               <span className="text-[10px]">Reproducir</span>
             </button>
           )}
           {state === "error" && (
             <>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-8 h-8 text-red-400">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-              </svg>
+              <TriangleAlert className="w-8 h-8 text-red-400" />
               <p className="text-white/40 text-[10px] text-center px-4 max-w-[120px]">{errorMsg}</p>
               <button
                 type="button"

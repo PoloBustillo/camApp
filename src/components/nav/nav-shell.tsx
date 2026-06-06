@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogoutButton } from "@/components/auth/logout-button";
+import { Home, Satellite, Star, Tv, Menu, X, ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
 
 interface NavShellProps {
   userName: string;
@@ -12,10 +13,10 @@ interface NavShellProps {
 }
 
 const mainLinks = [
-  { href: "/dashboard", label: "Inicio", icon: "🏠" },
-  { href: "/cameras", label: "Proveedores", icon: "📡" },
-  { href: "/favorites", label: "Favoritas", icon: "⭐" },
-  { href: "/tv", label: "Modo TV", icon: "📺" },
+  { href: "/dashboard", label: "Inicio", icon: Home },
+  { href: "/cameras", label: "Proveedores", icon: Satellite },
+  { href: "/favorites", label: "Favoritas", icon: Star },
+  { href: "/tv", label: "Modo TV", icon: Tv },
 ];
 
 const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
@@ -58,19 +59,20 @@ export function NavShell({
 
   const linkClass = (href: string) =>
     [
-      "block px-2 py-1.5 rounded hover:bg-muted hover:text-foreground transition-colors",
+      "flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted hover:text-foreground transition-colors",
       isActive(href) ? "bg-muted text-foreground font-medium" : "text-muted-foreground",
     ].join(" ");
 
   const NavLinks = () => (
     <>
-      {mainLinks.map(({ href, label }) => (
+      {mainLinks.map(({ href, label, icon: Icon }) => (
         <Link
           key={href}
           href={href}
           className={linkClass(href)}
           onClick={() => setDrawerOpen(false)}
         >
+          <Icon className="w-4 h-4 shrink-0" />
           {label}
         </Link>
       ))}
@@ -89,11 +91,7 @@ export function NavShell({
           onClick={() => setDrawerOpen(true)}
           className="text-foreground p-1"
         >
-          <span className="flex flex-col gap-1">
-            <span className="block w-5 h-0.5 bg-current" />
-            <span className="block w-5 h-0.5 bg-current" />
-            <span className="block w-5 h-0.5 bg-current" />
-          </span>
+          <Menu className="w-5 h-5" />
         </button>
         <span className="flex-1 text-sm font-semibold text-foreground text-center">
           CamWatch
@@ -129,7 +127,7 @@ export function NavShell({
                 onClick={() => setDrawerOpen(false)}
                 className="text-muted-foreground hover:text-foreground p-1"
               >
-                ✕
+                <X className="w-5 h-5" />
               </button>
             </div>
             <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-1 text-sm">
@@ -161,7 +159,7 @@ export function NavShell({
           {hydrated && collapsed ? (
             /* Collapsed: icons only */
             <>
-              {mainLinks.map(({ href, label, icon }) => (
+              {mainLinks.map(({ href, label, icon: Icon }) => (
                 <Link
                   key={href}
                   href={href}
@@ -173,7 +171,7 @@ export function NavShell({
                       : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   ].join(" ")}
                 >
-                  <span className="text-lg">{icon}</span>
+                  <Icon className="w-5 h-5" />
                 </Link>
               ))}
             </>
@@ -199,7 +197,7 @@ export function NavShell({
           className="w-full flex items-center justify-center py-2 text-muted-foreground hover:text-foreground transition-colors border-t border-border mt-2"
           aria-label={collapsed ? "Expandir sidebar" : "Colapsar sidebar"}
         >
-          {hydrated && collapsed ? "→" : "←"}
+          {hydrated && collapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
         </button>
       </aside>
 
@@ -217,7 +215,7 @@ export function NavShell({
             isActive("/dashboard") ? "text-primary font-medium" : "text-muted-foreground",
           ].join(" ")}
         >
-          <span className="text-lg leading-none">🏠</span>
+          <Home className="w-5 h-5" />
           <span>Inicio</span>
         </Link>
         <Link
@@ -227,7 +225,7 @@ export function NavShell({
             isActive("/cameras") ? "text-primary font-medium" : "text-muted-foreground",
           ].join(" ")}
         >
-          <span className="text-lg leading-none">📡</span>
+          <Satellite className="w-5 h-5" />
           <span>Proveedores</span>
         </Link>
         <Link
@@ -237,7 +235,7 @@ export function NavShell({
             isActive("/favorites") ? "text-primary font-medium" : "text-muted-foreground",
           ].join(" ")}
         >
-          <span className="text-lg leading-none">⭐</span>
+          <Star className="w-5 h-5" />
           <span>Favoritas</span>
         </Link>
         <button
@@ -246,7 +244,7 @@ export function NavShell({
           className="flex-1 flex flex-col items-center justify-center gap-0.5 text-xs py-2 text-muted-foreground"
           aria-label="Más opciones"
         >
-          <span className="text-lg leading-none font-bold tracking-widest">···</span>
+          <MoreHorizontal className="w-5 h-5" />
           <span>Más</span>
         </button>
       </nav>

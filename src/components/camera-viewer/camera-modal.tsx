@@ -7,6 +7,7 @@ import { captureVideoSnapshot } from "@/lib/capture-snapshot";
 import { CameraStatusBadge } from "./camera-status-badge";
 import { VideoControlsPanel } from "./video-controls-panel";
 import type { CameraViewerItem } from "@/types/camera-viewer";
+import { X, VolumeX, Volume2, Camera, Maximize2 } from "lucide-react";
 
 interface CameraModalProps {
   camera: CameraViewerItem;
@@ -92,9 +93,7 @@ export function CameraModal({ camera, onClose }: CameraModalProps) {
           className="absolute top-4 right-4 z-20 p-2 rounded-full bg-black/60 text-white/70 hover:text-white hover:bg-black/80 transition-all"
           aria-label="Cerrar"
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          <X className="w-5 h-5" />
         </button>
 
         <div className="relative flex-1 min-h-0 bg-black flex flex-col">
@@ -188,13 +187,9 @@ export function CameraModal({ camera, onClose }: CameraModalProps) {
                   aria-label={isMuted ? "Activar sonido" : "Silenciar"}
                 >
                   {isMuted ? (
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 9.75L19.5 12m0 0l2.25 2.25M19.5 12l2.25-2.25M19.5 12l-2.25 2.25M9.75 9.75L5.25 5.25M5.25 5.25v13.5h3.75L14.25 19.5V4.5l-5.25 3v2.25z" />
-                    </svg>
+                    <VolumeX className="w-5 h-5" />
                   ) : (
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12a7.5 7.5 0 01-7.5 7.5m7.5-7.5a7.5 7.5 0 00-7.5-7.5m7.5 7.5H3.75m0 0v-4.5m0 4.5v-4.5M9 9.75v4.5m0-4.5L5.25 5.25M9 9.75L12.75 12M9 14.25l3.75 2.25" />
-                    </svg>
+                    <Volume2 className="w-5 h-5" />
                   )}
                 </button>
 
@@ -217,10 +212,7 @@ export function CameraModal({ camera, onClose }: CameraModalProps) {
                   aria-label="Capturar snapshot"
                   title="Guardar captura PNG"
                 >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
-                  </svg>
+                  <Camera className="w-5 h-5" />
                 </button>
 
                 <button
@@ -229,9 +221,7 @@ export function CameraModal({ camera, onClose }: CameraModalProps) {
                   className="p-2 rounded-lg bg-black/50 text-white/70 hover:text-white hover:bg-black/70 transition-all ml-auto"
                   aria-label="Pantalla completa"
                 >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                  </svg>
+                  <Maximize2 className="w-5 h-5" />
                 </button>
               </div>
             )}
@@ -300,9 +290,10 @@ export function CameraModal({ camera, onClose }: CameraModalProps) {
             type="button"
             onClick={handleSnapshot}
             disabled={state !== "playing"}
-            className="w-full px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-40 text-white text-sm transition-all"
+            className="w-full px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-40 text-white text-sm transition-all inline-flex items-center justify-center gap-2"
           >
-            📷 Guardar snapshot
+            <Camera className="w-4 h-4" />
+            Guardar snapshot
           </button>
         </div>
       </div>

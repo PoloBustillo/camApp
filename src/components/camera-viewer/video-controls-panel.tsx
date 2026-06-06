@@ -1,6 +1,7 @@
 "use client";
 
 import type { FilterPreset } from "@/hooks/use-video-controls";
+import { RotateCcw } from "lucide-react";
 
 interface VideoControlsPanelProps {
   brightness: number;
@@ -79,8 +80,9 @@ export function VideoControlsPanel({
         <button
           type="button"
           onClick={onReset}
-          className="text-xs text-zinc-400 hover:text-white transition-colors"
+          className="text-xs text-zinc-400 hover:text-white transition-colors inline-flex items-center gap-1"
         >
+          <RotateCcw className="w-3 h-3" />
           Restablecer
         </button>
       </div>
