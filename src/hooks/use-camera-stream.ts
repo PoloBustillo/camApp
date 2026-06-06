@@ -12,6 +12,8 @@ export interface UseCameraStreamOptions {
   streamType?: StreamType;
   /** Auto-start when hook mounts */
   autoConnect?: boolean;
+  /** Start muted (required for grid autoplay; modal can unmute on user action) */
+  startMuted?: boolean;
   onStateChange?: (state: PlayerState) => void;
 }
 
@@ -22,6 +24,11 @@ export interface UseCameraStreamResult {
   connect: () => Promise<void>;
   disconnect: () => void;
   retry: () => Promise<void>;
+  isMuted: boolean;
+  hasAudio: boolean;
+  volume: number;
+  toggleMute: () => void;
+  setVolume: (v: number) => void;
 }
 
 const MAX_RECONNECT_ATTEMPTS = 3;
@@ -40,12 +47,16 @@ export function useCameraStream({
   cameraId,
   streamType = "sub",
   autoConnect = false,
+  startMuted = true,
   onStateChange,
 }: UseCameraStreamOptions): UseCameraStreamResult {
   const videoRef = useRef<HTMLVideoElement>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const [state, setState] = useState<PlayerState>("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isMuted, setIsMuted] = useState(startMuted);
+  const [hasAudio, setHasAudio] = useState(false);
+  const [volume, setVolumeState] = useState(1);
 
   const reconnectAttemptsRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -133,9 +144,14 @@ export function useCameraStream({
         pc.addTransceiver("video", { direction: "recvonly" });
         pc.addTransceiver("audio", { direction: "recvonly" });
 
-        pc.ontrack = ({ streams }) => {
+        pc.ontrack = ({ streams, track }) => {
+          if (track.kind === "audio") setHasAudio(true);
           if (videoRef.current && streams[0]) {
             videoRef.current.srcObject = streams[0];
+            videoRef.current.muted = isMuted;
+            videoRef.current.volume = volume;
+            const audioTracks = streams[0].getAudioTracks();
+            if (audioTracks.length > 0) setHasAudio(true);
           }
         };
 
@@ -197,8 +213,33 @@ export function useCameraStream({
         }
       }
     },
-    [cameraId, streamType, setStateAndNotify],
+    [cameraId, streamType, setStateAndNotify, isMuted, volume],
   );
+
+  const toggleMute = useCallback(() => {
+    setIsMuted((prev) => {
+      const next = !prev;
+      if (videoRef.current) {
+        videoRef.current.muted = next;
+        if (!next) videoRef.current.play().catch(() => {});
+      }
+      return next;
+    });
+  }, []);
+
+  const setVolume = useCallback((v: number) => {
+    const clamped = Math.min(1, Math.max(0, v));
+    setVolumeState(clamped);
+    if (videoRef.current) videoRef.current.volume = clamped;
+    if (clamped > 0) setIsMuted(false);
+  }, []);
+
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.muted = isMuted;
+      videoRef.current.volume = volume;
+    }
+  }, [isMuted, volume, state]);
 
   // Keep forward ref up to date
   connectRef.current = connect;
@@ -209,5 +250,17 @@ export function useCameraStream({
     return disconnect;
   }, [autoConnect, connect, disconnect]);
 
-  return { state, errorMsg, videoRef, connect, disconnect, retry: connect };
+  return {
+    state,
+    errorMsg,
+    videoRef,
+    connect,
+    disconnect,
+    retry: connect,
+    isMuted,
+    hasAudio,
+    volume,
+    toggleMute,
+    setVolume,
+  };
 }

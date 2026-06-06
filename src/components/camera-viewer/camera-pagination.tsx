@@ -3,18 +3,19 @@
 interface CameraPaginationProps {
   page: number;
   totalPages: number;
+  pageSize: number;
   hasNext: boolean;
   hasPrev: boolean;
   onNext: () => void;
   onPrev: () => void;
   onPage: (p: number) => void;
-  /** Total cameras count (for display) */
   totalCameras: number;
 }
 
 export function CameraPagination({
   page,
   totalPages,
+  pageSize,
   hasNext,
   hasPrev,
   onNext,
@@ -24,8 +25,8 @@ export function CameraPagination({
 }: CameraPaginationProps) {
   if (totalPages <= 1) return null;
 
-  const start = (page - 1) * 4 + 1;
-  const end = Math.min(page * 4, totalCameras);
+  const start = (page - 1) * pageSize + 1;
+  const end = Math.min(page * pageSize, totalCameras);
 
   return (
     <div className="flex items-center justify-between gap-4 mt-4">

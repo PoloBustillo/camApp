@@ -38,8 +38,15 @@ async function fetchCamerasForViewer(): Promise<CameraViewerItem[]> {
 }
 
 export default async function DashboardPage() {
-  await requireSession();
+  const session = await requireSession();
   const cameras = await fetchCamerasForViewer();
+
+  const favorites = await prisma.userFavorite.findMany({
+    where: { userId: session.user.id },
+    select: { cameraId: true },
+  });
+  const favoriteIds = favorites.map((f) => f.cameraId);
+
   const onlineCount = cameras.filter((c) => c.online).length;
   const offlineCount = cameras.length - onlineCount;
 
@@ -48,6 +55,9 @@ export default async function DashboardPage() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-foreground">Mis cámaras</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Grid 2×2 o 3×3 · filtra favoritas · abre una cámara para audio y snapshot
+          </p>
         </div>
         <div className="pt-1 min-w-0">
           <HealthWidget
@@ -63,6 +73,8 @@ export default async function DashboardPage() {
       <CameraViewerGrid
         cameras={cameras}
         title="Vista en vivo"
+        favoriteIds={favoriteIds}
+        showGridControls
       />
     </div>
   );

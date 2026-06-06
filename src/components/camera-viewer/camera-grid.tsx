@@ -2,35 +2,46 @@
 
 import { useState, useCallback, useMemo } from "react";
 import { useCameraPage } from "@/hooks/use-camera-page";
+import {
+  useGridPreferences,
+  getPageSize,
+} from "@/hooks/use-grid-preferences";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { CameraTile } from "./camera-tile";
 import { CameraModal } from "./camera-modal";
 import { CameraPagination } from "./camera-pagination";
 import { KeyboardHelp } from "./keyboard-help";
+import { GridToolbar } from "./grid-toolbar";
 import type { CameraViewerItem } from "@/types/camera-viewer";
 
 interface CameraViewerGridProps {
   cameras: CameraViewerItem[];
-  /** Title shown in header */
   title?: string;
-  /** Set of favorited camera IDs to pass down to tiles */
   favoriteIds?: string[];
+  /** Show 2×2 / 3×3 and Todas / Favoritas toggles (home page) */
+  showGridControls?: boolean;
 }
 
-/**
- * CameraViewerGrid — Professional camera monitoring grid.
- *
- * Architecture:
- * - Max 4 cameras shown simultaneously (2×2 grid)
- * - Pagination: when page changes, React keys change → tiles remount → WebRTC closes
- * - Single camera modal opens with main stream
- * - Dark theme (zinc/black palette) for security monitoring context
- */
 export function CameraViewerGrid({
   cameras,
   title,
   favoriteIds,
+  showGridControls = false,
 }: CameraViewerGridProps) {
+  const { layout, filter, setLayout, setFilter } = useGridPreferences();
+  const pageSize = getPageSize(layout);
+
+  const favoriteSet = useMemo(() => new Set(favoriteIds ?? []), [favoriteIds]);
+
+  const displayCameras = useMemo(() => {
+    if (!showGridControls || filter === "all") return cameras;
+    return cameras.filter(
+      (c) => favoriteSet.has(c.id) || c.isFavorite,
+    );
+  }, [cameras, filter, favoriteSet, showGridControls]);
+
+  const resetKey = `${layout}-${filter}-${displayCameras.length}`;
+
   const {
     page,
     totalPages,
@@ -40,19 +51,22 @@ export function CameraViewerGrid({
     goToPage,
     nextPage,
     prevPage,
-  } = useCameraPage(cameras);
+  } = useCameraPage(displayCameras, pageSize, resetKey);
 
   const [selectedCamera, setSelectedCamera] = useState<CameraViewerItem | null>(
     null,
   );
   const [showHelp, setShowHelp] = useState(false);
 
-  const favoriteSet = useMemo(() => new Set(favoriteIds ?? []), [favoriteIds]);
-
   const onlineCount = useMemo(
-    () => cameras.filter((c) => c.online).length,
-    [cameras],
+    () => displayCameras.filter((c) => c.online).length,
+    [displayCameras],
   );
+
+  const gridCols =
+    layout === "3x3"
+      ? "grid-cols-2 sm:grid-cols-3"
+      : "grid-cols-1 sm:grid-cols-2";
 
   const handleTileClick = useCallback((cam: CameraViewerItem) => {
     setSelectedCamera(cam);
@@ -62,7 +76,6 @@ export function CameraViewerGrid({
     setSelectedCamera(null);
   }, []);
 
-  // ESC must work even when help is open (to close it)
   useKeyboardShortcuts({
     onAction: (action) => {
       switch (action) {
@@ -94,8 +107,7 @@ export function CameraViewerGrid({
 
   return (
     <div className="bg-zinc-950 rounded-2xl overflow-hidden">
-      {/* Header bar */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-zinc-800">
         <div className="flex items-center gap-3">
           {title && (
             <h2 className="text-white text-sm font-semibold">{title}</h2>
@@ -103,20 +115,30 @@ export function CameraViewerGrid({
           <div className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
             <span className="text-zinc-400 text-xs">
-              {onlineCount}/{cameras.length} online
+              {onlineCount}/{displayCameras.length} online
             </span>
           </div>
         </div>
-        {totalPages > 1 && (
-          <span className="text-zinc-600 text-xs hidden sm:block">
-            Página {page} de {totalPages}
-          </span>
-        )}
+
+        <div className="flex items-center gap-3">
+          {showGridControls && (
+            <GridToolbar
+              layout={layout}
+              filter={filter}
+              onLayoutChange={setLayout}
+              onFilterChange={setFilter}
+            />
+          )}
+          {totalPages > 1 && (
+            <span className="text-zinc-600 text-xs hidden sm:block">
+              Página {page} de {totalPages}
+            </span>
+          )}
+        </div>
       </div>
 
-      {/* Grid area */}
       <div className="p-3">
-        {cameras.length === 0 ? (
+        {displayCameras.length === 0 ? (
           <div className="aspect-video flex items-center justify-center">
             <div className="text-center">
               <svg
@@ -132,19 +154,22 @@ export function CameraViewerGrid({
                   d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z"
                 />
               </svg>
-              <p className="text-zinc-600 text-sm">Sin cámaras configuradas</p>
+              <p className="text-zinc-600 text-sm">
+                {filter === "favorites"
+                  ? "Sin favoritas — marca cámaras con ⭐"
+                  : "Sin cámaras configuradas"}
+              </p>
               <a
                 href="/cameras"
                 className="text-zinc-500 text-xs hover:text-zinc-400 underline mt-1 block"
               >
-                Ir a configuración
+                Ir a proveedores
               </a>
             </div>
           </div>
         ) : (
           <>
-            {/* 2×2 grid — using page as key prefix to force remount on page change */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+            <div className={`grid ${gridCols} gap-2 sm:gap-3`}>
               {visibleCameras.map((camera) => (
                 <CameraTile
                   key={`page${page}-${camera.id}`}
@@ -156,9 +181,8 @@ export function CameraViewerGrid({
                 />
               ))}
 
-              {/* Empty slots to maintain 2×2 grid */}
               {Array.from({
-                length: Math.max(0, 4 - visibleCameras.length),
+                length: Math.max(0, pageSize - visibleCameras.length),
               }).map((_, i) => (
                 <div
                   key={`empty-${i}`}
@@ -181,19 +205,18 @@ export function CameraViewerGrid({
               ))}
             </div>
 
-            {/* Pagination */}
             <CameraPagination
               page={page}
               totalPages={totalPages}
+              pageSize={pageSize}
               hasNext={hasNext}
               hasPrev={hasPrev}
               onNext={nextPage}
               onPrev={prevPage}
               onPage={goToPage}
-              totalCameras={cameras.length}
+              totalCameras={displayCameras.length}
             />
 
-            {/* Keyboard shortcut hint */}
             <div className="flex items-center justify-center gap-1.5 mt-2 opacity-40 hover:opacity-70 transition-opacity">
               <kbd className="font-mono text-[10px] px-1 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-400">
                 ?
@@ -206,12 +229,10 @@ export function CameraViewerGrid({
         )}
       </div>
 
-      {/* Single camera modal */}
       {selectedCamera && (
         <CameraModal camera={selectedCamera} onClose={handleModalClose} />
       )}
 
-      {/* Keyboard help overlay */}
       {showHelp && <KeyboardHelp onClose={() => setShowHelp(false)} />}
     </div>
   );

@@ -1,9 +1,7 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { CameraViewerItem } from "@/types/camera-viewer";
-
-const PAGE_SIZE = 4; // Max 4 cameras shown simultaneously
 
 export interface UseCameraPageResult {
   page: number;
@@ -17,18 +15,29 @@ export interface UseCameraPageResult {
 }
 
 /**
- * Manages pagination of cameras, max PAGE_SIZE (4) per page.
- * Changing page automatically triggers cleanup of WebRTC connections
- * via React key changes on CameraTile components.
+ * Paginates cameras with a configurable page size (4 for 2×2, 9 for 3×3).
+ * Page changes remount tiles via React keys → WebRTC connections close cleanly.
  */
-export function useCameraPage(cameras: CameraViewerItem[]): UseCameraPageResult {
+export function useCameraPage(
+  cameras: CameraViewerItem[],
+  pageSize: number,
+  resetKey?: string,
+): UseCameraPageResult {
   const [page, setPage] = useState(1);
 
-  const totalPages = Math.max(1, Math.ceil(cameras.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(cameras.length / pageSize));
+
+  useEffect(() => {
+    setPage(1);
+  }, [resetKey, pageSize]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   const visibleCameras = cameras.slice(
-    (page - 1) * PAGE_SIZE,
-    page * PAGE_SIZE,
+    (page - 1) * pageSize,
+    page * pageSize,
   );
 
   const goToPage = useCallback(
