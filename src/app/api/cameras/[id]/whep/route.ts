@@ -17,7 +17,10 @@ type RouteParams = { params: Promise<{ id: string }> };
  *   OPTIONS — preflight (not needed for same-origin, included for safety)
  */
 
-async function resolveWhepTarget(cameraId: string, streamType: "main" | "sub" = "main"): Promise<string | null> {
+async function resolveWhepTarget(
+  cameraId: string,
+  streamType: "main" | "sub" = "main",
+): Promise<string | null> {
   const camera = await prisma.camera.findUnique({
     where: { id: cameraId },
     include: { edgeServer: true },
@@ -41,14 +44,25 @@ async function resolveWhepTarget(cameraId: string, streamType: "main" | "sub" = 
 }
 
 /** Authenticate via Bearer token in Authorization header */
-async function authenticate(req: NextRequest, cameraId: string): Promise<boolean> {
+async function authenticate(
+  req: NextRequest,
+  cameraId: string,
+): Promise<boolean> {
   const authHeader = req.headers.get("Authorization") ?? "";
   const token = authHeader.replace(/^Bearer\s+/i, "");
-  if (!token) return false;
+
+  console.log("TOKEN PRESENT", !!token);
+  console.log("CAMERA ID", cameraId);
+
   try {
     const payload = await verifyStreamToken(token);
+
+    console.log("TOKEN PAYLOAD", payload);
+    console.log("PAYLOAD CAMERA", payload.cameraId);
+
     return payload.cameraId === cameraId;
-  } catch {
+  } catch (err) {
+    console.error("VERIFY FAILED", err);
     return false;
   }
 }
@@ -75,11 +89,15 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     );
   }
 
-  const streamType = (req.nextUrl.searchParams.get("type") ?? "main") as "main" | "sub";
+  const streamType = (req.nextUrl.searchParams.get("type") ?? "main") as
+    | "main"
+    | "sub";
   const target = await resolveWhepTarget(id, streamType);
   if (!target) {
     return NextResponse.json(
-      { error: { code: "NO_WEBRTC_URL", message: "URL WebRTC no configurada" } },
+      {
+        error: { code: "NO_WEBRTC_URL", message: "URL WebRTC no configurada" },
+      },
       { status: 422 },
     );
   }
@@ -116,10 +134,11 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
   const { id } = await params;
 
   const authorized = await authenticate(req, id);
-  if (!authorized) return NextResponse.json(
-    { error: { code: "UNAUTHORIZED", message: "Token inválido o expirado" } },
-    { status: 401 },
-  );
+  if (!authorized)
+    return NextResponse.json(
+      { error: { code: "UNAUTHORIZED", message: "Token inválido o expirado" } },
+      { status: 401 },
+    );
 
   const target = await resolveWhepTarget(id);
   if (!target) return new NextResponse(null, { status: 204 });
@@ -138,10 +157,11 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   const { id } = await params;
 
   const authorized = await authenticate(req, id);
-  if (!authorized) return NextResponse.json(
-    { error: { code: "UNAUTHORIZED", message: "Token inválido o expirado" } },
-    { status: 401 },
-  );
+  if (!authorized)
+    return NextResponse.json(
+      { error: { code: "UNAUTHORIZED", message: "Token inválido o expirado" } },
+      { status: 401 },
+    );
 
   const target = await resolveWhepTarget(id);
   if (!target) return new NextResponse(null, { status: 422 });
@@ -149,7 +169,10 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   const body = await req.text();
   const upstream = await fetch(target, {
     method: "PATCH",
-    headers: { "Content-Type": req.headers.get("Content-Type") ?? "application/trickle-ice-sdpfrag" },
+    headers: {
+      "Content-Type":
+        req.headers.get("Content-Type") ?? "application/trickle-ice-sdpfrag",
+    },
     body,
   });
 
