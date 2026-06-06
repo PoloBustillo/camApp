@@ -37,7 +37,10 @@ export class MediaMtxClient {
     const port = config.apiPort ?? 9997;
     this.baseUrl = `http://${config.tailscaleIp}:${port}`;
     this.timeout = config.timeout ?? 5000;
-    this.authHeader = MediaMtxClient.buildAuthHeader(config.username, config.password);
+    this.authHeader = MediaMtxClient.buildAuthHeader(
+      config.username,
+      config.password,
+    );
   }
 
   /** Create a client directly from an API URL (e.g. http://host:9997) */
@@ -48,7 +51,12 @@ export class MediaMtxClient {
     password?: string,
   ): MediaMtxClient {
     const normalised = apiUrl.replace(/\/$/, "");
-    const client = new MediaMtxClient({ tailscaleIp: "placeholder", timeout, username, password });
+    const client = new MediaMtxClient({
+      tailscaleIp: "placeholder",
+      timeout,
+      username,
+      password,
+    });
     (client as { baseUrl: string }).baseUrl = normalised;
     return client;
   }
@@ -120,9 +128,7 @@ export class MediaMtxClient {
    */
   async healthCheck(): Promise<HealthCheckResult> {
     try {
-      const { data, latencyMs } = await this.fetchWithTimeout(
-        "/v3/paths/list",
-      );
+      const { data, latencyMs } = await this.fetchWithTimeout("/v3/paths/list");
       const list = data as MediaMtxPathListResponse;
       return {
         healthy: true,
@@ -165,8 +171,7 @@ export class MediaMtxClient {
           reachable: false,
           latencyMs: this.timeout,
           apiVersion: "unknown",
-          error:
-            err instanceof Error ? err.message : "Connection refused",
+          error: err instanceof Error ? err.message : "Connection refused",
         };
       }
     }
@@ -201,26 +206,44 @@ export class MediaMtxClient {
   }
 
   /**
-   * Tests connectivity. Returns { ok, latencyMs, streamCount?, error? }.
-   * Alias for validateConnection() but uses healthCheck() semantics.
+   * Tests connectivity. Returns { ok, latencyMs, streamCount?, error?, testedUrl }.
+   * The testedUrl field shows exactly what URL was attempted, aiding diagnosis.
    */
   async testConnection(): Promise<{
     ok: boolean;
     latencyMs: number;
     streamCount?: number;
     error?: string;
+    testedUrl: string;
   }> {
+    const testedUrl = `${this.baseUrl}/v3/paths/list`;
     try {
       const { data, latencyMs } = await this.fetchWithTimeout("/v3/paths/list");
       const list = data as MediaMtxPathListResponse;
       const streamCount = list.itemCount ?? list.items?.length ?? 0;
-      return { ok: true, latencyMs, streamCount };
+      return { ok: true, latencyMs, streamCount, testedUrl };
     } catch (err) {
-      return {
-        ok: false,
-        latencyMs: this.timeout,
-        error: err instanceof Error ? err.message : "Unknown error",
-      };
+      let error = "Unknown error";
+      if (err instanceof Error) {
+        const msg = err.message.toLowerCase();
+        if (
+          err.name === "AbortError" ||
+          msg.includes("aborted") ||
+          msg.includes("timed out")
+        ) {
+          error = `Timeout after ${this.timeout}ms — check that port 9997 is open on the MediaMTX server`;
+        } else if (
+          msg.includes("econnrefused") ||
+          msg.includes("connection refused")
+        ) {
+          error = `Connection refused at ${this.baseUrl} — is MediaMTX running?`;
+        } else if (msg.includes("enotfound") || msg.includes("getaddrinfo")) {
+          error = `Host not found: ${this.baseUrl}`;
+        } else {
+          error = err.message;
+        }
+      }
+      return { ok: false, latencyMs: this.timeout, error, testedUrl };
     }
   }
 

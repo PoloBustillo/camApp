@@ -32,17 +32,27 @@ type TestResult = {
   latencyMs: number;
   streamCount?: number;
   error?: string;
+  testedUrl?: string;
+  hint?: string;
 };
 
-export function CameraPageClient({ cameras, sites, servers: initialServers }: Props) {
+export function CameraPageClient({
+  cameras,
+  sites,
+  servers: initialServers,
+}: Props) {
   const [activeTab, setActiveTab] = useState<Tab>("servers");
   const [servers, setServers] = useState(initialServers);
-  const [testResults, setTestResults] = useState<Record<string, TestResult>>({});
+  const [testResults, setTestResults] = useState<Record<string, TestResult>>(
+    {},
+  );
   const [loadingTest, setLoadingTest] = useState<Record<string, boolean>>({});
   const [loadingSync, setLoadingSync] = useState<Record<string, boolean>>({});
   const [syncResults, setSyncResults] = useState<Record<string, string>>({});
   const [showForm, setShowForm] = useState(false);
-  const [editTarget, setEditTarget] = useState<MediaMtxServerWithCount | null>(null);
+  const [editTarget, setEditTarget] = useState<MediaMtxServerWithCount | null>(
+    null,
+  );
   const [formError, setFormError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -169,13 +179,23 @@ export function CameraPageClient({ cameras, sites, servers: initialServers }: Pr
     <div>
       {/* Tabs */}
       <div className="flex gap-1 border-b border-border mb-6">
-        <button className={tabCls("servers")} onClick={() => setActiveTab("servers")}>
+        <button
+          className={tabCls("servers")}
+          onClick={() => setActiveTab("servers")}
+        >
           Servidores MediaMTX{" "}
-          <span className="ml-1 text-xs bg-muted rounded-full px-1.5 py-0.5">{servers.length}</span>
+          <span className="ml-1 text-xs bg-muted rounded-full px-1.5 py-0.5">
+            {servers.length}
+          </span>
         </button>
-        <button className={tabCls("cameras")} onClick={() => setActiveTab("cameras")}>
+        <button
+          className={tabCls("cameras")}
+          onClick={() => setActiveTab("cameras")}
+        >
           Cámaras{" "}
-          <span className="ml-1 text-xs bg-muted rounded-full px-1.5 py-0.5">{cameras.length}</span>
+          <span className="ml-1 text-xs bg-muted rounded-full px-1.5 py-0.5">
+            {cameras.length}
+          </span>
         </button>
       </div>
 
@@ -184,7 +204,8 @@ export function CameraPageClient({ cameras, sites, servers: initialServers }: Pr
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              {servers.length} servidor{servers.length !== 1 ? "es" : ""} registrado{servers.length !== 1 ? "s" : ""}
+              {servers.length} servidor{servers.length !== 1 ? "es" : ""}{" "}
+              registrado{servers.length !== 1 ? "s" : ""}
             </p>
             <div className="flex gap-2">
               <Link
@@ -205,7 +226,9 @@ export function CameraPageClient({ cameras, sites, servers: initialServers }: Pr
           {servers.length === 0 ? (
             <div className="text-center py-16 text-muted-foreground border border-dashed border-border rounded-lg">
               <p className="text-lg">No hay servidores MediaMTX registrados</p>
-              <p className="text-sm mt-1">Agrega un servidor para empezar a descubrir cámaras</p>
+              <p className="text-sm mt-1">
+                Agrega un servidor para empezar a descubrir cámaras
+              </p>
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -216,7 +239,9 @@ export function CameraPageClient({ cameras, sites, servers: initialServers }: Pr
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <h3 className="font-semibold text-foreground truncate">{server.name}</h3>
+                      <h3 className="font-semibold text-foreground truncate">
+                        {server.name}
+                      </h3>
                       {server.description && (
                         <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
                           {server.description}
@@ -236,24 +261,30 @@ export function CameraPageClient({ cameras, sites, servers: initialServers }: Pr
 
                   <div className="text-xs text-muted-foreground space-y-1 font-mono">
                     <div className="truncate">
-                      <span className="text-foreground font-sans font-medium">Base: </span>
+                      <span className="text-foreground font-sans font-medium">
+                        Base:{" "}
+                      </span>
                       {server.baseUrl}
                     </div>
                     <div className="truncate">
-                      <span className="text-foreground font-sans font-medium">API: </span>
+                      <span className="text-foreground font-sans font-medium">
+                        API:{" "}
+                      </span>
                       {server.apiUrl}
                     </div>
                   </div>
 
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <span className="font-medium text-foreground">{server._count.cameras}</span>{" "}
+                    <span className="font-medium text-foreground">
+                      {server._count.cameras}
+                    </span>{" "}
                     cámara{server._count.cameras !== 1 ? "s" : ""}
                   </div>
 
                   {/* Test result */}
                   {testResults[server.id] && (
                     <div
-                      className={`text-xs px-2 py-1 rounded ${
+                      className={`text-xs px-2 py-1.5 rounded space-y-1 ${
                         testResults[server.id].ok
                           ? "bg-green-50 text-green-700"
                           : "bg-red-50 text-red-600"
@@ -265,7 +296,19 @@ export function CameraPageClient({ cameras, sites, servers: initialServers }: Pr
                           {testResults[server.id].streamCount ?? 0} streams
                         </>
                       ) : (
-                        <>✗ {testResults[server.id].error}</>
+                        <>
+                          <div>✗ {testResults[server.id].error}</div>
+                          {testResults[server.id].testedUrl && (
+                            <div className="opacity-70 font-mono break-all">
+                              URL: {testResults[server.id].testedUrl}
+                            </div>
+                          )}
+                          {testResults[server.id].hint && (
+                            <div className="opacity-80 italic">
+                              {testResults[server.id].hint}
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   )}
@@ -320,14 +363,18 @@ export function CameraPageClient({ cameras, sites, servers: initialServers }: Pr
       )}
 
       {/* ─── Cameras tab ─── */}
-      {activeTab === "cameras" && <CameraList cameras={cameras} sites={sites} />}
+      {activeTab === "cameras" && (
+        <CameraList cameras={cameras} sites={sites} />
+      )}
 
       {/* ─── Server form modal ─── */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-background border border-border rounded-lg p-6 w-full max-w-lg shadow-lg max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-semibold mb-4">
-              {editTarget ? `Editar: ${editTarget.name}` : "Nuevo servidor MediaMTX"}
+              {editTarget
+                ? `Editar: ${editTarget.name}`
+                : "Nuevo servidor MediaMTX"}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -365,11 +412,16 @@ export function CameraPageClient({ cameras, sites, servers: initialServers }: Pr
                   type="url"
                   defaultValue={editTarget?.apiUrl ?? ""}
                   className={inputCls}
-                  placeholder="http://192.168.1.100:9997"
+                  placeholder="http://50.21.179.210:9997"
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Puerto 9997 (API REST de MediaMTX). Si está en el mismo servidor usa http://localhost:9997
+                </p>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Descripción</label>
+                <label className="block text-sm font-medium mb-1">
+                  Descripción
+                </label>
                 <textarea
                   name="description"
                   rows={2}
@@ -402,7 +454,11 @@ export function CameraPageClient({ cameras, sites, servers: initialServers }: Pr
                   disabled={isPending}
                   className="flex-1 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:bg-primary/90 disabled:opacity-50 transition-colors"
                 >
-                  {isPending ? "Guardando..." : editTarget ? "Actualizar" : "Crear"}
+                  {isPending
+                    ? "Guardando..."
+                    : editTarget
+                      ? "Actualizar"
+                      : "Crear"}
                 </button>
                 <button
                   type="button"

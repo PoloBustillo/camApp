@@ -22,5 +22,10 @@ export async function POST(_req: NextRequest, { params }: Params) {
   );
   const result = await client.testConnection();
 
-  return NextResponse.json({ data: result });
+  // Include a setup hint when the connection fails
+  const hint = result.ok
+    ? undefined
+    : "Ensure the apiUrl is set to http://<host>:9997 and port 9997 is reachable from this server. If MediaMTX is on the same machine, use http://localhost:9997.";
+
+  return NextResponse.json({ data: { ...result, ...(hint && { hint }) } });
 }
