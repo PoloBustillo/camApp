@@ -15,8 +15,9 @@ export async function createCameraAction(formData: FormData): Promise<ActionResu
   const user = session.user;
   if (user.role === "viewer") return { success: false, error: "Sin permisos" };
 
+  const siteId = formData.get("siteId");
   const parsed = createCameraSchema.safeParse({
-    siteId: formData.get("siteId"),
+    siteId: siteId && String(siteId) !== "" ? siteId : undefined,
     name: formData.get("name"),
     description: formData.get("description") || undefined,
     path: formData.get("path"),
@@ -28,12 +29,13 @@ export async function createCameraAction(formData: FormData): Promise<ActionResu
     return { success: false, error: Object.values(parsed.error.flatten().fieldErrors).flat().join(", ") };
   }
 
-  const site = await prisma.site.findFirst({ where: { id: parsed.data.siteId, deletedAt: null } });
-  if (!site) return { success: false, error: "Sitio no encontrado" };
-
-  const { path, ...rest } = parsed.data;
+  const { path, siteId: optionalSiteId, ...rest } = parsed.data;
   const camera = await prisma.camera.create({
-    data: { ...rest, pathEncrypted: encryptPath(path) },
+    data: {
+      ...rest,
+      ...(optionalSiteId ? { siteId: optionalSiteId } : {}),
+      pathEncrypted: encryptPath(path),
+    },
   });
 
   await prisma.auditLog.create({
@@ -82,7 +84,7 @@ export async function updateCameraAction(id: string, formData: FormData): Promis
 export async function deleteCameraAction(id: string): Promise<ActionResult> {
   const session = await requireSession();
   const user = session.user;
-  if (user.role !== "admin") return { success: false, error: "Solo admins pueden eliminar cámaras" };
+  if (user.role === "viewer") return { success: false, error: "Sin permisos" };
 
   const existing = await prisma.camera.findUnique({ where: { id } });
   if (!existing) return { success: false, error: "Cámara no encontrada" };

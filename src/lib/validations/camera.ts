@@ -3,7 +3,7 @@ import { z } from "zod";
 const PROTOCOLS = ["rtsp", "rtmp", "webrtc", "hls"] as const;
 
 export const createCameraSchema = z.object({
-  siteId: z.string().uuid("siteId debe ser un UUID válido"),
+  siteId: z.string().uuid().optional(),
   name: z.string().min(1, "Nombre requerido").max(255),
   description: z.string().max(1000).optional(),
   // path: ruta o URL completa. Puede contener credenciales → se cifra antes de almacenar

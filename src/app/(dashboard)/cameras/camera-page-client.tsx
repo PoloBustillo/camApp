@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import type { Camera, Site } from "@prisma/client";
+import type { Camera } from "@prisma/client";
 import { CameraList } from "./camera-list";
 import Link from "next/link";
 
-type CameraWithSite = Camera & { site: { id: string; name: string } | null };
+type CameraWithProvider = Camera & {
+  mediaMtxServer: { id: string; name: string } | null;
+};
 
 type MediaMtxServerWithCount = {
   id: string;
@@ -20,8 +22,7 @@ type MediaMtxServerWithCount = {
 };
 
 interface Props {
-  cameras: CameraWithSite[];
-  sites: Pick<Site, "id" | "name">[];
+  cameras: CameraWithProvider[];
   servers: MediaMtxServerWithCount[];
 }
 
@@ -38,7 +39,6 @@ type TestResult = {
 
 export function CameraPageClient({
   cameras,
-  sites,
   servers: initialServers,
 }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>("servers");
@@ -183,7 +183,7 @@ export function CameraPageClient({
           className={tabCls("servers")}
           onClick={() => setActiveTab("servers")}
         >
-          Servidores MediaMTX{" "}
+          Proveedores{" "}
           <span className="ml-1 text-xs bg-muted rounded-full px-1.5 py-0.5">
             {servers.length}
           </span>
@@ -363,9 +363,7 @@ export function CameraPageClient({
       )}
 
       {/* ─── Cameras tab ─── */}
-      {activeTab === "cameras" && (
-        <CameraList cameras={cameras} sites={sites} />
-      )}
+      {activeTab === "cameras" && <CameraList cameras={cameras} />}
 
       {/* ─── Server form modal ─── */}
       {showForm && (

@@ -5,7 +5,7 @@ import { CameraViewerGrid } from "@/components/camera-viewer/camera-grid";
 import { HealthWidget } from "@/components/camera-viewer/health-widget";
 import type { CameraViewerItem } from "@/types/camera-viewer";
 
-export const metadata: Metadata = { title: "Dashboard — CamWatch" };
+export const metadata: Metadata = { title: "Inicio — CamWatch" };
 
 async function fetchCamerasForViewer(): Promise<CameraViewerItem[]> {
   const rows = await prisma.camera.findMany({
@@ -47,7 +47,7 @@ export default async function DashboardPage() {
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-foreground">Monitoreo en vivo</h1>
+          <h1 className="text-xl font-bold text-foreground">Mis cámaras</h1>
         </div>
         <div className="pt-1 min-w-0">
           <HealthWidget

@@ -8,25 +8,14 @@ import { LogoutButton } from "@/components/auth/logout-button";
 interface NavShellProps {
   userName: string;
   userEmail: string;
-  userRole: string;
-  isAdmin: boolean;
   children: React.ReactNode;
 }
 
 const mainLinks = [
-  { href: "/dashboard", label: "Dashboard", icon: "🏠" },
+  { href: "/dashboard", label: "Inicio", icon: "🏠" },
+  { href: "/cameras", label: "Proveedores", icon: "📡" },
   { href: "/favorites", label: "Favoritas", icon: "⭐" },
-  { href: "/cameras", label: "Cámaras", icon: "📷" },
-  { href: "/cameras/discovery", label: "Descubrir", icon: "🔍" },
-  { href: "/layouts", label: "Layouts", icon: "⊞" },
-  { href: "/sites", label: "Sitios", icon: "📍" },
   { href: "/tv", label: "Modo TV", icon: "📺" },
-];
-
-const adminLinks = [
-  { href: "/admin/users", label: "Usuarios", icon: "⚙️" },
-  { href: "/admin/roles", label: "Roles", icon: "⚙️" },
-  { href: "/admin/audit", label: "Auditoría", icon: "⚙️" },
 ];
 
 const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
@@ -34,8 +23,6 @@ const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
 export function NavShell({
   userName,
   userEmail,
-  userRole,
-  isAdmin,
   children,
 }: NavShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -87,23 +74,6 @@ export function NavShell({
           {label}
         </Link>
       ))}
-      {isAdmin && (
-        <>
-          <div className="pt-3 pb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
-            Administración
-          </div>
-          {adminLinks.map(({ href, label }) => (
-            <Link
-              key={href}
-              href={href}
-              className={linkClass(href)}
-              onClick={() => setDrawerOpen(false)}
-            >
-              {label}
-            </Link>
-          ))}
-        </>
-      )}
     </>
   );
 
@@ -168,7 +138,6 @@ export function NavShell({
             <div className="border-t border-border px-4 py-4 space-y-1">
               <p className="text-xs text-muted-foreground truncate">{userName}</p>
               <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
-              <p className="text-[10px] text-muted-foreground/60 capitalize">{userRole}</p>
               <LogoutButton />
             </div>
           </div>
@@ -207,26 +176,6 @@ export function NavShell({
                   <span className="text-lg">{icon}</span>
                 </Link>
               ))}
-              {isAdmin && (
-                <>
-                  <div className="border-t border-border my-2" />
-                  {adminLinks.map(({ href, label, icon }) => (
-                    <Link
-                      key={href}
-                      href={href}
-                      title={label}
-                      className={[
-                        "flex items-center justify-center py-2 rounded transition-colors",
-                        isActive(href)
-                          ? "bg-muted text-foreground"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                      ].join(" ")}
-                    >
-                      <span className="text-lg">{icon}</span>
-                    </Link>
-                  ))}
-                </>
-              )}
             </>
           ) : (
             /* Expanded: full labels */
@@ -239,7 +188,6 @@ export function NavShell({
           <div className="border-t border-border pt-4 mt-4 space-y-1">
             <p className="text-xs text-muted-foreground truncate">{userName}</p>
             <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
-            <p className="text-[10px] text-muted-foreground/60 capitalize">{userRole}</p>
             <LogoutButton />
           </div>
         )}
@@ -270,7 +218,7 @@ export function NavShell({
           ].join(" ")}
         >
           <span className="text-lg leading-none">🏠</span>
-          <span>Dashboard</span>
+          <span>Inicio</span>
         </Link>
         <Link
           href="/cameras"
@@ -279,8 +227,8 @@ export function NavShell({
             isActive("/cameras") ? "text-primary font-medium" : "text-muted-foreground",
           ].join(" ")}
         >
-          <span className="text-lg leading-none">📷</span>
-          <span>Cámaras</span>
+          <span className="text-lg leading-none">📡</span>
+          <span>Proveedores</span>
         </Link>
         <Link
           href="/favorites"

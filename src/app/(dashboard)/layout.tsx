@@ -13,14 +13,11 @@ export default async function DashboardLayout({
 }) {
   const session = await requireSession();
   const user = session.user;
-  const isAdmin = user.role === "admin";
 
   return (
     <NavShell
       userName={user.name ?? ""}
       userEmail={user.email ?? ""}
-      userRole={user.role}
-      isAdmin={isAdmin}
     >
       {children}
     </NavShell>
