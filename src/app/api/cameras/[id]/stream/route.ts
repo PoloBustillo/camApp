@@ -46,10 +46,11 @@ export async function POST(_req: NextRequest, { params }: RouteParams) {
 
   const streamToken = await signStreamToken(camera.id, user.id);
 
-  // WHEP URL: configured base + /{cameraId}/whep
+  // WHEP URL: configured base + /{mediaMtxPath ?? cameraId}/whep
+  const streamPath = camera.mediaMtxPath ?? camera.id;
   const webrtcBase = process.env.MEDIAMTX_WEBRTC_URL ?? "";
   const whepUrl = webrtcBase
-    ? `${webrtcBase.replace(/\/$/, "")}/${camera.id}/whep`
+    ? `${webrtcBase.replace(/\/$/, "")}/${streamPath}/whep`
     : null;
 
   await prisma.auditLog.create({
