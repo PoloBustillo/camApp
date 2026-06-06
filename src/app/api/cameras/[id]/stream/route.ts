@@ -64,6 +64,6 @@ export async function POST(_req: NextRequest, { params }: RouteParams) {
     streamToken,
     cameraId: camera.id,
     whepUrl,
-    expiresIn: 30,
+    expiresIn: 90,
   });
 }

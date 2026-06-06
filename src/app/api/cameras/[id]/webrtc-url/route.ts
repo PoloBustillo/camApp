@@ -67,8 +67,8 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   const streamToken = await signStreamToken(camera.id, user.id);
 
   // Return proxy URL — browser calls our API (same origin, no CORS).
-  // The server resolves the actual MediaMTX target internally in /whep.
-  const whepUrl = `/api/cameras/${camera.id}/whep`;
+  // Pass streamType as query param so the proxy resolves the correct path.
+  const whepUrl = `/api/cameras/${camera.id}/whep?type=${streamType}`;
 
   // Audit log (non-blocking)
   prisma.auditLog.create({
@@ -85,6 +85,6 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     whepUrl,
     streamToken,
     streamType,
-    expiresIn: 30,
+    expiresIn: 90,
   });
 }

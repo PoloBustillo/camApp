@@ -1,6 +1,6 @@
 import { SignJWT, jwtVerify } from "jose"
 
-/** Genera un token temporal (30s) para acceso a stream en MediaMTX */
+/** Genera un token temporal (90s) para acceso a stream vía proxy WHEP */
 export async function signStreamToken(cameraId: string, userId: string) {
   const secret = new TextEncoder().encode(
     process.env.MEDIAMTX_JWT_SECRET ?? "change-me-stream-secret",
@@ -8,7 +8,7 @@ export async function signStreamToken(cameraId: string, userId: string) {
   return new SignJWT({ cameraId, userId })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime("30s")
+    .setExpirationTime("90s")
     .sign(secret)
 }
 

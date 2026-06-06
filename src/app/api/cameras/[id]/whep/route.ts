@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyStreamToken } from "@/lib/stream";
-import { Errors } from "@/lib/errors";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -18,7 +17,7 @@ type RouteParams = { params: Promise<{ id: string }> };
  *   OPTIONS — preflight (not needed for same-origin, included for safety)
  */
 
-async function resolveWhepTarget(cameraId: string): Promise<string | null> {
+async function resolveWhepTarget(cameraId: string, streamType: "main" | "sub" = "main"): Promise<string | null> {
   const camera = await prisma.camera.findUnique({
     where: { id: cameraId },
     include: { edgeServer: true },
@@ -26,7 +25,11 @@ async function resolveWhepTarget(cameraId: string): Promise<string | null> {
 
   if (!camera) return null;
 
-  const streamPath = camera.mediaMtxPath ?? camera.id;
+  // Respect streamType: sub uses substreamPath when available
+  const streamPath =
+    streamType === "sub"
+      ? (camera.substreamPath ?? camera.mediaMtxPath ?? camera.id)
+      : (camera.mediaMtxPath ?? camera.id);
 
   if (camera.edgeServer) {
     const { publicHost, webrtcPort } = camera.edgeServer;
@@ -65,9 +68,15 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   const { id } = await params;
 
   const authorized = await authenticate(req, id);
-  if (!authorized) return Errors.unauthorized();
+  if (!authorized) {
+    return NextResponse.json(
+      { error: { code: "UNAUTHORIZED", message: "Token inválido o expirado" } },
+      { status: 401 },
+    );
+  }
 
-  const target = await resolveWhepTarget(id);
+  const streamType = (req.nextUrl.searchParams.get("type") ?? "main") as "main" | "sub";
+  const target = await resolveWhepTarget(id, streamType);
   if (!target) {
     return NextResponse.json(
       { error: { code: "NO_WEBRTC_URL", message: "URL WebRTC no configurada" } },
@@ -93,7 +102,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   const location = upstream.headers.get("Location");
   if (location) {
     // Rewrite MediaMTX's location to our proxy so teardown also goes through us
-    resHeaders.set("Location", `/api/cameras/${id}/whep`);
+    resHeaders.set("Location", `/api/cameras/${id}/whep?type=${streamType}`);
     resHeaders.set("X-Upstream-Location", location);
   }
 
@@ -107,7 +116,10 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
   const { id } = await params;
 
   const authorized = await authenticate(req, id);
-  if (!authorized) return Errors.unauthorized();
+  if (!authorized) return NextResponse.json(
+    { error: { code: "UNAUTHORIZED", message: "Token inválido o expirado" } },
+    { status: 401 },
+  );
 
   const target = await resolveWhepTarget(id);
   if (!target) return new NextResponse(null, { status: 204 });
@@ -126,7 +138,10 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   const { id } = await params;
 
   const authorized = await authenticate(req, id);
-  if (!authorized) return Errors.unauthorized();
+  if (!authorized) return NextResponse.json(
+    { error: { code: "UNAUTHORIZED", message: "Token inválido o expirado" } },
+    { status: 401 },
+  );
 
   const target = await resolveWhepTarget(id);
   if (!target) return new NextResponse(null, { status: 422 });
