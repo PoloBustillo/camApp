@@ -204,6 +204,7 @@ export function CameraList({ cameras: initialCameras }: Props) {
                   required={!editTarget}
                   type="text"
                   className={inputCls}
+                  defaultValue={editTarget?.mediaMtxPath ?? ""}
                   placeholder="rtsp://user:pass@192.168.1.100:554/stream"
                 />
                 {editTarget && (
