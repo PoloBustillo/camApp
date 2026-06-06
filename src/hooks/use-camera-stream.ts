@@ -165,16 +165,10 @@ export function useCameraStream({
 
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
-        const basicAuth = Buffer.from(
-          `${process.env.MEDIAMTX_USER}:${process.env.MEDIAMTX_PASSWORD}`,
-        ).toString("base64");
 
         const whepRes = await fetch(info.whepUrl, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/sdp",
-            Authorization: `Basic ${basicAuth}`,
-          },
+          headers: { "Content-Type": "application/sdp" },
           body: pc.localDescription!.sdp,
         });
 

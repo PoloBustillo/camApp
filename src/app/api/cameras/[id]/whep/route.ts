@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyStreamToken } from "@/lib/stream";
+import { requireAuth } from "@/lib/middleware";
+import { MediaMtxClient } from "@/lib/mediamtx/client";
 
 type RouteParams = { params: Promise<{ id: string }> };
+
+/** Basic Auth header for upstream MediaMTX (server-side credentials). */
+function mediaMtxAuthHeader(): string | null {
+  return MediaMtxClient.buildAuthHeader(
+    process.env.MEDIAMTX_USER,
+    process.env.MEDIAMTX_PASSWORD,
+  );
+}
 
 /**
  * /api/cameras/:id/whep — Server-side WHEP proxy
@@ -43,30 +52,6 @@ async function resolveWhepTarget(
   return base ? `${base.replace(/\/$/, "")}/${streamPath}/whep` : null;
 }
 
-/** Authenticate via Bearer token in Authorization header */
-async function authenticate(
-  req: NextRequest,
-  cameraId: string,
-): Promise<boolean> {
-  const authHeader = req.headers.get("Authorization") ?? "";
-  const token = authHeader.replace(/^Bearer\s+/i, "");
-
-  console.log("TOKEN PRESENT", !!token);
-  console.log("CAMERA ID", cameraId);
-
-  try {
-    const payload = await verifyStreamToken(token);
-
-    console.log("TOKEN PAYLOAD", payload);
-    console.log("PAYLOAD CAMERA", payload.cameraId);
-
-    return payload.cameraId === cameraId;
-  } catch (err) {
-    console.error("VERIFY FAILED", err);
-    return false;
-  }
-}
-
 export async function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
@@ -79,15 +64,10 @@ export async function OPTIONS() {
 }
 
 export async function POST(req: NextRequest, { params }: RouteParams) {
-  const { id } = await params;
+  const user = await requireAuth();
+  if (user instanceof NextResponse) return user;
 
-  // const authorized = await authenticate(req, id);
-  // if (!authorized) {
-  //   return NextResponse.json(
-  //     { error: { code: "UNAUTHORIZED", message: "Token inválido o expirado" } },
-  //     { status: 401 },
-  //   );
-  // }
+  const { id } = await params;
 
   const streamType = (req.nextUrl.searchParams.get("type") ?? "main") as
     | "main"
@@ -104,9 +84,13 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
   const sdpOffer = await req.text();
 
+  const upstreamHeaders: HeadersInit = { "Content-Type": "application/sdp" };
+  const mtxAuth = mediaMtxAuthHeader();
+  if (mtxAuth) upstreamHeaders["Authorization"] = mtxAuth;
+
   const upstream = await fetch(target, {
     method: "POST",
-    headers: { "Content-Type": "application/sdp" },
+    headers: upstreamHeaders,
     body: sdpOffer,
   });
 
@@ -131,21 +115,21 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 }
 
 export async function DELETE(req: NextRequest, { params }: RouteParams) {
-  const { id } = await params;
+  const user = await requireAuth();
+  if (user instanceof NextResponse) return user;
 
-  // const authorized = await authenticate(req, id);
-  // if (!authorized)
-  //   return NextResponse.json(
-  //     { error: { code: "UNAUTHORIZED", message: "Token inválido o expirado" } },
-  //     { status: 401 },
-  //   );
+  const { id } = await params;
 
   const target = await resolveWhepTarget(id);
   if (!target) return new NextResponse(null, { status: 204 });
 
+  const deleteHeaders: HeadersInit = {};
+  const mtxAuth = mediaMtxAuthHeader();
+  if (mtxAuth) deleteHeaders["Authorization"] = mtxAuth;
+
   // Forward DELETE to teardown the WHEP session on MediaMTX
   try {
-    await fetch(target, { method: "DELETE" });
+    await fetch(target, { method: "DELETE", headers: deleteHeaders });
   } catch {
     // Best-effort teardown — ignore errors
   }
@@ -154,25 +138,25 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
 }
 
 export async function PATCH(req: NextRequest, { params }: RouteParams) {
-  const { id } = await params;
+  const user = await requireAuth();
+  if (user instanceof NextResponse) return user;
 
-  // const authorized = await authenticate(req, id);
-  // if (!authorized)
-  //   return NextResponse.json(
-  //     { error: { code: "UNAUTHORIZED", message: "Token inválido o expirado" } },
-  //     { status: 401 },
-  //   );
+  const { id } = await params;
 
   const target = await resolveWhepTarget(id);
   if (!target) return new NextResponse(null, { status: 422 });
 
   const body = await req.text();
+  const patchHeaders: HeadersInit = {
+    "Content-Type":
+      req.headers.get("Content-Type") ?? "application/trickle-ice-sdpfrag",
+  };
+  const mtxAuth = mediaMtxAuthHeader();
+  if (mtxAuth) patchHeaders["Authorization"] = mtxAuth;
+
   const upstream = await fetch(target, {
     method: "PATCH",
-    headers: {
-      "Content-Type":
-        req.headers.get("Content-Type") ?? "application/trickle-ice-sdpfrag",
-    },
+    headers: patchHeaders,
     body,
   });
 

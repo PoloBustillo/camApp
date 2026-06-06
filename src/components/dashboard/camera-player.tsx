@@ -35,11 +35,11 @@ type PlayerState = "idle" | "loading" | "playing" | "error" | "offline";
  * WebRTC camera player using WHEP protocol.
  *
  * Flow:
- *  1. POST /api/cameras/:id/stream  → { streamToken, whepUrl }
+ *  1. POST /api/cameras/:id/stream  → { whepUrl }
  *  2. WHEP negotiation:
  *     - Create RTCPeerConnection
  *     - Create SDP offer
- *     - POST offer to whepUrl with Authorization: Bearer <streamToken>
+ *     - POST offer to whepUrl (session cookie auth; proxy adds Basic Auth to MediaMTX)
  *     - Set answer as remote description
  *  3. `<video>` renders the remote track
  */
@@ -135,17 +135,10 @@ export function CameraPlayer({
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
-      const basicAuth = Buffer.from(
-        `${process.env.MEDIAMTX_USER}:${process.env.MEDIAMTX_PASSWORD}`,
-      ).toString("base64");
-
-      // Send offer to MediaMTX WHEP endpoint
+      // Send offer to our WHEP proxy (same origin — session cookie authenticates the user)
       const whepRes = await fetch(info.whepUrl, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/sdp",
-          Authorization: `Basic ${basicAuth}`,
-        },
+        headers: { "Content-Type": "application/sdp" },
         body: pc.localDescription!.sdp,
       });
 

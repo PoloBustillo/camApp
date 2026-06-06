@@ -9,10 +9,10 @@ type RouteParams = { params: Promise<{ id: string }> };
 /**
  * POST /api/cameras/:id/stream
  *
- * Genera un token temporal (30s) para acceder al stream vía MediaMTX WebRTC (WHEP).
+ * Genera un token temporal (90s) para auditoría de acceso al stream.
  * Devuelve:
- *   - streamToken: JWT para autenticar en MediaMTX
- *   - whepUrl: URL completa WHEP para RTCPeerConnection
+ *   - streamToken: JWT interno (no se envía a MediaMTX)
+ *   - whepUrl: URL del proxy WHEP (same-origin)
  *   - cameraId
  */
 export async function POST(_req: NextRequest, { params }: RouteParams) {
