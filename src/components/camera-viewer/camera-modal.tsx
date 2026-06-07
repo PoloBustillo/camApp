@@ -7,7 +7,8 @@ import { captureVideoSnapshot } from "@/lib/capture-snapshot";
 import { CameraStatusBadge } from "./camera-status-badge";
 import { VideoControlsPanel } from "./video-controls-panel";
 import type { CameraViewerItem } from "@/types/camera-viewer";
-import { X, VolumeX, Volume2, Camera, Maximize2 } from "lucide-react";
+import { X, VolumeX, Volume2, Camera, Maximize2, History } from "lucide-react";
+import Link from "next/link";
 
 interface CameraModalProps {
   camera: CameraViewerItem;
@@ -215,6 +216,14 @@ export function CameraModal({ camera, onClose }: CameraModalProps) {
                   <Camera className="w-5 h-5" />
                 </button>
 
+                <Link
+                  href={`/recordings?cameraId=${camera.id}`}
+                  className="p-2 rounded-lg bg-black/50 text-white/70 hover:text-white hover:bg-black/70 transition-all"
+                  title="Ver grabaciones"
+                >
+                  <History className="w-5 h-5" />
+                </Link>
+
                 <button
                   type="button"
                   onClick={handleFullscreen}
@@ -295,6 +304,14 @@ export function CameraModal({ camera, onClose }: CameraModalProps) {
             <Camera className="w-4 h-4" />
             Guardar snapshot
           </button>
+
+          <Link
+            href={`/recordings?cameraId=${camera.id}`}
+            className="w-full px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm transition-all inline-flex items-center justify-center gap-2"
+          >
+            <History className="w-4 h-4" />
+            Ver grabaciones
+          </Link>
         </div>
       </div>
     </div>

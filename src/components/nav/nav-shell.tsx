@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogoutButton } from "@/components/auth/logout-button";
-import { Home, Satellite, Star, Tv, Shield, Menu, X, ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
+import { Home, Satellite, Star, Tv, Shield, History, Menu, X, ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
 
 interface NavShellProps {
   userName: string;
@@ -92,6 +92,16 @@ export function NavShell({
         >
           <Shield className="w-4 h-4 shrink-0" />
           Usuarios
+        </Link>
+      )}
+      {canManage && (
+        <Link
+          href="/recordings"
+          className={linkClass("/recordings")}
+          onClick={() => setDrawerOpen(false)}
+        >
+          <History className="w-4 h-4 shrink-0" />
+          Grabaciones
         </Link>
       )}
     </>
@@ -207,6 +217,20 @@ export function NavShell({
                   ].join(" ")}
                 >
                   <Shield className="w-5 h-5" />
+                </Link>
+              )}
+              {canManage && (
+                <Link
+                  href="/recordings"
+                  title="Grabaciones"
+                  className={[
+                    "flex items-center justify-center py-2 rounded transition-colors",
+                    isActive("/recordings")
+                      ? "bg-muted text-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  ].join(" ")}
+                >
+                  <History className="w-5 h-5" />
                 </Link>
               )}
             </>

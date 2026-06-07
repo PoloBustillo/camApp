@@ -76,6 +76,7 @@ enum AuditAction {
   stream_access
   auth_failure
   system_event
+  recording_deleted
 }
 
 // ─────────────────────────────────────────
@@ -177,12 +178,31 @@ model Camera {
   layoutCells    LayoutCell[]
   streamEvents   StreamEvent[]
   favoritedBy    UserFavorite[]
+  recordings     Recording[]
 
   @@index([siteId], name: "idx_cameras_site")
   @@index([enabled], name: "idx_cameras_enabled")
   @@index([mediaMtxServerId], name: "idx_cameras_mediamtx_server")
   @@index([edgeServerId], name: "idx_cameras_edge_server")
   @@map("cameras")
+}
+
+model Recording {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cameraId   String    @map("camera_id") @db.Uuid
+  date       DateTime  @db.Date
+  fileName   String    @db.VarChar(255)
+  startTime  DateTime  @map("start_time") @db.Timestamptz()
+  endTime    DateTime? @map("end_time") @db.Timestamptz()
+  duration   Int?     // seconds
+  fileSize   Int?     // bytes
+  thumbnail  String?  @db.VarChar(500)
+
+  camera Camera @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+
+  @@unique([cameraId, date, fileName])
+  @@index([cameraId, date(sort: Desc)], name: "idx_recordings_camera_date")
+  @@map("recordings")
 }
 
 model Layout {

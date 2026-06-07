@@ -134,6 +134,21 @@ export interface UpdateUserRequest {
   status?: UserStatus;
 }
 
+// ─── Recordings ─────────────────────────────────────────
+
+export interface Recording {
+  id: string;
+  cameraId: string;
+  date: string;
+  fileName: string;
+  startTime: string;
+  endTime: string | null;
+  duration: number | null;
+  fileSize: number | null;
+  thumbnail: string | null;
+  cameraName?: string;
+}
+
 // ─── Edge Servers ────────────────────────────────────────
 
 export interface EdgeServer {
