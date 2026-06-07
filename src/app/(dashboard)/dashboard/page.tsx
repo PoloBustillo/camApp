@@ -55,9 +55,6 @@ export default async function DashboardPage() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-foreground">Mis cámaras</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Grid 2×2 o 3×3 · filtra favoritas · abre una cámara para audio y snapshot
-          </p>
         </div>
         <div className="pt-1 min-w-0">
           <HealthWidget
