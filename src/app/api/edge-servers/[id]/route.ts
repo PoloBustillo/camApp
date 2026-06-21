@@ -8,7 +8,7 @@ const updateEdgeServerSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   tailscaleIp: z
     .string()
-    .regex(/^100\.\d{1,3}\.\d{1,3}\.\d{1,3}$/)
+    .regex(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/)
     .optional(),
   serverType: z.enum(["mediaMtx", "go2rtc"]).optional(),
   mediamtxApiPort: z.number().int().min(1).max(65535).optional(),
