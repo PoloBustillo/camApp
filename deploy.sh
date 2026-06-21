@@ -13,9 +13,9 @@ fi
 echo "📥 Pulling latest changes..."
 git pull origin main
 
-echo "🔨 Building Docker images..."
-docker compose -f docker-compose.prod.yml build web
-docker compose --profile migration -f docker-compose.prod.yml build migrate
+echo "🔨 Building Docker images (no cache)..."
+docker compose -f docker-compose.prod.yml build --no-cache web
+docker compose --profile migration -f docker-compose.prod.yml build --no-cache migrate
 
 echo "⬆️  Starting postgres and redis..."
 docker compose -f docker-compose.prod.yml up -d postgres redis

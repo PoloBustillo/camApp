@@ -233,7 +233,7 @@ export default function DiscoveryPage() {
             </div>
             <div>
               <span className="font-medium">Cámaras importadas:</span>{" "}
-              {selectedServer._count.cameras}
+              {selectedServer._count?.cameras ?? 0}
             </div>
           </div>
         )}

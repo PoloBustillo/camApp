@@ -279,9 +279,9 @@ export function CameraPageClient({
 
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
                     <span className="font-medium text-foreground">
-                      {server._count.cameras}
+                      {server._count?.cameras ?? 0}
                     </span>{" "}
-                    cámara{server._count.cameras !== 1 ? "s" : ""}
+                    cámara{(server._count?.cameras ?? 0) !== 1 ? "s" : ""}
                   </div>
 
                   {/* Test result */}
