@@ -33,7 +33,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   const existingPaths = await prisma.camera.findMany({
     where: {
-      mediaMtxServerId: id,
+      edgeServerId: id,
       mediaMtxPath: { in: paths.map((p) => p.name) },
     },
     select: { mediaMtxPath: true },
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       prisma.camera.create({
         data: {
           name: p.cameraName ?? p.name,
-          mediaMtxServerId: id,
+          edgeServerId: id,
           mediaMtxPath: p.name,
           siteId: siteId ?? null,
           pathEncrypted: encryptPath(p.name),
