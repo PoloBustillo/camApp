@@ -225,9 +225,9 @@ export function CameraPageClient({
 
           {servers.length === 0 ? (
             <div className="text-center py-16 text-muted-foreground border border-dashed border-border rounded-lg">
-              <p className="text-lg">No hay servidores MediaMTX registrados</p>
+              <p className="text-lg">No hay servidores registrados</p>
               <p className="text-sm mt-1">
-                Agrega un servidor para empezar a descubrir cámaras
+                Agrega un servidor MediaMTX o go2rtc para empezar
               </p>
             </div>
           ) : (
@@ -372,7 +372,7 @@ export function CameraPageClient({
             <h2 className="text-lg font-semibold mb-4">
               {editTarget
                 ? `Editar: ${editTarget.name}`
-                : "Nuevo servidor MediaMTX"}
+                : "Nuevo servidor"}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -384,7 +384,7 @@ export function CameraPageClient({
                   required
                   defaultValue={editTarget?.name ?? ""}
                   className={inputCls}
-                  placeholder="Mi servidor MediaMTX"
+                  placeholder="Mi servidor"
                 />
               </div>
               <div>
@@ -413,7 +413,7 @@ export function CameraPageClient({
                   placeholder="http://50.21.179.210:9997"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Puerto 9997 (API REST de MediaMTX). Si está en el mismo servidor usa http://localhost:9997
+                  MediaMTX: puerto 9997 | go2rtc: puerto 1984
                 </p>
               </div>
               <div>

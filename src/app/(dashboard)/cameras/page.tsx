@@ -28,7 +28,7 @@ export default async function CamerasPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground">Proveedores</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Conecta tus servidores MediaMTX y agrega cámaras de cada proveedor
+          Conecta servidores MediaMTX o go2rtc y agrega cámaras
         </p>
       </div>
       <CameraPageClient cameras={cameras} servers={servers} />

@@ -177,7 +177,7 @@ export default function DiscoveryPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Descubrimiento de Cámaras</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Conecta con un servidor MediaMTX y descubre los streams disponibles
+            Conecta con un servidor MediaMTX o go2rtc y descubre los streams
           </p>
         </div>
       </div>
