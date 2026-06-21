@@ -7,9 +7,7 @@ import { createStreamClient } from "@/lib/stream-client";
  * Safe to call on every page load — no-ops if no servers configured.
  */
 export async function syncCameraStatus(): Promise<void> {
-  const servers = await prisma.edgeServer.findMany({
-    where: { status: { not: "disabled" } },
-  });
+  const servers = await prisma.edgeServer.findMany();
 
   if (servers.length === 0) return;
 

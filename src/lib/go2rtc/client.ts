@@ -172,9 +172,9 @@ export class Go2RtcClient {
   > {
     const { data } = await this.fetchWithTimeout("/api/streams");
     const streams = data as Go2RtcStreamsResponse;
-    return Object.entries(streams).map(([name, stream]) => ({
+    return Object.entries(streams).map(([name]) => ({
       name,
-      ready: (stream.producers?.length ?? 0) > 0,
+      ready: true,
       readyTime: null,
     }));
   }
@@ -183,10 +183,11 @@ export class Go2RtcClient {
 // ─── Helpers ───────────────────────────────────────────────────
 
 function go2rtcStreamToStatus(name: string, stream: Go2RtcStreamsResponse[string]): StreamStatus {
-  const hasProducers = (stream.producers?.length ?? 0) > 0;
+  // In go2rtc, if a stream exists in /api/streams it is configured and available.
+  // The source connects on first consumer, so we don't require producers to mark ready.
   return {
     name,
-    ready: hasProducers,
+    ready: true,
     readyTime: null,
     tracks: [],
     readerCount: stream.consumers?.length ?? 0,
