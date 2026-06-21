@@ -16,6 +16,7 @@ function mediaMtxAuthHeader(): string | null {
 type EdgeServerRecord = {
   serverType: string;
   publicHost: string;
+  go2rtcApiPort: number;
   webrtcPort: number;
   go2rtcWebRtcPort: number;
 };
@@ -56,7 +57,7 @@ async function resolveWhepTarget(
     if (server.serverType === "go2rtc") {
       const internalHost = process.env.GO2RTC_INTERNAL_HOST ?? server.publicHost;
       return {
-        url: `http://${internalHost}:${server.go2rtcWebRtcPort}/api/webrtc?src=${streamPath}`,
+        url: `http://${internalHost}:${server.go2rtcApiPort}/api/webrtc?src=${streamPath}`,
         serverType: "go2rtc",
       };
     }
