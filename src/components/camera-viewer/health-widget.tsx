@@ -25,6 +25,8 @@ export function HealthWidget({ initial, pollInterval = 30_000 }: HealthWidgetPro
   const refresh = useCallback(async () => {
     setUpdating(true);
     try {
+      // Sync camera status from streaming servers, then read updated DB
+      await fetch("/api/edge-servers/sync-all", { method: "POST" }).catch(() => {});
       const res = await fetch("/api/cameras?limit=200&enabled=true");
       if (res.ok) {
         const json = await res.json();
