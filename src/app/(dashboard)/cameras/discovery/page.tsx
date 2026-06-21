@@ -7,9 +7,10 @@ import Link from "next/link";
 type MediaMtxServer = {
   id: string;
   name: string;
-  baseUrl: string;
-  apiUrl: string;
-  enabled: boolean;
+  tailscaleIp: string;
+  serverType: string;
+  mediamtxApiPort: number;
+  go2rtcApiPort: number;
   _count: { cameras: number };
 };
 
@@ -60,7 +61,7 @@ export default function DiscoveryPage() {
   // Load servers and sites on mount
   useEffect(() => {
     Promise.all([
-      fetch("/api/mediamtx-servers").then((r) => r.json()),
+      fetch("/api/edge-servers").then((r) => r.json()),
       fetch("/api/sites").then((r) => r.json()),
     ]).then(([serversJson, sitesJson]) => {
       const serverList: MediaMtxServer[] = serversJson.data ?? [];
@@ -82,7 +83,7 @@ export default function DiscoveryPage() {
     setLoadingTest(true);
     setTestResult(null);
     try {
-      const res = await fetch(`/api/mediamtx-servers/${selectedServerId}/test`, {
+      const res = await fetch(`/api/edge-servers/${selectedServerId}/test`, {
         method: "POST",
       });
       const json = await res.json();
@@ -102,7 +103,7 @@ export default function DiscoveryPage() {
     setSelectedPaths(new Set());
     setImportResult(null);
     try {
-      const res = await fetch(`/api/mediamtx-servers/${selectedServerId}/paths`);
+      const res = await fetch(`/api/edge-servers/${selectedServerId}/paths`);
       const json = await res.json();
       if (res.ok) {
         setPaths(json.data?.paths ?? []);
@@ -139,7 +140,7 @@ export default function DiscoveryPage() {
     setImportError(null);
     setImportResult(null);
     try {
-      const res = await fetch(`/api/mediamtx-servers/${selectedServerId}/import`, {
+      const res = await fetch(`/api/edge-servers/${selectedServerId}/import`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -216,7 +217,7 @@ export default function DiscoveryPage() {
             <option value="">-- Selecciona un servidor --</option>
             {servers.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.name} — {s.apiUrl}
+                {s.name} — {s.tailscaleIp}
               </option>
             ))}
           </select>
@@ -225,10 +226,10 @@ export default function DiscoveryPage() {
         {selectedServer && (
           <div className="text-xs text-muted-foreground bg-muted/30 rounded p-3 space-y-1">
             <div>
-              <span className="font-medium">Base URL:</span> {selectedServer.baseUrl}
+              <span className="font-medium">IP:</span> {selectedServer.tailscaleIp}
             </div>
             <div>
-              <span className="font-medium">API URL:</span> {selectedServer.apiUrl}
+              <span className="font-medium">Tipo:</span> {selectedServer.serverType === "go2rtc" ? "go2rtc" : "MediaMTX"}
             </div>
             <div>
               <span className="font-medium">Cámaras importadas:</span>{" "}

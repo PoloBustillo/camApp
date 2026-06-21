@@ -9,21 +9,23 @@ type CameraWithProvider = Camera & {
   mediaMtxServer: { id: string; name: string } | null;
 };
 
-type MediaMtxServerWithCount = {
+type EdgeServerWithCount = {
   id: string;
   name: string;
-  baseUrl: string;
-  apiUrl: string;
-  description: string | null;
-  enabled: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  tailscaleIp: string;
+  serverType: string;
+  mediamtxApiPort: number;
+  webrtcPort: number;
+  go2rtcApiPort: number;
+  go2rtcWebRtcPort: number;
+  publicHost: string;
+  status: string;
   _count: { cameras: number };
 };
 
 interface Props {
   cameras: CameraWithProvider[];
-  servers: MediaMtxServerWithCount[];
+  servers: EdgeServerWithCount[];
 }
 
 type Tab = "servers" | "cameras";
@@ -50,7 +52,7 @@ export function CameraPageClient({
   const [loadingSync, setLoadingSync] = useState<Record<string, boolean>>({});
   const [syncResults, setSyncResults] = useState<Record<string, string>>({});
   const [showForm, setShowForm] = useState(false);
-  const [editTarget, setEditTarget] = useState<MediaMtxServerWithCount | null>(
+  const [editTarget, setEditTarget] = useState<EdgeServerWithCount | null>(
     null,
   );
   const [formError, setFormError] = useState<string | null>(null);
@@ -62,7 +64,7 @@ export function CameraPageClient({
   async function handleTest(serverId: string) {
     setLoadingTest((prev) => ({ ...prev, [serverId]: true }));
     try {
-      const res = await fetch(`/api/mediamtx-servers/${serverId}/test`, {
+      const res = await fetch(`/api/edge-servers/${serverId}/test`, {
         method: "POST",
       });
       const json = await res.json();
@@ -81,7 +83,7 @@ export function CameraPageClient({
     setLoadingSync((prev) => ({ ...prev, [serverId]: true }));
     setSyncResults((prev) => ({ ...prev, [serverId]: "" }));
     try {
-      const res = await fetch(`/api/mediamtx-servers/${serverId}/sync`, {
+      const res = await fetch(`/api/edge-servers/${serverId}/sync`, {
         method: "POST",
       });
       const json = await res.json();
@@ -104,9 +106,9 @@ export function CameraPageClient({
     }
   }
 
-  async function handleDelete(server: MediaMtxServerWithCount) {
+  async function handleDelete(server: EdgeServerWithCount) {
     if (!confirm(`¿Eliminar el servidor "${server.name}"?`)) return;
-    const res = await fetch(`/api/mediamtx-servers/${server.id}`, {
+    const res = await fetch(`/api/edge-servers/${server.id}`, {
       method: "DELETE",
     });
     if (res.ok || res.status === 204) {
@@ -123,7 +125,7 @@ export function CameraPageClient({
     setFormError(null);
   }
 
-  function openEdit(server: MediaMtxServerWithCount) {
+  function openEdit(server: EdgeServerWithCount) {
     setEditTarget(server);
     setShowForm(true);
     setFormError(null);
@@ -138,19 +140,23 @@ export function CameraPageClient({
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
+    const serverType = fd.get("serverType") as string;
     const payload = {
       name: fd.get("name"),
-      baseUrl: fd.get("baseUrl"),
-      apiUrl: fd.get("apiUrl"),
-      description: fd.get("description") || undefined,
-      enabled: fd.get("enabled") === "true",
+      tailscaleIp: fd.get("tailscaleIp"),
+      publicHost: fd.get("publicHost"),
+      serverType,
+      mediamtxApiPort: Number(fd.get("mediamtxApiPort")) || 9997,
+      webrtcPort: Number(fd.get("webrtcPort")) || 8889,
+      go2rtcApiPort: Number(fd.get("go2rtcApiPort")) || 9997,
+      go2rtcWebRtcPort: Number(fd.get("go2rtcWebRtcPort")) || 8889,
     };
 
     setFormError(null);
     startTransition(async () => {
       const url = editTarget
-        ? `/api/mediamtx-servers/${editTarget.id}`
-        : "/api/mediamtx-servers";
+        ? `/api/edge-servers/${editTarget.id}`
+        : "/api/edge-servers";
       const method = editTarget ? "PATCH" : "POST";
 
       const res = await fetch(url, {
@@ -242,35 +248,32 @@ export function CameraPageClient({
                       <h3 className="font-semibold text-foreground truncate">
                         {server.name}
                       </h3>
-                      {server.description && (
-                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                          {server.description}
-                        </p>
-                      )}
                     </div>
                     <span
                       className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                        server.enabled
+                        server.status === "online"
                           ? "bg-green-100 text-green-700"
-                          : "bg-gray-100 text-gray-500"
+                          : server.status === "offline"
+                            ? "bg-red-100 text-red-700"
+                            : "bg-gray-100 text-gray-500"
                       }`}
                     >
-                      {server.enabled ? "Habilitado" : "Deshabilitado"}
+                      {server.status}
                     </span>
                   </div>
 
                   <div className="text-xs text-muted-foreground space-y-1 font-mono">
                     <div className="truncate">
                       <span className="text-foreground font-sans font-medium">
-                        Base:{" "}
+                        IP:{" "}
                       </span>
-                      {server.baseUrl}
+                      {server.tailscaleIp}
                     </div>
                     <div className="truncate">
                       <span className="text-foreground font-sans font-medium">
-                        API:{" "}
+                        Tipo:{" "}
                       </span>
-                      {server.apiUrl}
+                      {server.serverType === "go2rtc" ? "go2rtc" : "MediaMTX"}
                     </div>
                   </div>
 
@@ -389,55 +392,91 @@ export function CameraPageClient({
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">
-                  URL Base <span className="text-destructive">*</span>
+                  Tailscale IP <span className="text-destructive">*</span>
                 </label>
                 <input
-                  name="baseUrl"
+                  name="tailscaleIp"
                   required
-                  type="url"
-                  defaultValue={editTarget?.baseUrl ?? ""}
+                  defaultValue={editTarget?.tailscaleIp ?? ""}
                   className={inputCls}
-                  placeholder="http://192.168.1.100:8554"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  URL API <span className="text-destructive">*</span>
-                </label>
-                <input
-                  name="apiUrl"
-                  required
-                  type="url"
-                  defaultValue={editTarget?.apiUrl ?? ""}
-                  className={inputCls}
-                  placeholder="http://50.21.179.210:9997"
+                  placeholder="100.95.180.101"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  MediaMTX: puerto 9997 | go2rtc: puerto 1984
+                  IP de Tailscale del servidor edge
                 </p>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">
-                  Descripción
+                  Host Público <span className="text-destructive">*</span>
                 </label>
-                <textarea
-                  name="description"
-                  rows={2}
-                  defaultValue={editTarget?.description ?? ""}
-                  className={`${inputCls} resize-none`}
-                  placeholder="Descripción opcional"
+                <input
+                  name="publicHost"
+                  required
+                  defaultValue={editTarget?.publicHost ?? ""}
+                  className={inputCls}
+                  placeholder="50.21.179.210"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Estado</label>
+                <label className="block text-sm font-medium mb-1">
+                  Tipo de Servidor <span className="text-destructive">*</span>
+                </label>
                 <select
-                  name="enabled"
-                  defaultValue={String(editTarget?.enabled ?? true)}
+                  name="serverType"
+                  defaultValue={editTarget?.serverType ?? "go2rtc"}
                   className={inputCls}
                 >
-                  <option value="true">Habilitado</option>
-                  <option value="false">Deshabilitado</option>
+                  <option value="go2rtc">go2rtc</option>
+                  <option value="mediaMtx">MediaMTX</option>
                 </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Puerto API (go2rtc)
+                  </label>
+                  <input
+                    name="go2rtcApiPort"
+                    type="number"
+                    defaultValue={editTarget?.go2rtcApiPort ?? 9997}
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Puerto WebRTC (go2rtc)
+                  </label>
+                  <input
+                    name="go2rtcWebRtcPort"
+                    type="number"
+                    defaultValue={editTarget?.go2rtcWebRtcPort ?? 8889}
+                    className={inputCls}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Puerto API (MediaMTX)
+                  </label>
+                  <input
+                    name="mediamtxApiPort"
+                    type="number"
+                    defaultValue={editTarget?.mediamtxApiPort ?? 9997}
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Puerto WebRTC (MediaMTX)
+                  </label>
+                  <input
+                    name="webrtcPort"
+                    type="number"
+                    defaultValue={editTarget?.webrtcPort ?? 8889}
+                    className={inputCls}
+                  />
+                </div>
               </div>
 
               {formError && (

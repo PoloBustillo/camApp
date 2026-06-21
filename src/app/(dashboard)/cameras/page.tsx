@@ -17,7 +17,7 @@ export default async function CamerasPage() {
         mediaMtxServer: { select: { id: true, name: true } },
       },
     }),
-    prisma.mediaMtxServer.findMany({
+    prisma.edgeServer.findMany({
       orderBy: { name: "asc" },
       include: { _count: { select: { cameras: true } } },
     }),
