@@ -55,7 +55,6 @@ export async function GET(req: NextRequest) {
         substreamPath: true,
         edgeServerId: true,
         site: { select: { id: true, name: true } },
-        // pathEncrypted nunca se expone al cliente
       },
       skip: (page - 1) * limit,
       take: limit,

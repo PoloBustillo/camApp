@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { CameraViewerGrid } from "@/components/camera-viewer/camera-grid";
 import { HealthWidget } from "@/components/camera-viewer/health-widget";
+import { syncCameraStatus } from "@/lib/sync-cameras";
 import type { CameraViewerItem } from "@/types/camera-viewer";
 
 export const metadata: Metadata = { title: "Inicio — CamWatch" };
@@ -39,6 +40,10 @@ async function fetchCamerasForViewer(): Promise<CameraViewerItem[]> {
 
 export default async function DashboardPage() {
   const session = await requireSession();
+
+  // Sync camera online status from streaming servers (best-effort, non-blocking)
+  await syncCameraStatus();
+
   const cameras = await fetchCamerasForViewer();
 
   const favorites = await prisma.userFavorite.findMany({

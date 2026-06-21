@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { requireSession, isAdmin, isOperator } from "@/lib/session";
 import { redirect } from "next/navigation";
+import { syncCameraStatus } from "@/lib/sync-cameras";
 import { CameraPageClient } from "./camera-page-client";
 
 export const metadata: Metadata = { title: "Proveedores — CamWatch" };
@@ -9,6 +10,8 @@ export const metadata: Metadata = { title: "Proveedores — CamWatch" };
 export default async function CamerasPage() {
   const session = await requireSession();
   if (!(isAdmin(session.user) || isOperator(session.user))) redirect("/dashboard");
+
+  await syncCameraStatus();
 
   const [cameras, servers] = await Promise.all([
     prisma.camera.findMany({
