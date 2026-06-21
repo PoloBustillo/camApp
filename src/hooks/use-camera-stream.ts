@@ -195,12 +195,28 @@ export function useCameraStream({
         }
 
         const answerSdp = await whepRes.text();
-        await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
 
         // ── 3. Wait for video ────────────────────────────────────────
+        // Set onplaying BEFORE setRemoteDescription to avoid race condition
         if (videoRef.current) {
-          videoRef.current.onplaying = () => setStateAndNotify("playing");
-          videoRef.current.play().catch(() => {});
+          const video = videoRef.current;
+          video.onplaying = () => setStateAndNotify("playing");
+
+          await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
+          video.play().catch(() => {});
+
+          // Fallback: if onplaying never fires, poll for playing state
+          setTimeout(() => {
+            if (
+              video.readyState >= 2 &&
+              !video.paused &&
+              state !== "playing"
+            ) {
+              setStateAndNotify("playing");
+            }
+          }, 2000);
+        } else {
+          await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
         }
       } catch (err) {
         const msg =
