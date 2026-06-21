@@ -39,6 +39,11 @@ enum EdgeStatus {
   unknown
 }
 
+enum ServerType {
+  mediaMtx
+  go2rtc
+}
+
 enum CameraProtocol {
   rtsp
   rtmp
@@ -110,8 +115,11 @@ model EdgeServer {
   id              String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name            String     @db.VarChar(255)
   tailscaleIp     String     @unique @map("tailscale_ip") @db.VarChar(50)
+  serverType      ServerType @default(mediaMtx) @map("server_type")
   mediamtxApiPort Int        @default(9997) @map("mediamtx_api_port") @db.SmallInt
   webrtcPort      Int        @default(8889) @map("webrtc_port") @db.SmallInt
+  go2rtcApiPort   Int        @default(1984) @map("go2rtc_api_port") @db.SmallInt
+  go2rtcWebRtcPort Int       @default(8555) @map("go2rtc_webrtc_port") @db.SmallInt
   publicHost      String     @map("public_host") @db.VarChar(255)
   status          EdgeStatus @default(unknown)
   lastSeenAt      DateTime?  @map("last_seen_at") @db.Timestamptz()

@@ -7,8 +7,11 @@ import { Errors } from "@/lib/errors";
 const createEdgeServerSchema = z.object({
   name: z.string().min(1).max(255),
   tailscaleIp: z.string().regex(/^100\.\d{1,3}\.\d{1,3}\.\d{1,3}$/),
+  serverType: z.enum(["mediaMtx", "go2rtc"]).optional().default("mediaMtx"),
   mediamtxApiPort: z.number().int().min(1).max(65535).optional(),
   webrtcPort: z.number().int().min(1).max(65535).optional(),
+  go2rtcApiPort: z.number().int().min(1).max(65535).optional(),
+  go2rtcWebRtcPort: z.number().int().min(1).max(65535).optional(),
   publicHost: z.string().min(1).max(255),
 });
 

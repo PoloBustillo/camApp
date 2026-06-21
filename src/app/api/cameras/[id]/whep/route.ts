@@ -13,6 +13,13 @@ function mediaMtxAuthHeader(): string | null {
   );
 }
 
+type EdgeServerRecord = {
+  serverType: string;
+  publicHost: string;
+  webrtcPort: number;
+  go2rtcWebRtcPort: number;
+};
+
 /**
  * /api/cameras/:id/whep — Server-side WHEP proxy
  *
@@ -29,7 +36,7 @@ function mediaMtxAuthHeader(): string | null {
 async function resolveWhepTarget(
   cameraId: string,
   streamType: "main" | "sub" = "main",
-): Promise<string | null> {
+): Promise<{ url: string; serverType: string } | null> {
   const camera = await prisma.camera.findUnique({
     where: { id: cameraId },
     include: { edgeServer: true },
@@ -44,12 +51,26 @@ async function resolveWhepTarget(
       : (camera.mediaMtxPath ?? camera.id);
 
   if (camera.edgeServer) {
-    const { publicHost, webrtcPort } = camera.edgeServer;
-    return `http://${publicHost}:${webrtcPort}/${streamPath}/whep`;
+    const server = camera.edgeServer as unknown as EdgeServerRecord;
+
+    if (server.serverType === "go2rtc") {
+      return {
+        url: `http://${server.publicHost}:${server.go2rtcWebRtcPort}/api/webrtc?src=${streamPath}`,
+        serverType: "go2rtc",
+      };
+    }
+
+    // Default: MediaMTX
+    return {
+      url: `http://${server.publicHost}:${server.webrtcPort}/${streamPath}/whep`,
+      serverType: "mediaMtx",
+    };
   }
 
   const base = process.env.MEDIAMTX_WEBRTC_URL ?? "";
-  return base ? `${base.replace(/\/$/, "")}/${streamPath}/whep` : null;
+  return base
+    ? { url: `${base.replace(/\/$/, "")}/${streamPath}/whep`, serverType: "mediaMtx" }
+    : null;
 }
 
 export async function OPTIONS() {
@@ -88,7 +109,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   const mtxAuth = mediaMtxAuthHeader();
   if (mtxAuth) upstreamHeaders["Authorization"] = mtxAuth;
 
-  const upstream = await fetch(target, {
+  const upstream = await fetch(target.url, {
     method: "POST",
     headers: upstreamHeaders,
     body: sdpOffer,
@@ -103,7 +124,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   // Forward Location header for WHEP session teardown (DELETE)
   const location = upstream.headers.get("Location");
   if (location) {
-    // Rewrite MediaMTX's location to our proxy so teardown also goes through us
+    // Rewrite upstream location to our proxy so teardown also goes through us
     resHeaders.set("Location", `/api/cameras/${id}/whep?type=${streamType}`);
     resHeaders.set("X-Upstream-Location", location);
   }
@@ -127,9 +148,9 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
   const mtxAuth = mediaMtxAuthHeader();
   if (mtxAuth) deleteHeaders["Authorization"] = mtxAuth;
 
-  // Forward DELETE to teardown the WHEP session on MediaMTX
+  // Forward DELETE to teardown the WHEP session
   try {
-    await fetch(target, { method: "DELETE", headers: deleteHeaders });
+    await fetch(target.url, { method: "DELETE", headers: deleteHeaders });
   } catch {
     // Best-effort teardown — ignore errors
   }
@@ -154,7 +175,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   const mtxAuth = mediaMtxAuthHeader();
   if (mtxAuth) patchHeaders["Authorization"] = mtxAuth;
 
-  const upstream = await fetch(target, {
+  const upstream = await fetch(target.url, {
     method: "PATCH",
     headers: patchHeaders,
     body,

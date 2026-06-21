@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/middleware";
 import { Errors } from "@/lib/errors";
-import { MediaMtxClient } from "@/lib/mediamtx/client";
+import { createStreamClient } from "@/lib/stream-client";
 import type { SyncResult } from "@/lib/mediamtx/types";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -10,12 +10,12 @@ type RouteParams = { params: Promise<{ id: string }> };
 /**
  * POST /api/edge-servers/[id]/sync
  *
- * Syncs the online status of all cameras against the MediaMTX streams list.
+ * Syncs the online status of all cameras against the streaming server streams list.
  *
  * Matching convention:
  *   Cameras are matched by mediaMtxPath if set, falling back to the camera UUID.
  *   Only cameras assigned to this edge server are evaluated.
- *   If MediaMTX reports that path as `ready: true`, the camera is marked online.
+ *   If the stream is `ready: true`, the camera is marked online.
  *
  * Requires: admin or operator role.
  */
@@ -30,8 +30,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   const server = await prisma.edgeServer.findUnique({ where: { id } });
   if (!server) return Errors.notFound("Servidor Edge");
 
-  const client = MediaMtxClient.fromEdgeServer(
-    server,
+  const client = createStreamClient(
+    server as unknown as Parameters<typeof createStreamClient>[0],
     process.env.MEDIAMTX_USER,
     process.env.MEDIAMTX_PASSWORD,
   );
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
           synced: 0,
           online: 0,
           offline: 0,
-          errors: [health.error ?? "MediaMTX unreachable"],
+          errors: [health.error ?? "Server unreachable"],
           latencyMs: Date.now() - start,
         } satisfies SyncResult,
       },
@@ -70,14 +70,14 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     );
   }
 
-  // ─── 2. List streams from MediaMTX ──────────────────────────
+  // ─── 2. List streams from server ─────────────────────────────
   let streams;
   try {
     streams = await client.listStreams();
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Failed to list streams";
     return NextResponse.json(
-      { error: "mediamtx_error", message: msg },
+      { error: "stream_server_error", message: msg },
       { status: 502 },
     );
   }
@@ -116,8 +116,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
               cameraId: cam.id,
               eventType: isOnline ? "online" : "offline",
               message: isOnline
-                ? `Camera came online via MediaMTX sync`
-                : `Camera went offline via MediaMTX sync`,
+                ? `Camera came online via server sync`
+                : `Camera went offline via server sync`,
             },
           });
         }

@@ -155,8 +155,11 @@ export interface EdgeServer {
   id: string;
   name: string;
   tailscaleIp: string;
+  serverType: "mediaMtx" | "go2rtc";
   mediamtxApiPort: number;
   webrtcPort: number;
+  go2rtcApiPort: number;
+  go2rtcWebRtcPort: number;
   publicHost: string;
   status: EdgeStatus;
   lastSeenAt: string | null;
