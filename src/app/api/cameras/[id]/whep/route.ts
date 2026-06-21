@@ -54,8 +54,9 @@ async function resolveWhepTarget(
     const server = camera.edgeServer as unknown as EdgeServerRecord;
 
     if (server.serverType === "go2rtc") {
+      const internalHost = process.env.GO2RTC_INTERNAL_HOST ?? server.publicHost;
       return {
-        url: `http://${server.publicHost}:${server.go2rtcWebRtcPort}/api/webrtc?src=${streamPath}`,
+        url: `http://${internalHost}:${server.go2rtcWebRtcPort}/api/webrtc?src=${streamPath}`,
         serverType: "go2rtc",
       };
     }

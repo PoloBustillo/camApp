@@ -4,6 +4,7 @@ import { Go2RtcClient } from "@/lib/go2rtc/client";
 type EdgeServerRecord = {
   serverType: string;
   tailscaleIp: string;
+  publicHost: string;
   mediamtxApiPort: number;
   go2rtcApiPort: number;
 };

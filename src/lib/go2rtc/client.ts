@@ -26,12 +26,13 @@ export class Go2RtcClient {
   }
 
   static fromEdgeServer(
-    server: { tailscaleIp: string; go2rtcApiPort: number },
+    server: { tailscaleIp: string; go2rtcApiPort: number; publicHost?: string },
     _username?: string,
     _password?: string,
   ): Go2RtcClient {
+    const internalHost = process.env.GO2RTC_INTERNAL_HOST ?? server.publicHost ?? server.tailscaleIp;
     return new Go2RtcClient({
-      tailscaleIp: server.tailscaleIp,
+      tailscaleIp: internalHost,
       apiPort: server.go2rtcApiPort,
     });
   }
