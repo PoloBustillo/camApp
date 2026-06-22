@@ -51,10 +51,10 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
   if (!health.healthy) {
     // Mark only cameras on this edge server as offline
-    await prisma.camera.updateMany({
-      where: { edgeServerId: id, site: { deletedAt: null } },
-      data: { online: false },
-    });
+      await prisma.camera.updateMany({
+        where: { edgeServerId: id, enabled: true },
+        data: { online: false },
+      });
 
     return NextResponse.json(
       {
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
   // ─── 3. Load all active cameras ─────────────────────────────
   const cameras = await prisma.camera.findMany({
-    where: { edgeServerId: id, enabled: true, site: { deletedAt: null } },
+    where: { edgeServerId: id, enabled: true },
     select: { id: true, name: true, mediaMtxPath: true, online: true },
   });
 
