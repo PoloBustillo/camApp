@@ -5,12 +5,56 @@ import { MediaMtxClient } from "@/lib/mediamtx/client";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
+const UPSTREAM_TIMEOUT_MS = 8_000;
+const MAX_UPSTREAM_RETRIES = 1;
+
 /** Basic Auth header for upstream MediaMTX (server-side credentials). */
 function mediaMtxAuthHeader(): string | null {
   return MediaMtxClient.buildAuthHeader(
     process.env.MEDIAMTX_USER,
     process.env.MEDIAMTX_PASSWORD,
   );
+}
+
+function isRetryableError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const msg = err.message.toLowerCase();
+  return (
+    msg.includes("econnrefused") ||
+    msg.includes("econnreset") ||
+    msg.includes("etimedout") ||
+    msg.includes("socket hang up") ||
+    msg.includes("network") ||
+    err.name === "AbortError"
+  );
+}
+
+async function fetchUpstreamWithRetry(
+  url: string,
+  options: RequestInit,
+): Promise<Response> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= MAX_UPSTREAM_RETRIES; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
+      try {
+        const res = await fetch(url, { ...options, signal: controller.signal });
+        clearTimeout(timer);
+        return res;
+      } finally {
+        clearTimeout(timer);
+      }
+    } catch (err) {
+      lastError = err;
+      if (attempt < MAX_UPSTREAM_RETRIES && isRetryableError(err)) {
+        await new Promise((r) => setTimeout(r, 500));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastError;
 }
 
 type EdgeServerRecord = {
@@ -111,30 +155,42 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   const mtxAuth = mediaMtxAuthHeader();
   if (mtxAuth) upstreamHeaders["Authorization"] = mtxAuth;
 
-  const upstream = await fetch(target.url, {
-    method: "POST",
-    headers: upstreamHeaders,
-    body: sdpOffer,
-  });
+  try {
+    const upstream = await fetchUpstreamWithRetry(target.url, {
+      method: "POST",
+      headers: upstreamHeaders,
+      body: sdpOffer,
+    });
 
-  const sdpAnswer = await upstream.text();
+    const sdpAnswer = await upstream.text();
 
-  const resHeaders = new Headers({
-    "Content-Type": upstream.headers.get("Content-Type") ?? "application/sdp",
-  });
+    const resHeaders = new Headers({
+      "Content-Type": upstream.headers.get("Content-Type") ?? "application/sdp",
+    });
 
-  // Forward Location header for WHEP session teardown (DELETE)
-  const location = upstream.headers.get("Location");
-  if (location) {
-    // Rewrite upstream location to our proxy so teardown also goes through us
-    resHeaders.set("Location", `/api/cameras/${id}/whep?type=${streamType}`);
-    resHeaders.set("X-Upstream-Location", location);
+    const location = upstream.headers.get("Location");
+    if (location) {
+      resHeaders.set("Location", `/api/cameras/${id}/whep?type=${streamType}`);
+      resHeaders.set("X-Upstream-Location", location);
+    }
+
+    return new NextResponse(sdpAnswer, {
+      status: upstream.status,
+      headers: resHeaders,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Upstream unreachable";
+    const code =
+      msg.includes("ECONNREFUSED") || msg.includes("connection refused")
+        ? "CAMERA_OFFLINE"
+        : msg.includes("AbortError") || msg.includes("aborted")
+          ? "STREAM_TIMEOUT"
+          : "STREAM_ERROR";
+    return NextResponse.json(
+      { error: { code, message: msg } },
+      { status: 502 },
+    );
   }
-
-  return new NextResponse(sdpAnswer, {
-    status: upstream.status,
-    headers: resHeaders,
-  });
 }
 
 export async function DELETE(req: NextRequest, { params }: RouteParams) {
@@ -152,7 +208,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
 
   // Forward DELETE to teardown the WHEP session
   try {
-    await fetch(target.url, { method: "DELETE", headers: deleteHeaders });
+    await fetchUpstreamWithRetry(target.url, { method: "DELETE", headers: deleteHeaders });
   } catch {
     // Best-effort teardown — ignore errors
   }
@@ -177,7 +233,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   const mtxAuth = mediaMtxAuthHeader();
   if (mtxAuth) patchHeaders["Authorization"] = mtxAuth;
 
-  const upstream = await fetch(target.url, {
+  const upstream = await fetchUpstreamWithRetry(target.url, {
     method: "PATCH",
     headers: patchHeaders,
     body,

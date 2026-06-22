@@ -32,12 +32,8 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       { status: 503 },
     );
   }
-  if (!camera.online) {
-    return NextResponse.json(
-      { error: { code: "CAMERA_OFFLINE", message: "Cámara offline" } },
-      { status: 503 },
-    );
-  }
+
+  const isOffline = !camera.online;
 
   // Determine stream path
   const streamPath =
@@ -86,5 +82,6 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     streamToken,
     streamType,
     expiresIn: 90,
+    isOffline,
   });
 }

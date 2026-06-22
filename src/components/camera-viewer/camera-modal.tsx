@@ -21,6 +21,8 @@ export function CameraModal({ camera, onClose }: CameraModalProps) {
     errorMsg,
     videoRef,
     retry,
+    cancelRetry,
+    isAutoRetrying,
     isMuted,
     hasAudio,
     volume,
@@ -140,7 +142,10 @@ export function CameraModal({ camera, onClose }: CameraModalProps) {
                 {(state === "error" || state === "offline") && (
                   <div className="flex flex-col items-center gap-3">
                     <p className="text-white/50">{errorMsg ?? "Cámara no disponible"}</p>
-                    {state === "error" && (
+                    {isAutoRetrying && (
+                      <p className="text-white/30 text-xs">Reintentando cada 30s...</p>
+                    )}
+                    <div className="flex gap-2">
                       <button
                         type="button"
                         onClick={retry}
@@ -148,7 +153,16 @@ export function CameraModal({ camera, onClose }: CameraModalProps) {
                       >
                         Reintentar
                       </button>
-                    )}
+                      {isAutoRetrying && (
+                        <button
+                          type="button"
+                          onClick={cancelRetry}
+                          className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white/50 text-sm transition-all"
+                        >
+                          Cancelar
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

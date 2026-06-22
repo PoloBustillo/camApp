@@ -24,6 +24,8 @@ export interface UseCameraStreamResult {
   connect: () => Promise<void>;
   disconnect: () => void;
   retry: () => Promise<void>;
+  cancelRetry: () => void;
+  isAutoRetrying: boolean;
   isMuted: boolean;
   hasAudio: boolean;
   volume: number;
@@ -31,17 +33,18 @@ export interface UseCameraStreamResult {
   setVolume: (v: number) => void;
 }
 
-const MAX_RECONNECT_ATTEMPTS = 3;
+const MAX_FAST_ATTEMPTS = 3;
+const POLL_INTERVAL_MS = 30_000;
 
 /**
  * Manages a single WebRTC/WHEP connection for one camera.
  *
- * Architecture decisions:
- * - Fetches WHEP URL server-side to avoid exposing internal IPs
- * - RTCPeerConnection is created fresh on each connect() call
- * - disconnect() closes the PC immediately and frees resources
- * - Suitable for use with IntersectionObserver (connect/disconnect on visibility)
- * - Auto-reconnect with exponential backoff on ICE failure
+ * Two-phase retry strategy:
+ * - Phase 1 (fast): 3 attempts with exponential backoff (1s, 2s, 4s)
+ * - Phase 2 (polling): every 30s indefinitely until camera responds or user cancels
+ *
+ * Handles CAMERA_OFFLINE / STREAM_TIMEOUT errors from the WHEP proxy by
+ * entering Phase 2 immediately (network issues take time to resolve).
  */
 export function useCameraStream({
   cameraId,
@@ -57,10 +60,11 @@ export function useCameraStream({
   const [isMuted, setIsMuted] = useState(startMuted);
   const [hasAudio, setHasAudio] = useState(false);
   const [volume, setVolumeState] = useState(1);
+  const [isAutoRetrying, setIsAutoRetrying] = useState(false);
 
   const reconnectAttemptsRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Forward reference so timer callbacks always call the latest connect
+  const cancelledRef = useRef(false);
   const connectRef = useRef<((isAutoRetry?: boolean) => Promise<void>) | null>(
     null,
   );
@@ -73,12 +77,42 @@ export function useCameraStream({
     [onStateChange],
   );
 
-  const disconnect = useCallback(() => {
+  const clearReconnectTimer = useCallback(() => {
     if (reconnectTimerRef.current) {
       clearTimeout(reconnectTimerRef.current);
       reconnectTimerRef.current = null;
     }
+  }, []);
+
+  const scheduleReconnect = useCallback(
+    (delayMs: number) => {
+      clearReconnectTimer();
+      setIsAutoRetrying(true);
+      reconnectTimerRef.current = setTimeout(() => {
+        reconnectTimerRef.current = null;
+        connectRef.current?.(true);
+      }, delayMs);
+    },
+    [clearReconnectTimer],
+  );
+
+  const cancelRetry = useCallback(() => {
+    cancelledRef.current = true;
+    clearReconnectTimer();
     reconnectAttemptsRef.current = 0;
+    setIsAutoRetrying(false);
+    setState((prev) =>
+      prev === "reconnecting" || prev === "error" || prev === "offline"
+        ? "idle"
+        : prev,
+    );
+  }, [clearReconnectTimer]);
+
+  const disconnect = useCallback(() => {
+    cancelledRef.current = true;
+    clearReconnectTimer();
+    reconnectAttemptsRef.current = 0;
+    setIsAutoRetrying(false);
 
     if (pcRef.current) {
       pcRef.current.close();
@@ -92,19 +126,18 @@ export function useCameraStream({
         ? "idle"
         : prev,
     );
-  }, []);
+  }, [clearReconnectTimer]);
 
   const connect = useCallback(
     async (isAutoRetry = false) => {
       if (!isAutoRetry) {
         reconnectAttemptsRef.current = 0;
+        cancelledRef.current = false;
       }
 
-      // Close any existing connection without resetting the attempts counter
-      if (reconnectTimerRef.current) {
-        clearTimeout(reconnectTimerRef.current);
-        reconnectTimerRef.current = null;
-      }
+      if (cancelledRef.current) return;
+
+      clearReconnectTimer();
       if (pcRef.current) {
         pcRef.current.close();
         pcRef.current = null;
@@ -125,14 +158,30 @@ export function useCameraStream({
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
           const code = body?.error?.code ?? "STREAM_ERROR";
-          if (code === "CAMERA_OFFLINE" || code === "CAMERA_DISABLED") {
+          if (code === "CAMERA_DISABLED") {
             setStateAndNotify("offline");
+            setErrorMsg("Cámara deshabilitada");
+            return;
+          }
+          if (code === "CAMERA_OFFLINE" || code === "STREAM_TIMEOUT") {
+            // Network issue — go straight to Phase 2 polling
+            setStateAndNotify("offline");
+            setErrorMsg("Cámara offline — reintentando cada 30s...");
+            scheduleReconnect(POLL_INTERVAL_MS);
             return;
           }
           throw new Error(body?.error?.message ?? `HTTP ${res.status}`);
         }
 
         const info: WebRtcStreamInfo = await res.json();
+
+        // If server says camera is offline, enter polling mode
+        if (info.isOffline) {
+          setStateAndNotify("offline");
+          setErrorMsg("Cámara offline — reintentando cada 30s...");
+          scheduleReconnect(POLL_INTERVAL_MS);
+          return;
+        }
 
         // ── 2. WebRTC WHEP negotiation ───────────────────────────────
         const pc = new RTCPeerConnection({
@@ -156,25 +205,27 @@ export function useCameraStream({
         };
 
         pc.oniceconnectionstatechange = () => {
+          if (cancelledRef.current) return;
+
           if (
             pc.iceConnectionState === "failed" ||
             pc.iceConnectionState === "disconnected"
           ) {
-            if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
+            if (reconnectAttemptsRef.current < MAX_FAST_ATTEMPTS) {
+              // Phase 1: fast exponential backoff (1s, 2s, 4s)
               const attempt = reconnectAttemptsRef.current + 1;
               reconnectAttemptsRef.current = attempt;
-              const delay = Math.pow(2, attempt - 1) * 1000; // 1s, 2s, 4s
+              const delay = Math.pow(2, attempt - 1) * 1000;
               setStateAndNotify("reconnecting");
               setErrorMsg(
-                `Reconectando... (intento ${attempt}/${MAX_RECONNECT_ATTEMPTS})`,
+                `Reconectando... (intento ${attempt}/${MAX_FAST_ATTEMPTS})`,
               );
-              reconnectTimerRef.current = setTimeout(
-                () => connectRef.current?.(true),
-                delay,
-              );
+              scheduleReconnect(delay);
             } else {
-              setStateAndNotify("error");
-              setErrorMsg("No se pudo reconectar después de 3 intentos");
+              // Phase 2: slow polling every 30s
+              setStateAndNotify("offline");
+              setErrorMsg("Cámara offline — reintentando cada 30s...");
+              scheduleReconnect(POLL_INTERVAL_MS);
             }
           }
         };
@@ -189,18 +240,34 @@ export function useCameraStream({
         });
 
         if (!whepRes.ok) {
+          const errBody = await whepRes.json().catch(() => ({}));
+          const errCode = errBody?.error?.code;
+          if (
+            errCode === "CAMERA_OFFLINE" ||
+            errCode === "STREAM_TIMEOUT" ||
+            whepRes.status === 502
+          ) {
+            // Upstream unreachable — enter polling mode
+            setStateAndNotify("offline");
+            setErrorMsg("Cámara offline — reintentando cada 30s...");
+            scheduleReconnect(POLL_INTERVAL_MS);
+            return;
+          }
           throw new Error(
-            `WHEP error ${whepRes.status}: ${await whepRes.text()}`,
+            `WHEP error ${whepRes.status}: ${errBody?.error?.message ?? await whepRes.text()}`,
           );
         }
 
         const answerSdp = await whepRes.text();
 
         // ── 3. Wait for video ────────────────────────────────────────
-        // Set onplaying BEFORE setRemoteDescription to avoid race condition
         if (videoRef.current) {
           const video = videoRef.current;
-          video.onplaying = () => setStateAndNotify("playing");
+          video.onplaying = () => {
+            reconnectAttemptsRef.current = 0;
+            setIsAutoRetrying(false);
+            setStateAndNotify("playing");
+          };
 
           await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
           video.play().catch(() => {});
@@ -212,6 +279,8 @@ export function useCameraStream({
               !video.paused &&
               state !== "playing"
             ) {
+              reconnectAttemptsRef.current = 0;
+              setIsAutoRetrying(false);
               setStateAndNotify("playing");
             }
           }, 2000);
@@ -219,6 +288,7 @@ export function useCameraStream({
           await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
         }
       } catch (err) {
+        if (cancelledRef.current) return;
         const msg =
           err instanceof Error ? err.message : "Error al iniciar stream";
         setStateAndNotify("error");
@@ -229,7 +299,7 @@ export function useCameraStream({
         }
       }
     },
-    [cameraId, streamType, setStateAndNotify, isMuted, volume],
+    [cameraId, streamType, setStateAndNotify, isMuted, volume, scheduleReconnect],
   );
 
   const toggleMute = useCallback(() => {
@@ -273,6 +343,8 @@ export function useCameraStream({
     connect,
     disconnect,
     retry: connect,
+    cancelRetry,
+    isAutoRetrying,
     isMuted,
     hasAudio,
     volume,

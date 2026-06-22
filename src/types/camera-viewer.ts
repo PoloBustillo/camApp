@@ -24,6 +24,8 @@ export interface WebRtcStreamInfo {
   streamToken: string;
   streamType: StreamType;
   expiresIn: number;
+  /** Camera was offline when URL was resolved — client should enter polling retry */
+  isOffline?: boolean;
 }
 
 export interface CameraPageState {

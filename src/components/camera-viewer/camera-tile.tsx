@@ -33,7 +33,7 @@ export const CameraTile = memo(function CameraTile({
   isFavorite: initialFavorite,
 }: CameraTileProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { state, errorMsg, videoRef, connect, disconnect, retry } = useCameraStream({
+  const { state, errorMsg, videoRef, connect, disconnect, retry, cancelRetry, isAutoRetrying } = useCameraStream({
     cameraId: camera.id,
     streamType,
   });
@@ -158,6 +158,27 @@ export const CameraTile = memo(function CameraTile({
                 <WifiOff className="w-10 h-10" />
               </div>
               <p className="text-white/40 text-xs font-medium">Sin señal</p>
+              {isAutoRetrying && (
+                <p className="text-white/30 text-[10px] mt-1">Reintentando cada 30s...</p>
+              )}
+              <div className="flex gap-2 mt-2">
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); retry(); }}
+                  className="text-[10px] px-3 py-1 rounded border border-white/20 text-white/50 hover:text-white hover:border-white/50 transition-all"
+                >
+                  Reintentar
+                </button>
+                {isAutoRetrying && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); cancelRetry(); }}
+                    className="text-[10px] px-3 py-1 rounded border border-white/10 text-white/30 hover:text-white/60 hover:border-white/30 transition-all"
+                  >
+                    Cancelar
+                  </button>
+                )}
+              </div>
             </>
           )}
           {state === "idle" && camera.online && (
