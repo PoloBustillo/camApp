@@ -240,21 +240,22 @@ export function useCameraStream({
         });
 
         if (!whepRes.ok) {
-          const errBody = await whepRes.json().catch(() => ({}));
+          const errText = await whepRes.text();
+          let errBody: { error?: { code?: string; message?: string } } = {};
+          try { errBody = JSON.parse(errText); } catch { /* not JSON */ }
           const errCode = errBody?.error?.code;
           if (
             errCode === "CAMERA_OFFLINE" ||
             errCode === "STREAM_TIMEOUT" ||
             whepRes.status === 502
           ) {
-            // Upstream unreachable — enter polling mode
             setStateAndNotify("offline");
             setErrorMsg("Cámara offline — reintentando cada 30s...");
             scheduleReconnect(POLL_INTERVAL_MS);
             return;
           }
           throw new Error(
-            `WHEP error ${whepRes.status}: ${errBody?.error?.message ?? await whepRes.text()}`,
+            `WHEP error ${whepRes.status}: ${errBody?.error?.message ?? errText}`,
           );
         }
 
