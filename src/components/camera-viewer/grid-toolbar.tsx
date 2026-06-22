@@ -1,6 +1,7 @@
 "use client";
 
 import type { GridFilter, GridLayout } from "@/hooks/use-grid-preferences";
+import { GripVertical, Check, RotateCcw } from "lucide-react";
 
 interface GridToolbarProps {
   layout: GridLayout;
@@ -9,6 +10,11 @@ interface GridToolbarProps {
   onFilterChange: (filter: GridFilter) => void;
   /** Hide filter toggle on pages that are already favorites-only */
   showFilter?: boolean;
+  /** Drag-and-drop reorder mode */
+  isEditing?: boolean;
+  onToggleEdit?: () => void;
+  onResetOrder?: () => void;
+  hasCustomOrder?: boolean;
 }
 
 function ToggleGroup<T extends string>({
@@ -47,6 +53,10 @@ export function GridToolbar({
   onLayoutChange,
   onFilterChange,
   showFilter = true,
+  isEditing = false,
+  onToggleEdit,
+  onResetOrder,
+  hasCustomOrder = false,
 }: GridToolbarProps) {
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -67,6 +77,42 @@ export function GridToolbar({
           ]}
           onChange={onFilterChange}
         />
+      )}
+      {onToggleEdit && (
+        <>
+          <button
+            type="button"
+            onClick={onToggleEdit}
+            className={[
+              "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all",
+              isEditing
+                ? "bg-white text-black border-white"
+                : "border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500",
+            ].join(" ")}
+          >
+            {isEditing ? (
+              <>
+                <Check className="w-3.5 h-3.5" />
+                Listo
+              </>
+            ) : (
+              <>
+                <GripVertical className="w-3.5 h-3.5" />
+                Reordenar
+              </>
+            )}
+          </button>
+          {isEditing && hasCustomOrder && onResetOrder && (
+            <button
+              type="button"
+              onClick={onResetOrder}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 transition-all"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Restablecer
+            </button>
+          )}
+        </>
       )}
     </div>
   );
