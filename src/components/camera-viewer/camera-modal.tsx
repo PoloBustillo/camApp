@@ -13,10 +13,11 @@ import Link from "next/link";
 interface CameraModalProps {
   camera: CameraViewerItem;
   filters?: PersistedFilters | null;
+  onFiltersChange?: (cameraId: string, filters: PersistedFilters) => void;
   onClose: () => void;
 }
 
-export function CameraModal({ camera, filters, onClose }: CameraModalProps) {
+export function CameraModal({ camera, filters, onFiltersChange, onClose }: CameraModalProps) {
   const {
     state,
     errorMsg,
@@ -36,7 +37,7 @@ export function CameraModal({ camera, filters, onClose }: CameraModalProps) {
     startMuted: true,
   });
 
-  const controls = useVideoControls(camera.id, filters);
+  const controls = useVideoControls(camera.id, filters, onFiltersChange);
   const [snapshotMsg, setSnapshotMsg] = useState<string | null>(null);
 
   useEffect(() => {

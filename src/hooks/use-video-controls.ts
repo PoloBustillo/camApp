@@ -79,6 +79,7 @@ function toPersisted(s: VideoControlState): PersistedFilters {
 export function useVideoControls(
   cameraId?: string,
   initialFilters?: PersistedFilters | null,
+  onFiltersChange?: (cameraId: string, filters: PersistedFilters) => void,
 ) {
   const [hydrated, setHydrated] = useState(false);
 
@@ -121,6 +122,10 @@ export function useVideoControls(
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       const filters = toPersisted(state);
+      // Notify parent of filter change
+      if (cameraId && onFiltersChange) {
+        onFiltersChange(cameraId, filters);
+      }
       // Only save if not default
       if (
         filters.brightness === 100 &&
@@ -141,7 +146,7 @@ export function useVideoControls(
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
-  }, [cameraId, hydrated, state.brightness, state.contrast, state.saturation, state.preset]);
+  }, [cameraId, hydrated, state.brightness, state.contrast, state.saturation, state.preset, onFiltersChange]);
 
   const setBrightness = useCallback((brightness: number) => {
     setState((s) => ({ ...s, brightness, preset: "normal" }));

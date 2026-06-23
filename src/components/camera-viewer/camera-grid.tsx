@@ -110,11 +110,14 @@ export function CameraViewerGrid({
   title,
   favoriteIds,
   cameraOrderIds = [],
-  cameraFilters,
+  cameraFilters: initialCameraFilters,
   showGridControls = false,
 }: CameraViewerGridProps) {
   const { layout, filter, setLayout, setFilter } = useGridPreferences();
   const pageSize = getPageSize(layout);
+
+  // Mutable copy of filters — updated when modal saves
+  const [cameraFilters, setCameraFilters] = useState(initialCameraFilters);
 
   const {
     orderedCameras,
@@ -181,6 +184,10 @@ export function CameraViewerGrid({
 
   const handleModalClose = useCallback(() => {
     setSelectedCamera(null);
+  }, []);
+
+  const handleFiltersChange = useCallback((cameraId: string, filters: PersistedFilters) => {
+    setCameraFilters((prev) => ({ ...prev, [cameraId]: filters }));
   }, []);
 
   // Drag-and-drop sensors
@@ -430,6 +437,7 @@ export function CameraViewerGrid({
         <CameraModal
           camera={selectedCamera}
           filters={cameraFilters?.[selectedCamera.id]}
+          onFiltersChange={handleFiltersChange}
           onClose={handleModalClose}
         />
       )}
