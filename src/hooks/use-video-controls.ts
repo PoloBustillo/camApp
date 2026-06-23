@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { PersistedFilters } from "@/types/camera-viewer";
 
 export type FilterPreset =
   | "normal"
@@ -34,59 +35,6 @@ const DEFAULTS: VideoControlState = {
   preset: "normal",
 };
 
-/** Only color-related fields are persisted per camera */
-interface PersistedFilters {
-  brightness: number;
-  contrast: number;
-  saturation: number;
-  preset: FilterPreset;
-}
-
-const VALID_PRESETS = new Set<FilterPreset>([
-  "normal", "night", "ultra-night", "night-vision",
-  "high-contrast", "grayscale", "vivid", "warm", "cool", "invert",
-]);
-
-function loadFilters(cameraId: string): PersistedFilters | null {
-  try {
-    const raw = localStorage.getItem(`camwatch-filters-${cameraId}`);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (
-      typeof parsed.brightness !== "number" ||
-      typeof parsed.contrast !== "number" ||
-      typeof parsed.saturation !== "number" ||
-      !VALID_PRESETS.has(parsed.preset)
-    ) {
-      return null;
-    }
-    return {
-      brightness: Math.min(200, Math.max(0, parsed.brightness)),
-      contrast: Math.min(200, Math.max(0, parsed.contrast)),
-      saturation: Math.min(200, Math.max(0, parsed.saturation)),
-      preset: parsed.preset,
-    };
-  } catch {
-    return null;
-  }
-}
-
-function saveFilters(cameraId: string, filters: PersistedFilters): void {
-  try {
-    localStorage.setItem(`camwatch-filters-${cameraId}`, JSON.stringify(filters));
-  } catch {
-    // ignore
-  }
-}
-
-function clearFilters(cameraId: string): void {
-  try {
-    localStorage.removeItem(`camwatch-filters-${cameraId}`);
-  } catch {
-    // ignore
-  }
-}
-
 const PRESET_VALUES: Record<
   FilterPreset,
   Pick<VideoControlState, "brightness" | "contrast" | "saturation">
@@ -112,22 +60,38 @@ function getTouchDistance(t1: React.Touch, t2: React.Touch): number {
   return Math.sqrt(dx * dx + dy * dy);
 }
 
+function toPersisted(s: VideoControlState): PersistedFilters {
+  return {
+    brightness: s.brightness,
+    contrast: s.contrast,
+    saturation: s.saturation,
+    preset: s.preset,
+  };
+}
+
 /**
  * Manages video filter/zoom/pan state.
  *
  * When `cameraId` is provided, color filters (brightness, contrast, saturation,
- * preset) are persisted per-camera in localStorage and restored on mount.
- * Zoom and pan are always ephemeral (reset to defaults on each mount).
+ * preset) are persisted per-camera via the API and restored on mount via
+ * `initialFilters`. Zoom and pan are always ephemeral.
  */
-export function useVideoControls(cameraId?: string) {
+export function useVideoControls(
+  cameraId?: string,
+  initialFilters?: PersistedFilters | null,
+) {
   const [hydrated, setHydrated] = useState(false);
 
-  // Initialize state: load from localStorage if cameraId provided
+  // Initialize state from server-provided filters
   const [state, setState] = useState<VideoControlState>(() => {
-    if (!cameraId) return DEFAULTS;
-    const saved = loadFilters(cameraId);
-    if (!saved) return DEFAULTS;
-    return { ...DEFAULTS, ...saved };
+    if (!initialFilters) return DEFAULTS;
+    return {
+      ...DEFAULTS,
+      brightness: initialFilters.brightness ?? 100,
+      contrast: initialFilters.contrast ?? 100,
+      saturation: initialFilters.saturation ?? 100,
+      preset: (initialFilters.preset as FilterPreset) ?? "normal",
+    };
   });
 
   const [isDragging, setIsDragging] = useState(false);
@@ -136,26 +100,47 @@ export function useVideoControls(cameraId?: string) {
   const cameraIdRef = useRef(cameraId);
   cameraIdRef.current = cameraId;
 
-  // Hydration effect
+  // Hydration effect — apply initialFilters if they arrive after mount
   useEffect(() => {
-    if (cameraId) {
-      const saved = loadFilters(cameraId);
-      if (saved) {
-        setState((s) => ({ ...s, ...saved }));
-      }
+    if (initialFilters) {
+      setState((s) => ({
+        ...s,
+        brightness: initialFilters.brightness ?? s.brightness,
+        contrast: initialFilters.contrast ?? s.contrast,
+        saturation: initialFilters.saturation ?? s.saturation,
+        preset: (initialFilters.preset as FilterPreset) ?? s.preset,
+      }));
     }
     setHydrated(true);
-  }, [cameraId]);
+  }, [initialFilters]);
 
-  // Persist color filters on every change (only after hydration)
+  // Persist color filters via API on every change (debounced, only after hydration)
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!hydrated || !cameraId) return;
-    saveFilters(cameraId, {
-      brightness: state.brightness,
-      contrast: state.contrast,
-      saturation: state.saturation,
-      preset: state.preset,
-    });
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      const filters = toPersisted(state);
+      // Only save if not default
+      if (
+        filters.brightness === 100 &&
+        filters.contrast === 100 &&
+        filters.saturation === 100 &&
+        filters.preset === "normal"
+      ) {
+        fetch(`/api/user/camera-filters?cameraId=${cameraId}`, { method: "DELETE" }).catch(() => {});
+      } else {
+        fetch("/api/user/camera-filters", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cameraId, ...filters }),
+        }).catch(() => {});
+      }
+    }, 500);
+
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
   }, [cameraId, hydrated, state.brightness, state.contrast, state.saturation, state.preset]);
 
   const setBrightness = useCallback((brightness: number) => {
@@ -191,7 +176,9 @@ export function useVideoControls(cameraId?: string) {
   }, []);
 
   const reset = useCallback(() => {
-    if (cameraIdRef.current) clearFilters(cameraIdRef.current);
+    if (cameraIdRef.current) {
+      fetch(`/api/user/camera-filters?cameraId=${cameraIdRef.current}`, { method: "DELETE" }).catch(() => {});
+    }
     setState(DEFAULTS);
   }, []);
 

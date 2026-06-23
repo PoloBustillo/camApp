@@ -30,7 +30,7 @@ import { CameraModal } from "./camera-modal";
 import { CameraPagination } from "./camera-pagination";
 import { KeyboardHelp } from "./keyboard-help";
 import { GridToolbar } from "./grid-toolbar";
-import type { CameraViewerItem } from "@/types/camera-viewer";
+import type { CameraViewerItem, PersistedFilters } from "@/types/camera-viewer";
 import { GripVertical } from "lucide-react";
 
 interface CameraViewerGridProps {
@@ -39,6 +39,8 @@ interface CameraViewerGridProps {
   favoriteIds?: string[];
   /** Camera IDs in display order, fetched server-side */
   cameraOrderIds?: string[];
+  /** Per-camera color filter settings, fetched server-side */
+  cameraFilters?: Record<string, PersistedFilters>;
   /** Show 2×2 / 3×3 and Todas / Favoritas toggles (home page) */
   showGridControls?: boolean;
 }
@@ -53,12 +55,14 @@ function SortableCameraTile({
   isFavorite,
   onClick,
   pageKey,
+  filters,
 }: {
   camera: CameraViewerItem;
   isEditing: boolean;
   isFavorite: boolean;
   onClick: (cam: CameraViewerItem) => void;
   pageKey: number;
+  filters?: PersistedFilters | null;
 }) {
   const {
     attributes,
@@ -95,6 +99,7 @@ function SortableCameraTile({
         onClick={isEditing ? undefined : onClick}
         pageKey={pageKey}
         isFavorite={isFavorite}
+        filters={filters}
       />
     </div>
   );
@@ -105,6 +110,7 @@ export function CameraViewerGrid({
   title,
   favoriteIds,
   cameraOrderIds = [],
+  cameraFilters,
   showGridControls = false,
 }: CameraViewerGridProps) {
   const { layout, filter, setLayout, setFilter } = useGridPreferences();
@@ -351,6 +357,7 @@ export function CameraViewerGrid({
                         isFavorite={favoriteSet.has(camera.id) || !!camera.isFavorite}
                         onClick={handleTileClick}
                         pageKey={page}
+                        filters={cameraFilters?.[camera.id]}
                       />
                     ))}
                   </div>
@@ -366,6 +373,7 @@ export function CameraViewerGrid({
                     onClick={handleTileClick}
                     pageKey={page}
                     isFavorite={favoriteSet.has(camera.id) || camera.isFavorite}
+                    filters={cameraFilters?.[camera.id]}
                   />
                 ))}
 
@@ -419,7 +427,11 @@ export function CameraViewerGrid({
       </div>
 
       {selectedCamera && (
-        <CameraModal camera={selectedCamera} onClose={handleModalClose} />
+        <CameraModal
+          camera={selectedCamera}
+          filters={cameraFilters?.[selectedCamera.id]}
+          onClose={handleModalClose}
+        />
       )}
 
       {showHelp && <KeyboardHelp onClose={() => setShowHelp(false)} />}

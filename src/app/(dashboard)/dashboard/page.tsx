@@ -5,6 +5,7 @@ import { CameraViewerGrid } from "@/components/camera-viewer/camera-grid";
 import { HealthWidget } from "@/components/camera-viewer/health-widget";
 import { syncCameraStatus } from "@/lib/sync-cameras";
 import type { CameraViewerItem } from "@/types/camera-viewer";
+import type { PersistedFilters } from "@/types/camera-viewer";
 
 export const metadata: Metadata = { title: "Inicio — CamWatch" };
 
@@ -59,6 +60,26 @@ export default async function DashboardPage() {
   });
   const cameraOrderIds = cameraOrder.map((r) => r.cameraId);
 
+  const cameraFiltersRows = await prisma.userCameraFilter.findMany({
+    where: { userId: session.user.id },
+    select: {
+      cameraId: true,
+      brightness: true,
+      contrast: true,
+      saturation: true,
+      preset: true,
+    },
+  });
+  const cameraFiltersMap: Record<string, PersistedFilters> = {};
+  for (const f of cameraFiltersRows) {
+    cameraFiltersMap[f.cameraId] = {
+      brightness: f.brightness,
+      contrast: f.contrast,
+      saturation: f.saturation,
+      preset: f.preset,
+    };
+  }
+
   const onlineCount = cameras.filter((c) => c.online).length;
   const offlineCount = cameras.length - onlineCount;
 
@@ -84,6 +105,7 @@ export default async function DashboardPage() {
         title="Vista en vivo"
         favoriteIds={favoriteIds}
         cameraOrderIds={cameraOrderIds}
+        cameraFilters={cameraFiltersMap}
         showGridControls
       />
     </div>

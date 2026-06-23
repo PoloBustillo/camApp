@@ -17,6 +17,34 @@ export interface CameraViewerItem {
 export type StreamType = "main" | "sub";
 export type PlayerState = "idle" | "connecting" | "playing" | "error" | "offline" | "reconnecting";
 
+/** Color filter values persisted per camera in the database */
+export interface PersistedFilters {
+  brightness: number;
+  contrast: number;
+  saturation: number;
+  preset: string;
+}
+
+export const DEFAULT_PERSISTED_FILTERS: PersistedFilters = {
+  brightness: 100,
+  contrast: 100,
+  saturation: 100,
+  preset: "normal",
+};
+
+export const PRESET_LABELS: Record<string, string> = {
+  normal: "Normal",
+  night: "Noche",
+  "ultra-night": "Ultra noche",
+  "night-vision": "Visión nocturna",
+  "high-contrast": "Alto contraste",
+  grayscale: "B/N",
+  vivid: "Vívido",
+  warm: "Cálido",
+  cool: "Frío",
+  invert: "Invertir",
+};
+
 export interface WebRtcStreamInfo {
   /** Full WHEP URL built server-side (never exposes internal IPs) */
   whepUrl: string;

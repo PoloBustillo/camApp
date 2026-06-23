@@ -1,18 +1,39 @@
 "use client";
 
-import { useEffect, useRef, useCallback, memo, useState } from "react";
+import { useEffect, useRef, useCallback, memo, useMemo, useState } from "react";
 import { useCameraStream } from "@/hooks/use-camera-stream";
 import { CameraStatusBadge } from "./camera-status-badge";
-import type { CameraViewerItem, StreamType } from "@/types/camera-viewer";
-import { Star, WifiOff, TriangleAlert, Play } from "lucide-react";
+import type { CameraViewerItem, StreamType, PersistedFilters } from "@/types/camera-viewer";
+import { PRESET_LABELS } from "@/types/camera-viewer";
+import { Star, WifiOff, TriangleAlert, Play, SlidersHorizontal } from "lucide-react";
 
 interface CameraTileProps {
   camera: CameraViewerItem;
+  filters?: PersistedFilters | null;
   streamType?: StreamType;
   onClick?: (camera: CameraViewerItem) => void;
   /** Page key — when this changes, tile fully remounts = WebRTC disconnects */
   pageKey: number;
   isFavorite?: boolean;
+}
+
+function buildFilterStyle(filters: PersistedFilters | null | undefined): string {
+  if (!filters) return "none";
+  const { brightness, contrast, saturation, preset } = filters;
+  const isDefault =
+    brightness === 100 && contrast === 100 && saturation === 100 && preset === "normal";
+  if (isDefault) return "none";
+
+  const parts = [
+    `brightness(${brightness / 100})`,
+    `contrast(${contrast / 100})`,
+    `saturate(${saturation / 100})`,
+  ];
+  if (preset === "night-vision") parts.push("hue-rotate(80deg)");
+  if (preset === "warm") parts.push("sepia(0.2)");
+  if (preset === "cool") parts.push("hue-rotate(180deg)");
+  if (preset === "invert") parts.push("invert(1)");
+  return parts.join(" ");
 }
 
 /**
@@ -28,6 +49,7 @@ interface CameraTileProps {
  */
 export const CameraTile = memo(function CameraTile({
   camera,
+  filters,
   streamType = "sub",
   onClick,
   isFavorite: initialFavorite,
@@ -41,6 +63,21 @@ export const CameraTile = memo(function CameraTile({
   const [favorited, setFavorited] = useState(
     initialFavorite ?? camera.isFavorite ?? false,
   );
+
+  const filterStyle = useMemo(() => buildFilterStyle(filters), [filters]);
+
+  const hasCustomFilter = useMemo(() => {
+    if (!filters) return false;
+    return filters.preset !== "normal" ||
+      filters.brightness !== 100 ||
+      filters.contrast !== 100 ||
+      filters.saturation !== 100;
+  }, [filters]);
+
+  const presetLabel = useMemo(() => {
+    if (!filters) return "";
+    return PRESET_LABELS[filters.preset] ?? filters.preset;
+  }, [filters]);
 
   // IntersectionObserver: connect when visible, disconnect when hidden
   useEffect(() => {
@@ -110,6 +147,7 @@ export const CameraTile = memo(function CameraTile({
           "w-full h-full object-cover",
           state === "playing" ? "opacity-100" : "opacity-0",
         ].join(" ")}
+        style={{ filter: filterStyle }}
         aria-label={`Stream de ${camera.name}`}
       />
 
@@ -218,6 +256,12 @@ export const CameraTile = memo(function CameraTile({
         {camera.siteName && (
           <p className="text-white/50 text-[10px] truncate">{camera.siteName}</p>
         )}
+        {hasCustomFilter && (
+          <div className="flex items-center gap-1 mt-0.5">
+            <SlidersHorizontal className="w-2.5 h-2.5 text-white/40" />
+            <span className="text-[9px] text-white/40">{presetLabel}</span>
+          </div>
+        )}
       </div>
 
       {/* Timestamp — top left when playing */}
@@ -244,4 +288,3 @@ function LiveTimestamp() {
     </div>
   );
 }
-

@@ -107,6 +107,7 @@ model User {
   auditLogs       AuditLog[]
   favorites       UserFavorite[]
   cameraOrders    UserCameraOrder[]
+  cameraFilters   UserCameraFilter[]
 
   @@index([role], name: "idx_users_role")
   @@map("users")
@@ -189,6 +190,7 @@ model Camera {
   favoritedBy    UserFavorite[]
   recordings     Recording[]
   userOrders     UserCameraOrder[]
+  userFilters    UserCameraFilter[]
 
   @@index([siteId], name: "idx_cameras_site")
   @@index([enabled], name: "idx_cameras_enabled")
@@ -343,4 +345,20 @@ model UserCameraOrder {
   @@id([userId, cameraId])
   @@index([userId], name: "idx_user_camera_order_user")
   @@map("user_camera_order")
+}
+
+model UserCameraFilter {
+  userId     String @map("user_id") @db.Uuid
+  cameraId   String @map("camera_id") @db.Uuid
+  brightness Int    @default(100) @db.SmallInt
+  contrast   Int    @default(100) @db.SmallInt
+  saturation Int    @default(100) @db.SmallInt
+  preset     String @default("normal") @db.VarChar(32)
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  camera Camera @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+
+  @@id([userId, cameraId])
+  @@index([userId], name: "idx_user_camera_filter_user")
+  @@map("user_camera_filter")
 }

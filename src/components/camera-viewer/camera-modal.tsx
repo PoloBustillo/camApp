@@ -6,16 +6,17 @@ import { useVideoControls } from "@/hooks/use-video-controls";
 import { captureVideoSnapshot } from "@/lib/capture-snapshot";
 import { CameraStatusBadge } from "./camera-status-badge";
 import { VideoControlsPanel } from "./video-controls-panel";
-import type { CameraViewerItem } from "@/types/camera-viewer";
+import type { CameraViewerItem, PersistedFilters } from "@/types/camera-viewer";
 import { X, VolumeX, Volume2, Camera, Maximize2, History } from "lucide-react";
 import Link from "next/link";
 
 interface CameraModalProps {
   camera: CameraViewerItem;
+  filters?: PersistedFilters | null;
   onClose: () => void;
 }
 
-export function CameraModal({ camera, onClose }: CameraModalProps) {
+export function CameraModal({ camera, filters, onClose }: CameraModalProps) {
   const {
     state,
     errorMsg,
@@ -35,7 +36,7 @@ export function CameraModal({ camera, onClose }: CameraModalProps) {
     startMuted: true,
   });
 
-  const controls = useVideoControls(camera.id);
+  const controls = useVideoControls(camera.id, filters);
   const [snapshotMsg, setSnapshotMsg] = useState<string | null>(null);
 
   useEffect(() => {
