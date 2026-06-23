@@ -203,11 +203,11 @@ model Recording {
   id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   cameraId   String    @map("camera_id") @db.Uuid
   date       DateTime  @db.Date
-  fileName   String    @db.VarChar(255)
+  fileName   String    @map("file_name") @db.VarChar(255)
   startTime  DateTime  @map("start_time") @db.Timestamptz()
   endTime    DateTime? @map("end_time") @db.Timestamptz()
   duration   Int?     // seconds
-  fileSize   Int?     // bytes
+  fileSize   Int?     @map("file_size") // bytes
   thumbnail  String?  @db.VarChar(500)
 
   camera Camera @relation(fields: [cameraId], references: [id], onDelete: Cascade)
