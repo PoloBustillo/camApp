@@ -281,7 +281,7 @@ function LiveTimestamp() {
   }, []);
 
   return (
-    <div className="absolute top-2 right-16 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+    <div className="absolute top-2 right-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
       <span className="text-[10px] text-white/70 font-mono bg-black/50 backdrop-blur-sm px-1.5 py-0.5 rounded">
         {time}
       </span>

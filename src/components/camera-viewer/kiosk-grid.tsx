@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { Play, Pause } from "lucide-react";
+import { Play, Pause, LogOut } from "lucide-react";
 import { CameraTile } from "./camera-tile";
 import type { CameraViewerItem } from "@/types/camera-viewer";
 
@@ -151,35 +151,51 @@ export function KioskGrid({
       ))}
 
       {/* Controls overlay (bottom-center) */}
-      {controlsVisible && totalPages > 1 && (
+      {controlsVisible && (
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-black/60 backdrop-blur-sm rounded-full px-4 py-2 z-10 transition-opacity duration-300">
+          {totalPages > 1 && (
+            <button
+              type="button"
+              onClick={() => setPaused((p) => !p)}
+              className="text-white/70 hover:text-white transition-colors"
+              aria-label={paused ? "Reanudar rotación" : "Pausar rotación"}
+            >
+              {paused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+            </button>
+          )}
+
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1.5">
+              {Array.from({ length: totalPages }).map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setPage(i)}
+                  className={[
+                    "h-1.5 rounded-full transition-all",
+                    i === page ? "w-4 bg-white/60" : "w-1.5 bg-white/20",
+                  ].join(" ")}
+                  aria-label={`Página ${i + 1}`}
+                />
+              ))}
+            </div>
+          )}
+
+          {totalPages > 1 && (
+            <span className="text-white/30 text-[10px] w-10 text-center">
+              {paused ? "Pausa" : "Auto"}
+            </span>
+          )}
+
           <button
             type="button"
-            onClick={() => setPaused((p) => !p)}
-            className="text-white/70 hover:text-white transition-colors"
-            aria-label={paused ? "Reanudar rotación" : "Pausar rotación"}
+            onClick={() => { window.location.href = "/dashboard"; }}
+            className="text-white/50 hover:text-white transition-colors ml-1"
+            aria-label="Salir del modo TV"
+            title="Salir (ESC)"
           >
-            {paused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+            <LogOut className="w-4 h-4" />
           </button>
-
-          <div className="flex items-center gap-1.5">
-            {Array.from({ length: totalPages }).map((_, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => setPage(i)}
-                className={[
-                  "h-1.5 rounded-full transition-all",
-                  i === page ? "w-4 bg-white/60" : "w-1.5 bg-white/20",
-                ].join(" ")}
-                aria-label={`Página ${i + 1}`}
-              />
-            ))}
-          </div>
-
-          <span className="text-white/30 text-[10px] w-10 text-center">
-            {paused ? "Pausa" : "Auto"}
-          </span>
         </div>
       )}
     </div>

@@ -173,7 +173,7 @@ export function NavShell({
       {/* ── Desktop sidebar ── */}
       <aside
         className={[
-          "hidden md:flex border-r border-border p-4 flex-col min-h-screen transition-all duration-200",
+          "hidden md:flex border-r border-border p-4 flex-col h-screen sticky top-0 overflow-y-auto transition-all duration-200",
           sidebarWidth,
         ].join(" ")}
       >
