@@ -34,6 +34,59 @@ const DEFAULTS: VideoControlState = {
   preset: "normal",
 };
 
+/** Only color-related fields are persisted per camera */
+interface PersistedFilters {
+  brightness: number;
+  contrast: number;
+  saturation: number;
+  preset: FilterPreset;
+}
+
+const VALID_PRESETS = new Set<FilterPreset>([
+  "normal", "night", "ultra-night", "night-vision",
+  "high-contrast", "grayscale", "vivid", "warm", "cool", "invert",
+]);
+
+function loadFilters(cameraId: string): PersistedFilters | null {
+  try {
+    const raw = localStorage.getItem(`camwatch-filters-${cameraId}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (
+      typeof parsed.brightness !== "number" ||
+      typeof parsed.contrast !== "number" ||
+      typeof parsed.saturation !== "number" ||
+      !VALID_PRESETS.has(parsed.preset)
+    ) {
+      return null;
+    }
+    return {
+      brightness: Math.min(200, Math.max(0, parsed.brightness)),
+      contrast: Math.min(200, Math.max(0, parsed.contrast)),
+      saturation: Math.min(200, Math.max(0, parsed.saturation)),
+      preset: parsed.preset,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveFilters(cameraId: string, filters: PersistedFilters): void {
+  try {
+    localStorage.setItem(`camwatch-filters-${cameraId}`, JSON.stringify(filters));
+  } catch {
+    // ignore
+  }
+}
+
+function clearFilters(cameraId: string): void {
+  try {
+    localStorage.removeItem(`camwatch-filters-${cameraId}`);
+  } catch {
+    // ignore
+  }
+}
+
 const PRESET_VALUES: Record<
   FilterPreset,
   Pick<VideoControlState, "brightness" | "contrast" | "saturation">
@@ -59,13 +112,51 @@ function getTouchDistance(t1: React.Touch, t2: React.Touch): number {
   return Math.sqrt(dx * dx + dy * dy);
 }
 
-export function useVideoControls() {
-  const [state, setState] = useState<VideoControlState>(DEFAULTS);
+/**
+ * Manages video filter/zoom/pan state.
+ *
+ * When `cameraId` is provided, color filters (brightness, contrast, saturation,
+ * preset) are persisted per-camera in localStorage and restored on mount.
+ * Zoom and pan are always ephemeral (reset to defaults on each mount).
+ */
+export function useVideoControls(cameraId?: string) {
+  const [hydrated, setHydrated] = useState(false);
+
+  // Initialize state: load from localStorage if cameraId provided
+  const [state, setState] = useState<VideoControlState>(() => {
+    if (!cameraId) return DEFAULTS;
+    const saved = loadFilters(cameraId);
+    if (!saved) return DEFAULTS;
+    return { ...DEFAULTS, ...saved };
+  });
+
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
-
-  // Pinch-to-zoom state
   const pinchRef = useRef({ startDist: 0, startZoom: 1 });
+  const cameraIdRef = useRef(cameraId);
+  cameraIdRef.current = cameraId;
+
+  // Hydration effect
+  useEffect(() => {
+    if (cameraId) {
+      const saved = loadFilters(cameraId);
+      if (saved) {
+        setState((s) => ({ ...s, ...saved }));
+      }
+    }
+    setHydrated(true);
+  }, [cameraId]);
+
+  // Persist color filters on every change (only after hydration)
+  useEffect(() => {
+    if (!hydrated || !cameraId) return;
+    saveFilters(cameraId, {
+      brightness: state.brightness,
+      contrast: state.contrast,
+      saturation: state.saturation,
+      preset: state.preset,
+    });
+  }, [cameraId, hydrated, state.brightness, state.contrast, state.saturation, state.preset]);
 
   const setBrightness = useCallback((brightness: number) => {
     setState((s) => ({ ...s, brightness, preset: "normal" }));
@@ -99,7 +190,10 @@ export function useVideoControls() {
     }));
   }, []);
 
-  const reset = useCallback(() => setState(DEFAULTS), []);
+  const reset = useCallback(() => {
+    if (cameraIdRef.current) clearFilters(cameraIdRef.current);
+    setState(DEFAULTS);
+  }, []);
 
   const filterStyle = useMemo(() => {
     const parts = [
@@ -211,6 +305,7 @@ export function useVideoControls() {
 
   return {
     state,
+    hydrated,
     filterStyle,
     transformStyle,
     isDragging,

@@ -35,7 +35,7 @@ export function CameraModal({ camera, onClose }: CameraModalProps) {
     startMuted: true,
   });
 
-  const controls = useVideoControls();
+  const controls = useVideoControls(camera.id);
   const [snapshotMsg, setSnapshotMsg] = useState<string | null>(null);
 
   useEffect(() => {
@@ -122,7 +122,7 @@ export function CameraModal({ camera, onClose }: CameraModalProps) {
               playsInline
               className={[
                 "w-full h-full object-contain transition-opacity duration-300",
-                state === "playing" ? "opacity-100" : "opacity-0",
+                state === "playing" && controls.hydrated ? "opacity-100" : "opacity-0",
               ].join(" ")}
               style={{
                 filter: controls.filterStyle,
