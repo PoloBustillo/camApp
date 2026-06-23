@@ -1,55 +1,35 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { CameraViewerItem } from "@/types/camera-viewer";
 
-const STORAGE_KEY = "camwatch-camera-order";
-
-function loadOrder(): string[] | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return null;
-    return parsed.filter((id): id is string => typeof id === "string");
-  } catch {
-    return null;
-  }
-}
-
-function saveOrder(ids: string[]): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
-  } catch {
-    // ignore
-  }
-}
-
 /**
- * Manages per-user camera ordering via localStorage.
+ * Manages per-user camera ordering via server API.
  *
- * - On mount, loads saved order and sorts cameras accordingly.
- * - Cameras not in the saved order are appended at the end.
- * - `reorder(from, to)` moves a camera in the full array and persists.
- * - `resetOrder()` clears localStorage and returns to server order.
+ * Receives the server-side order as `initialOrderIds` (fetched in the dashboard
+ * server component). Applies it immediately — no flash of wrong order.
+ *
+ * - `reorder(from, to)` → PUT /api/user/camera-order (persists to DB)
+ * - `resetOrder()` → DELETE /api/user/camera-order (returns to default)
+ * - Cameras not in the order are appended at the end.
  */
-export function useCameraOrder(cameras: CameraViewerItem[]) {
-  const [savedOrder, setSavedOrder] = useState<string[] | null>(null);
-  const [hydrated, setHydrated] = useState(false);
+export function useCameraOrder(
+  cameras: CameraViewerItem[],
+  initialOrderIds: string[],
+) {
+  const [optimisticOrder, setOptimisticOrder] = useState<string[] | null>(null);
 
-  useEffect(() => {
-    setSavedOrder(loadOrder());
-    setHydrated(true);
-  }, []);
+  // Use optimistic order if set (for instant UI feedback), otherwise server order
+  const activeOrder = optimisticOrder ?? initialOrderIds;
 
   const orderedCameras = useMemo(() => {
-    if (!savedOrder || savedOrder.length === 0) return cameras;
+    if (activeOrder.length === 0) return cameras;
 
     const cameraMap = new Map(cameras.map((c) => [c.id, c]));
     const ordered: CameraViewerItem[] = [];
     const seen = new Set<string>();
 
-    for (const id of savedOrder) {
+    for (const id of activeOrder) {
       const cam = cameraMap.get(id);
       if (cam) {
         ordered.push(cam);
@@ -57,6 +37,7 @@ export function useCameraOrder(cameras: CameraViewerItem[]) {
       }
     }
 
+    // Append cameras not in the order (new cameras)
     for (const cam of cameras) {
       if (!seen.has(cam.id)) {
         ordered.push(cam);
@@ -64,36 +45,57 @@ export function useCameraOrder(cameras: CameraViewerItem[]) {
     }
 
     return ordered;
-  }, [cameras, savedOrder]);
+  }, [cameras, activeOrder]);
 
   const reorder = useCallback(
-    (fromIndex: number, toIndex: number) => {
-      setSavedOrder((prev) => {
-        const ids = prev ?? cameras.map((c) => c.id);
-        const next = [...ids];
-        const [moved] = next.splice(fromIndex, 1);
-        next.splice(toIndex, 0, moved);
-        saveOrder(next);
-        return next;
-      });
+    async (fromIndex: number, toIndex: number) => {
+      const currentIds = activeOrder.length > 0
+        ? activeOrder
+        : cameras.map((c) => c.id);
+
+      const next = [...currentIds];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+
+      // Optimistic update — UI changes instantly
+      setOptimisticOrder(next);
+
+      try {
+        const res = await fetch("/api/user/camera-order", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ order: next }),
+        });
+        if (!res.ok) {
+          // Revert on failure
+          setOptimisticOrder(null);
+        }
+      } catch {
+        setOptimisticOrder(null);
+      }
     },
-    [cameras],
+    [cameras, activeOrder],
   );
 
-  const resetOrder = useCallback(() => {
-    setSavedOrder(null);
+  const resetOrder = useCallback(async () => {
+    setOptimisticOrder([]);
+
     try {
-      localStorage.removeItem(STORAGE_KEY);
+      const res = await fetch("/api/user/camera-order", { method: "DELETE" });
+      if (!res.ok) {
+        setOptimisticOrder(null);
+      }
     } catch {
-      // ignore
+      setOptimisticOrder(null);
     }
   }, []);
 
   const hasCustomOrder = useMemo(() => {
-    if (!savedOrder || savedOrder.length === 0) return false;
+    if (optimisticOrder !== null) return optimisticOrder.length > 0;
+    if (initialOrderIds.length === 0) return false;
     const defaultIds = cameras.map((c) => c.id);
-    return JSON.stringify(savedOrder) !== JSON.stringify(defaultIds);
-  }, [savedOrder, cameras]);
+    return JSON.stringify(initialOrderIds) !== JSON.stringify(defaultIds);
+  }, [optimisticOrder, initialOrderIds, cameras]);
 
-  return { orderedCameras, reorder, resetOrder, hasCustomOrder, hydrated };
+  return { orderedCameras, reorder, resetOrder, hasCustomOrder };
 }

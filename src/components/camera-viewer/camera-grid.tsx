@@ -37,6 +37,8 @@ interface CameraViewerGridProps {
   cameras: CameraViewerItem[];
   title?: string;
   favoriteIds?: string[];
+  /** Camera IDs in display order, fetched server-side */
+  cameraOrderIds?: string[];
   /** Show 2×2 / 3×3 and Todas / Favoritas toggles (home page) */
   showGridControls?: boolean;
 }
@@ -102,6 +104,7 @@ export function CameraViewerGrid({
   cameras,
   title,
   favoriteIds,
+  cameraOrderIds = [],
   showGridControls = false,
 }: CameraViewerGridProps) {
   const { layout, filter, setLayout, setFilter } = useGridPreferences();
@@ -112,7 +115,7 @@ export function CameraViewerGrid({
     reorder,
     resetOrder,
     hasCustomOrder,
-  } = useCameraOrder(cameras);
+  } = useCameraOrder(cameras, cameraOrderIds);
 
   const favoriteSet = useMemo(() => new Set(favoriteIds ?? []), [favoriteIds]);
 

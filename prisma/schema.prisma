@@ -102,10 +102,11 @@ model User {
   updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz()
   deletedAt      DateTime?  @map("deleted_at") @db.Timestamptz()
 
-  refreshTokens RefreshToken[]
-  layouts       Layout[]
-  auditLogs     AuditLog[]
-  favorites     UserFavorite[]
+  refreshTokens   RefreshToken[]
+  layouts         Layout[]
+  auditLogs       AuditLog[]
+  favorites       UserFavorite[]
+  cameraOrders    UserCameraOrder[]
 
   @@index([role], name: "idx_users_role")
   @@map("users")
@@ -187,6 +188,7 @@ model Camera {
   streamEvents   StreamEvent[]
   favoritedBy    UserFavorite[]
   recordings     Recording[]
+  userOrders     UserCameraOrder[]
 
   @@index([siteId], name: "idx_cameras_site")
   @@index([enabled], name: "idx_cameras_enabled")
@@ -328,4 +330,17 @@ model UserFavorite {
   @@id([userId, cameraId])
   @@index([userId], name: "idx_user_favorites_user")
   @@map("user_favorites")
+}
+
+model UserCameraOrder {
+  userId   String @map("user_id") @db.Uuid
+  cameraId String @map("camera_id") @db.Uuid
+  position Int    @db.SmallInt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  camera Camera @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+
+  @@id([userId, cameraId])
+  @@index([userId], name: "idx_user_camera_order_user")
+  @@map("user_camera_order")
 }

@@ -52,6 +52,13 @@ export default async function DashboardPage() {
   });
   const favoriteIds = favorites.map((f) => f.cameraId);
 
+  const cameraOrder = await prisma.userCameraOrder.findMany({
+    where: { userId: session.user.id },
+    orderBy: { position: "asc" },
+    select: { cameraId: true },
+  });
+  const cameraOrderIds = cameraOrder.map((r) => r.cameraId);
+
   const onlineCount = cameras.filter((c) => c.online).length;
   const offlineCount = cameras.length - onlineCount;
 
@@ -76,6 +83,7 @@ export default async function DashboardPage() {
         cameras={cameras}
         title="Vista en vivo"
         favoriteIds={favoriteIds}
+        cameraOrderIds={cameraOrderIds}
         showGridControls
       />
     </div>
