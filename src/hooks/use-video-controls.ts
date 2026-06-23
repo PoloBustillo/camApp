@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export type FilterPreset =
   | "normal"
@@ -45,10 +45,19 @@ const PRESET_VALUES: Record<
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 5;
 
+function getTouchDistance(t1: React.Touch, t2: React.Touch): number {
+  const dx = t2.clientX - t1.clientX;
+  const dy = t2.clientY - t1.clientY;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
 export function useVideoControls() {
   const [state, setState] = useState<VideoControlState>(DEFAULTS);
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
+
+  // Pinch-to-zoom state
+  const pinchRef = useRef({ startDist: 0, startZoom: 1 });
 
   const setBrightness = useCallback((brightness: number) => {
     setState((s) => ({ ...s, brightness, preset: "normal" }));
@@ -152,6 +161,43 @@ export function useVideoControls() {
     setState((s) => ({ ...s, zoom: 1, panX: 0, panY: 0 }));
   }, []);
 
+  // ── Touch handlers for mobile pinch-to-zoom ──────────────────────
+
+  const handleTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        pinchRef.current = {
+          startDist: getTouchDistance(e.touches[0], e.touches[1]),
+          startZoom: state.zoom,
+        };
+      }
+    },
+    [state.zoom],
+  );
+
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        const currentDist = getTouchDistance(e.touches[0], e.touches[1]);
+        const ratio = currentDist / pinchRef.current.startDist;
+        const newZoom = pinchRef.current.startZoom * ratio;
+        const clamped = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, newZoom));
+        setState((s) => ({
+          ...s,
+          zoom: clamped,
+          ...(clamped === 1 ? { panX: 0, panY: 0 } : {}),
+        }));
+      }
+    },
+    [],
+  );
+
+  const handleTouchEnd = useCallback(() => {
+    pinchRef.current = { startDist: 0, startZoom: state.zoom };
+  }, [state.zoom]);
+
   return {
     state,
     filterStyle,
@@ -168,5 +214,8 @@ export function useVideoControls() {
     handlePointerMove,
     handlePointerUp,
     handleDoubleClick,
+    handleTouchStart,
+    handleTouchMove,
+    handleTouchEnd,
   };
 }

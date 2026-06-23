@@ -111,6 +111,9 @@ export function CameraModal({ camera, onClose }: CameraModalProps) {
             onPointerUp={controls.handlePointerUp}
             onPointerCancel={controls.handlePointerUp}
             onDoubleClick={controls.handleDoubleClick}
+            onTouchStart={controls.handleTouchStart}
+            onTouchMove={controls.handleTouchMove}
+            onTouchEnd={controls.handleTouchEnd}
           >
             <video
               ref={videoRef}

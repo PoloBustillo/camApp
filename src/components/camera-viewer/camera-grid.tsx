@@ -155,7 +155,7 @@ export function CameraViewerGrid({
       if (!autoRotateRef.current) return;
       if (page >= totalPages) goToPage(1);
       else nextPage();
-    }, 25000);
+    }, 50000);
     return () => clearInterval(id);
   }, [autoRotate, totalPages, selectedCamera, page, nextPage, goToPage, isEditing]);
 
