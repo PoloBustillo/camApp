@@ -18,13 +18,17 @@ interface VideoControlsPanelProps {
   className?: string;
 }
 
-const PRESETS: { id: FilterPreset; label: string }[] = [
-  { id: "normal", label: "Normal" },
-  { id: "night", label: "Noche" },
-  { id: "high-contrast", label: "Contraste" },
-  { id: "grayscale", label: "B/N" },
-  { id: "vivid", label: "Vívido" },
-  { id: "invert", label: "Invertir" },
+const PRESETS: { id: FilterPreset; label: string; group: string }[] = [
+  { id: "normal", label: "Normal", group: "general" },
+  { id: "high-contrast", label: "Alto contraste", group: "general" },
+  { id: "grayscale", label: "B/N", group: "general" },
+  { id: "vivid", label: "Vívido", group: "general" },
+  { id: "invert", label: "Invertir", group: "general" },
+  { id: "night", label: "Noche", group: "oscuridad" },
+  { id: "ultra-night", label: "Ultra noche", group: "oscuridad" },
+  { id: "night-vision", label: "Visión nocturna", group: "oscuridad" },
+  { id: "warm", label: "Cálido", group: "tono" },
+  { id: "cool", label: "Frío", group: "tono" },
 ];
 
 function SliderRow({
@@ -87,22 +91,38 @@ export function VideoControlsPanel({
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-1.5">
-        {PRESETS.map(({ id, label }) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => onPresetChange(id)}
-            className={[
-              "px-2 py-1 rounded text-xs transition-colors",
-              preset === id
-                ? "bg-white/20 text-white"
-                : "bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white",
-            ].join(" ")}
-          >
-            {label}
-          </button>
-        ))}
+      <div className="flex flex-col gap-2">
+        {(["general", "oscuridad", "tono"] as const).map((group) => {
+          const groupPresets = PRESETS.filter((p) => p.group === group);
+          const groupLabel =
+            group === "general"
+              ? "General"
+              : group === "oscuridad"
+                ? "Oscuridad"
+                : "Tono";
+          return (
+            <div key={group}>
+              <p className="text-[10px] text-zinc-500 mb-1">{groupLabel}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {groupPresets.map(({ id, label }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => onPresetChange(id)}
+                    className={[
+                      "px-2 py-1 rounded text-xs transition-colors",
+                      preset === id
+                        ? "bg-white/20 text-white"
+                        : "bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white",
+                    ].join(" ")}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       <SliderRow

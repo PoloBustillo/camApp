@@ -5,9 +5,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 export type FilterPreset =
   | "normal"
   | "night"
+  | "ultra-night"
+  | "night-vision"
   | "high-contrast"
   | "grayscale"
   | "vivid"
+  | "warm"
+  | "cool"
   | "invert";
 
 export interface VideoControlState {
@@ -35,10 +39,14 @@ const PRESET_VALUES: Record<
   Pick<VideoControlState, "brightness" | "contrast" | "saturation">
 > = {
   normal: { brightness: 100, contrast: 100, saturation: 100 },
-  night: { brightness: 135, contrast: 95, saturation: 85 },
-  "high-contrast": { brightness: 105, contrast: 145, saturation: 100 },
+  night: { brightness: 140, contrast: 110, saturation: 80 },
+  "ultra-night": { brightness: 180, contrast: 120, saturation: 60 },
+  "night-vision": { brightness: 150, contrast: 100, saturation: 40 },
+  "high-contrast": { brightness: 105, contrast: 150, saturation: 100 },
   grayscale: { brightness: 100, contrast: 110, saturation: 0 },
   vivid: { brightness: 108, contrast: 108, saturation: 165 },
+  warm: { brightness: 110, contrast: 100, saturation: 120 },
+  cool: { brightness: 105, contrast: 105, saturation: 90 },
   invert: { brightness: 100, contrast: 100, saturation: 100 },
 };
 
@@ -99,6 +107,9 @@ export function useVideoControls() {
       `contrast(${state.contrast / 100})`,
       `saturate(${state.saturation / 100})`,
     ];
+    if (state.preset === "night-vision") parts.push("hue-rotate(80deg)");
+    if (state.preset === "warm") parts.push("sepia(0.2)");
+    if (state.preset === "cool") parts.push("hue-rotate(180deg)");
     if (state.preset === "invert") parts.push("invert(1)");
     return parts.join(" ");
   }, [state.brightness, state.contrast, state.saturation, state.preset]);
