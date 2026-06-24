@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Test WebRTC - go2rtc WebSocket</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #111;
+            color: #ccc;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            padding: 12px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .controls {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        select, button {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #444;
+            background: #222;
+            color: #eee;
+            font-size: 14px;
+        }
+        button { cursor: pointer; }
+        button:active { background: #444; }
+        button.danger { border-color: #c33; color: #f66; }
+        .status {
+            padding: 6px 0;
+            font-size: 12px;
+            color: #888;
+            min-height: 24px;
+        }
+        .status.error { color: #f66; }
+        .status.ok { color: #6f6; }
+        .video-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            min-height: 200px;
+        }
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .log {
+            margin-top: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 11px;
+            color: #666;
+            background: #0a0a0a;
+            border-radius: 6px;
+            padding: 8px;
+        }
+        .log .ts { color: #555; }
+        .log .info { color: #888; }
+        .log .ok { color: #6a6; }
+        .log .err { color: #a66; }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <select id="stream">
+            <option value="calle">calle</option>
+            <option value="patio">patio</option>
+            <option value="techo">techo</option>
+            <option value="cochera">cochera</option>
+        </select>
+        <button id="btnConnect">Conectar</button>
+        <button id="btnDisconnect" class="danger" disabled>Desconectar</button>
+    </div>
+
+    <div class="status" id="status">Listo — selecciona una cámara y presiona Conectar</div>
+
+    <div class="video-container">
+        <video id="video" playsinline autoplay muted></video>
+    </div>
+
+    <div class="log" id="log"></div>
+
+    <script>
+        const GO2RTC_WS = 'ws://50.21.179.210:9997/api/ws';
+        const PC_CONFIG = {
+            bundlePolicy: 'max-bundle',
+            iceServers: [
+                { urls: 'stun:stun.cloudflare.com:3478' },
+                { urls: 'stun:stun.l.google.com:19302' }
+            ],
+            sdpSemantics: 'unified-plan'
+        };
+
+        const video = document.getElementById('video');
+        const statusEl = document.getElementById('status');
+        const logEl = document.getElementById('log');
+        const btnConnect = document.getElementById('btnConnect');
+        const btnDisconnect = document.getElementById('btnDisconnect');
+        const streamSelect = document.getElementById('stream');
+
+        let ws = null;
+        let pc = null;
+        let connectTS = 0;
+        let reconnectTID = 0;
+        const RECONNECT_TIMEOUT = 15000;
+
+        function log(msg, cls = 'info') {
+            const ts = new Date().toLocaleTimeString('es-MX', { hour12: false });
+            const div = document.createElement('div');
+            div.innerHTML = '<span class="ts">[' + ts + ']</span> <span class="' + cls + '">' + msg + '</span>';
+            logEl.appendChild(div);
+            logEl.scrollTop = logEl.scrollHeight;
+            while (logEl.children.length > 100) logEl.removeChild(logEl.firstChild);
+        }
+
+        function setStatus(msg, cls) {
+            statusEl.textContent = msg;
+            statusEl.className = 'status ' + (cls || '');
+        }
+
+        function cleanup() {
+            if (reconnectTID) { clearTimeout(reconnectTID); reconnectTID = 0; }
+            if (ws) { ws.close(); ws = null; }
+            if (pc) {
+                pc.getSenders().forEach(function(s) { if (s.track) s.track.stop(); });
+                pc.close();
+                pc = null;
+            }
+            video.srcObject = null;
+        }
+
+        function connect() {
+            cleanup();
+
+            var stream = streamSelect.value;
+            var url = GO2RTC_WS + '?src=' + encodeURIComponent(stream);
+            setStatus('Conectando WebSocket...');
+            log('Conectando a ' + url);
+
+            connectTS = Date.now();
+            ws = new WebSocket(url);
+            ws.binaryType = 'arraybuffer';
+
+            ws.addEventListener('open', function() {
+                log('WebSocket abierto', 'ok');
+                startWebRTC();
+            });
+
+            ws.addEventListener('close', function() {
+                log('WebSocket cerrado', 'err');
+                setStatus('WebSocket cerrado — reconectando en 15s...', 'error');
+                ws = null;
+
+                var delay = Math.max(RECONNECT_TIMEOUT - (Date.now() - connectTS), 0);
+                reconnectTID = setTimeout(function() {
+                    reconnectTID = 0;
+                    connect();
+                }, delay);
+            });
+
+            ws.addEventListener('message', function(ev) {
+                if (typeof ev.data !== 'string') return;
+                var msg = JSON.parse(ev.data);
+                handleWSMessage(msg);
+            });
+
+            ws.addEventListener('error', function() {
+                log('WebSocket error', 'err');
+            });
+
+            btnConnect.disabled = true;
+            btnDisconnect.disabled = false;
+        }
+
+        function startWebRTC() {
+            pc = new RTCPeerConnection(PC_CONFIG);
+
+            pc.addEventListener('icecandidate', function(ev) {
+                if (ev.candidate) {
+                    var candidate = ev.candidate.toJSON().candidate;
+                    wsSend({ type: 'webrtc/candidate', value: candidate });
+                }
+            });
+
+            pc.addEventListener('connectionstatechange', function() {
+                var state = pc.connectionState;
+                log('connectionState: ' + state);
+
+                if (state === 'connected') {
+                    var tracks = pc.getTransceivers()
+                        .filter(function(tr) { return tr.currentDirection === 'recvonly'; })
+                        .map(function(tr) { return tr.receiver.track; });
+
+                    var stream = new MediaStream(tracks);
+                    video.srcObject = stream;
+                    video.play().catch(function() {
+                        video.muted = true;
+                        video.play().catch(function() {});
+                    });
+
+                    setStatus('Conectado ✓', 'ok');
+                    log(tracks.length + ' tracks recibidos', 'ok');
+
+                    if (ws) {
+                        log('Cerrando WebSocket (WebRTC conectado)');
+                        ws.close();
+                        ws = null;
+                    }
+                }
+
+                if (state === 'failed' || state === 'disconnected') {
+                    log('Conexión ' + state + ' — reconectando...', 'err');
+                    setStatus('Conexión ' + state + ' — reconectando...', 'error');
+                    if (pc) { pc.close(); pc = null; }
+                    connect();
+                }
+            });
+
+            pc.addTransceiver('video', { direction: 'recvonly' });
+            pc.addTransceiver('audio', { direction: 'recvonly' });
+
+            pc.createOffer().then(function(offer) {
+                return pc.setLocalDescription(offer);
+            }).then(function() {
+                wsSend({ type: 'webrtc/offer', value: pc.localDescription.sdp });
+                setStatus('Oferta enviada — esperando respuesta...');
+                log('Offer SDP enviado');
+            }).catch(function(err) {
+                log('Error creando offer: ' + err.message, 'err');
+                setStatus('Error: ' + err.message, 'error');
+            });
+        }
+
+        function handleWSMessage(msg) {
+            switch (msg.type) {
+                case 'webrtc/answer':
+                    log('Answer SDP recibido');
+                    pc.setRemoteDescription({ type: 'answer', sdp: msg.value }).catch(function(err) {
+                        log('Error setRemoteDescription: ' + err.message, 'err');
+                    });
+                    break;
+                case 'webrtc/candidate':
+                    pc.addIceCandidate({ candidate: msg.value, sdpMid: '0' }).catch(function(err) {
+                        log('Error addIceCandidate: ' + err.message, 'err');
+                    });
+                    break;
+                case 'error':
+                    log('Error del servidor: ' + msg.value, 'err');
+                    setStatus('Error: ' + msg.value, 'error');
+                    break;
+                default:
+                    log('Mensaje WS: ' + msg.type);
+            }
+        }
+
+        function wsSend(obj) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(obj));
+            }
+        }
+
+        function disconnect() {
+            cleanup();
+            setStatus('Desconectado', '');
+            log('Desconectado manualmente');
+            btnConnect.disabled = false;
+            btnDisconnect.disabled = true;
+        }
+
+        btnConnect.addEventListener('click', connect);
+        btnDisconnect.addEventListener('click', disconnect);
+    </script>
+</body>
+</html>
