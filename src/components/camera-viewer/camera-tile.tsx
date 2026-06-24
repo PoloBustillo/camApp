@@ -7,7 +7,7 @@ import { formatDuration } from "@/lib/format";
 import { CameraStatusBadge } from "./camera-status-badge";
 import type { CameraViewerItem, StreamType, PersistedFilters } from "@/types/camera-viewer";
 import { PRESET_LABELS } from "@/types/camera-viewer";
-import { Star, WifiOff, TriangleAlert, Play, SlidersHorizontal, Circle, Square, Volume2, VolumeX } from "lucide-react";
+import { Star, WifiOff, TriangleAlert, Play, SlidersHorizontal, Circle, Square, Volume2, VolumeX, Maximize2 } from "lucide-react";
 
 interface CameraTileProps {
   camera: CameraViewerItem;
@@ -158,6 +158,17 @@ export const CameraTile = memo(function CameraTile({
     [isRecording, state, camera.id, camera.name, videoRef, startRecording, stopRecording],
   );
 
+  const handleFullscreen = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const el = containerRef.current;
+    if (!el) return;
+    if (!document.fullscreenElement) {
+      await el.requestFullscreen();
+    } else {
+      await document.exitFullscreen();
+    }
+  }, []);
+
   return (
     <div
       ref={containerRef}
@@ -255,6 +266,17 @@ export const CameraTile = memo(function CameraTile({
           {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
         </button>
       )}
+
+      {/* Fullscreen toggle — bottom left, below audio */}
+      <button
+        type="button"
+        onClick={handleFullscreen}
+        className="absolute bottom-10 right-2 z-10 p-1 rounded-full bg-black/20 text-white/40 hover:text-white/60 backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100"
+        aria-label="Pantalla completa"
+        title="Pantalla completa"
+      >
+        <Maximize2 className="w-3.5 h-3.5" />
+      </button>
 
       {/* Center overlay for non-playing states */}
       {state !== "playing" && (

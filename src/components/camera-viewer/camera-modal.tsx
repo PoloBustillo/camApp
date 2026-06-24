@@ -9,7 +9,7 @@ import { formatDuration } from "@/lib/format";
 import { CameraStatusBadge } from "./camera-status-badge";
 import { VideoControlsPanel } from "./video-controls-panel";
 import type { CameraViewerItem, PersistedFilters } from "@/types/camera-viewer";
-import { X, VolumeX, Volume2, Camera, Maximize2, History, Circle, Square } from "lucide-react";
+import { X, VolumeX, Volume2, Camera, Maximize2, History, Circle, Square, PanelRightClose, PanelRightOpen } from "lucide-react";
 import Link from "next/link";
 
 interface CameraModalProps {
@@ -41,6 +41,7 @@ export function CameraModal({ camera, filters, onFiltersChange, onClose }: Camer
 
   const controls = useVideoControls(camera.id, filters, onFiltersChange);
   const [snapshotMsg, setSnapshotMsg] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const { isRecording, duration, startRecording, stopRecording } = useRecorder();
 
   useEffect(() => {
@@ -122,7 +123,7 @@ export function CameraModal({ camera, filters, onFiltersChange, onClose }: Camer
       aria-label={camera.name}
     >
       <div
-        className="relative w-full h-full md:h-auto md:max-w-6xl md:rounded-2xl overflow-hidden bg-black flex flex-col md:flex-row"
+        className="relative w-full h-full md:h-[90vh] md:max-w-6xl md:rounded-2xl overflow-hidden bg-black flex flex-col md:flex-row"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -134,7 +135,7 @@ export function CameraModal({ camera, filters, onFiltersChange, onClose }: Camer
           <X className="w-5 h-5" />
         </button>
 
-        <div className="relative flex-1 min-h-0 bg-black flex flex-col">
+        <div className={`relative flex-1 min-h-0 bg-black flex flex-col transition-all ${!sidebarOpen ? "w-full" : ""}`}>
           <div
             className={[
               "relative flex-1 overflow-hidden touch-none",
@@ -299,14 +300,26 @@ export function CameraModal({ camera, filters, onFiltersChange, onClose }: Camer
                   <History className="w-5 h-5" />
                 </Link>
 
-                <button
-                  type="button"
-                  onClick={handleFullscreen}
-                  className="p-2 rounded-lg bg-black/50 text-white/70 hover:text-white hover:bg-black/70 transition-all ml-auto"
-                  aria-label="Pantalla completa"
-                >
-                  <Maximize2 className="w-5 h-5" />
-                </button>
+                <div className="ml-auto flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={handleFullscreen}
+                    className="p-2 rounded-lg bg-black/50 text-white/70 hover:text-white hover:bg-black/70 transition-all"
+                    aria-label="Pantalla completa"
+                  >
+                    <Maximize2 className="w-5 h-5" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSidebarOpen((v) => !v)}
+                    className="p-2 rounded-lg bg-black/50 text-white/70 hover:text-white hover:bg-black/70 transition-all"
+                    aria-label={sidebarOpen ? "Ocultar panel" : "Mostrar panel"}
+                    title={sidebarOpen ? "Ocultar panel lateral" : "Mostrar panel lateral"}
+                  >
+                    {sidebarOpen ? <PanelRightClose className="w-5 h-5" /> : <PanelRightOpen className="w-5 h-5" />}
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -328,7 +341,7 @@ export function CameraModal({ camera, filters, onFiltersChange, onClose }: Camer
           </div>
         </div>
 
-        <div className="hidden md:flex flex-col w-72 bg-zinc-900 p-5 gap-5 border-l border-zinc-800 overflow-y-auto min-h-0">
+        <div className={`hidden md:flex flex-col bg-zinc-900 p-5 gap-5 border-l border-zinc-800 overflow-y-auto min-h-0 shrink-0 transition-all duration-300 ${sidebarOpen ? "w-72 opacity-100" : "w-0 p-0 opacity-0 overflow-hidden border-l-0"}`}>
           <div>
             <h2 className="text-white font-semibold text-lg leading-tight">{camera.name}</h2>
             {camera.streamName && (
