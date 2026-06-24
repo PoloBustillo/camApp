@@ -1,10 +1,14 @@
 /**
  * Custom server: Next.js HTTP + WebSocket proxy to go2rtc.
  *
- * Uses Bun.serve with native WebSocket support.
- * Proxies /api/cameras/:id/ws → ws://go2rtc:9997/api/ws?src=stream_name
+ * Uses Node.js http.createServer (compatible with Bun) + ws library
+ * for proper WebSocket handling. No manual framing.
+ *
+ * Browser → wss://app/api/cameras/:id/ws → server.js → ws://go2rtc:9997/api/ws?src=stream
  */
+const http = require("http");
 const next = require("next");
+const { WebSocketServer, WebSocket } = require("ws");
 
 const dev = process.env.NODE_ENV !== "production";
 const hostname = "0.0.0.0";
@@ -14,96 +18,100 @@ const GO2RTC_HOST = process.env.GO2RTC_INTERNAL_HOST || process.env.GO2RTC_PUBLI
 const GO2RTC_WS_PORT = process.env.GO2RTC_WS_PORT || "9997";
 
 const app = next({ dev });
-const nextFetch = app.getRequestHandler();
+const handle = app.getRequestHandler();
+
+const wss = new WebSocketServer({ noServer: true });
 
 app.prepare().then(() => {
-  const server = Bun.serve({
-    port,
-    hostname,
-    fetch(req, server) {
-      const url = new URL(req.url);
-
-      // WebSocket upgrade: /api/cameras/:id/ws?src=stream_name
-      const wsMatch = url.pathname.match(/^\/api\/cameras\/([^/]+)\/ws$/);
-      if (wsMatch) {
-        const streamName = url.searchParams.get("src");
-        if (!streamName) {
-          return new Response("Missing src param", { status: 400 });
-        }
-
-        const upgraded = server.upgrade(req, {
-          data: { cameraId: wsMatch[1], streamName },
-        });
-        if (upgraded) return undefined;
-        return new Response("WebSocket upgrade failed", { status: 500 });
-      }
-
-      // Everything else → Next.js
-      return nextFetch(req);
-    },
-    websocket: {
-      open(ws) {
-        const { streamName, cameraId } = ws.data;
-        const go2rtcUrl = `ws://${GO2RTC_HOST}:${GO2RTC_WS_PORT}/api/ws?src=${encodeURIComponent(streamName)}`;
-        console.log(`[ws-proxy] Camera ${cameraId} → ${go2rtcUrl}`);
-
-        let go2rtcWs;
-        try {
-          go2rtcWs = new WebSocket(go2rtcUrl);
-        } catch (err) {
-          console.error(`[ws-proxy] Failed to connect to go2rtc:`, err.message);
-          ws.close(1011, "Upstream connect error");
-          return;
-        }
-
-        ws.data.go2rtcWs = go2rtcWs;
-        ws.data.cameraId = cameraId;
-
-        go2rtcWs.onopen = () => {
-          console.log(`[ws-proxy] Camera ${cameraId} connected to go2rtc`);
-        };
-
-        go2rtcWs.onmessage = (ev) => {
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(typeof ev.data === "string" ? ev.data : ev.data);
-          }
-        };
-
-        go2rtcWs.onclose = (ev) => {
-          console.log(`[ws-proxy] Camera ${cameraId} go2rtc closed (code=${ev.code})`);
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.close(ev.code, ev.reason || "Upstream closed");
-          }
-        };
-
-        go2rtcWs.onerror = (ev) => {
-          console.error(`[ws-proxy] Camera ${cameraId} go2rtc error`);
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.close(1011, "Upstream error");
-          }
-        };
-      },
-
-      message(ws, message) {
-        const go2rtcWs = ws.data.go2rtcWs;
-        if (go2rtcWs && go2rtcWs.readyState === WebSocket.OPEN) {
-          go2rtcWs.send(typeof message === "string" ? message : new TextDecoder().decode(message));
-        }
-      },
-
-      close(ws, code, reason) {
-        const { go2rtcWs, cameraId } = ws.data;
-        console.log(`[ws-proxy] Camera ${cameraId} client closed (code=${code})`);
-        if (go2rtcWs && go2rtcWs.readyState === WebSocket.OPEN) {
-          go2rtcWs.close(code, reason);
-        }
-      },
-
-      drain(ws) {
-        // backpressure handled by Bun automatically
-      },
-    },
+  const server = http.createServer(async (req, res) => {
+    try {
+      const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
+      await handle(req, res, parsedUrl);
+    } catch (err) {
+      console.error("Error handling request:", err);
+      res.statusCode = 500;
+      res.end("Internal Server Error");
+    }
   });
 
-  console.log(`> Ready on http://${hostname}:${port}`);
+  server.on("upgrade", (req, socket, head) => {
+    const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
+    const match = parsedUrl.pathname.match(/^\/api\/cameras\/([^/]+)\/ws$/);
+
+    if (!match) {
+      socket.destroy();
+      return;
+    }
+
+    const streamName = parsedUrl.searchParams.get("src");
+    if (!streamName) {
+      socket.destroy();
+      return;
+    }
+
+    const cameraId = match[1];
+    console.log(`[ws-proxy] Camera ${cameraId} upgrade request (src=${streamName})`);
+
+    wss.handleUpgrade(req, socket, head, (clientWs) => {
+      const go2rtcUrl = `ws://${GO2RTC_HOST}:${GO2RTC_WS_PORT}/api/ws?src=${encodeURIComponent(streamName)}`;
+      console.log(`[ws-proxy] Camera ${cameraId} → ${go2rtcUrl}`);
+
+      let go2rtcWs;
+      try {
+        go2rtcWs = new WebSocket(go2rtcUrl);
+      } catch (err) {
+        console.error(`[ws-proxy] Camera ${cameraId} go2rtc connect error:`, err.message);
+        clientWs.close(1011, "Upstream connect error");
+        return;
+      }
+
+      go2rtcWs.on("open", () => {
+        console.log(`[ws-proxy] Camera ${cameraId} connected to go2rtc`);
+      });
+
+      go2rtcWs.on("message", (data) => {
+        if (clientWs.readyState === WebSocket.OPEN) {
+          clientWs.send(data);
+        }
+      });
+
+      go2rtcWs.on("close", (code, reason) => {
+        console.log(`[ws-proxy] Camera ${cameraId} go2rtc closed (code=${code})`);
+        if (clientWs.readyState === WebSocket.OPEN) {
+          clientWs.close(code, reason?.toString() || "Upstream closed");
+        }
+      });
+
+      go2rtcWs.on("error", (err) => {
+        console.error(`[ws-proxy] Camera ${cameraId} go2rtc error:`, err.message);
+        if (clientWs.readyState === WebSocket.OPEN) {
+          clientWs.close(1011, "Upstream error");
+        }
+      });
+
+      clientWs.on("message", (data) => {
+        if (go2rtcWs.readyState === WebSocket.OPEN) {
+          go2rtcWs.send(data);
+        }
+      });
+
+      clientWs.on("close", (code, reason) => {
+        console.log(`[ws-proxy] Camera ${cameraId} client closed (code=${code})`);
+        if (go2rtcWs.readyState === WebSocket.OPEN) {
+          go2rtcWs.close(code, reason?.toString() || "Client closed");
+        }
+      });
+
+      clientWs.on("error", (err) => {
+        console.error(`[ws-proxy] Camera ${cameraId} client error:`, err.message);
+        if (go2rtcWs.readyState === WebSocket.OPEN) {
+          go2rtcWs.close(1011, "Client error");
+        }
+      });
+    });
+  });
+
+  server.listen(port, hostname, () => {
+    console.log(`> Ready on http://${hostname}:${port}`);
+  });
 });
