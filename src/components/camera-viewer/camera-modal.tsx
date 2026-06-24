@@ -27,6 +27,7 @@ export function CameraModal({ camera, filters, onFiltersChange, onClose }: Camer
     retry,
     cancelRetry,
     isAutoRetrying,
+    isFrozen,
     isMuted,
     hasAudio,
     volume,
@@ -154,7 +155,7 @@ export function CameraModal({ camera, filters, onFiltersChange, onClose }: Camer
               aria-label={`Stream principal de ${camera.name}`}
             />
 
-            <CameraStatusBadge state={state} overlay />
+            <CameraStatusBadge state={state} isFrozen={isFrozen} overlay />
 
             {state !== "playing" && (
               <div className="absolute inset-0 flex items-center justify-center">
@@ -336,7 +337,7 @@ export function CameraModal({ camera, filters, onFiltersChange, onClose }: Camer
           </div>
 
           <div className="space-y-2">
-            <InfoRow label="Estado" value={<CameraStatusBadge state={state} />} />
+            <InfoRow label="Estado" value={<CameraStatusBadge state={state} isFrozen={isFrozen} />} />
             <InfoRow
               label="Audio"
               value={

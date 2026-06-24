@@ -26,6 +26,7 @@ export interface UseCameraStreamResult {
   retry: () => Promise<void>;
   cancelRetry: () => void;
   isAutoRetrying: boolean;
+  isFrozen: boolean;
   isMuted: boolean;
   hasAudio: boolean;
   volume: number;
@@ -35,6 +36,8 @@ export interface UseCameraStreamResult {
 
 const MAX_FAST_ATTEMPTS = 3;
 const POLL_INTERVAL_MS = 30_000;
+const FROZEN_CHECK_MS = 5_000;
+const FROZEN_THRESHOLD = 3;
 
 /**
  * Manages a single WebRTC/WHEP connection for one camera.
@@ -61,6 +64,7 @@ export function useCameraStream({
   const [hasAudio, setHasAudio] = useState(false);
   const [volume, setVolumeState] = useState(1);
   const [isAutoRetrying, setIsAutoRetrying] = useState(false);
+  const [isFrozen, setIsFrozen] = useState(false);
 
   const reconnectAttemptsRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -68,6 +72,10 @@ export function useCameraStream({
   const connectRef = useRef<((isAutoRetry?: boolean) => Promise<void>) | null>(
     null,
   );
+  const frozenCheckRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const prevFramesRef = useRef<number>(-1);
+  const prevBytesRef = useRef<number>(-1);
+  const frozenCountRef = useRef(0);
 
   const setStateAndNotify = useCallback(
     (s: PlayerState) => {
@@ -83,6 +91,55 @@ export function useCameraStream({
       reconnectTimerRef.current = null;
     }
   }, []);
+
+  const clearFrozenCheck = useCallback(() => {
+    if (frozenCheckRef.current) {
+      clearInterval(frozenCheckRef.current);
+      frozenCheckRef.current = null;
+    }
+    prevFramesRef.current = -1;
+    prevBytesRef.current = -1;
+    frozenCountRef.current = 0;
+    setIsFrozen(false);
+  }, []);
+
+  const startFrozenCheck = useCallback(() => {
+    clearFrozenCheck();
+    frozenCheckRef.current = setInterval(async () => {
+      const pc = pcRef.current;
+      if (!pc || pc.connectionState !== "connected") return;
+
+      try {
+        const stats = await pc.getStats();
+        let framesDecoded = 0;
+        let bytesReceived = 0;
+
+        stats.forEach((report) => {
+          if (report.type === "inbound-rtp" && "framesDecoded" in report) {
+            framesDecoded += (report as { framesDecoded: number }).framesDecoded;
+          }
+          if (report.type === "inbound-rtp" && "bytesReceived" in report) {
+            bytesReceived += (report as { bytesReceived: number }).bytesReceived;
+          }
+        });
+
+        if (prevFramesRef.current === framesDecoded && prevBytesRef.current === bytesReceived) {
+          frozenCountRef.current++;
+          if (frozenCountRef.current >= FROZEN_THRESHOLD) {
+            setIsFrozen(true);
+          }
+        } else {
+          frozenCountRef.current = 0;
+          setIsFrozen(false);
+        }
+
+        prevFramesRef.current = framesDecoded;
+        prevBytesRef.current = bytesReceived;
+      } catch {
+        // getStats can fail if peer connection is closed
+      }
+    }, FROZEN_CHECK_MS);
+  }, [clearFrozenCheck]);
 
   const scheduleReconnect = useCallback(
     (delayMs: number) => {
@@ -111,6 +168,7 @@ export function useCameraStream({
   const disconnect = useCallback(() => {
     cancelledRef.current = true;
     clearReconnectTimer();
+    clearFrozenCheck();
     reconnectAttemptsRef.current = 0;
     setIsAutoRetrying(false);
 
@@ -126,7 +184,7 @@ export function useCameraStream({
         ? "idle"
         : prev,
     );
-  }, [clearReconnectTimer]);
+  }, [clearReconnectTimer, clearFrozenCheck]);
 
   const connect = useCallback(
     async (isAutoRetry = false) => {
@@ -268,6 +326,7 @@ export function useCameraStream({
             reconnectAttemptsRef.current = 0;
             setIsAutoRetrying(false);
             setStateAndNotify("playing");
+            startFrozenCheck();
           };
 
           await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
@@ -283,6 +342,7 @@ export function useCameraStream({
               reconnectAttemptsRef.current = 0;
               setIsAutoRetrying(false);
               setStateAndNotify("playing");
+              startFrozenCheck();
             }
           }, 2000);
         } else {
@@ -331,6 +391,27 @@ export function useCameraStream({
   // Keep forward ref up to date
   connectRef.current = connect;
 
+  // Auto-reconnect when frozen is detected
+  useEffect(() => {
+    if (isFrozen && state === "playing") {
+      console.log(`[camstream] Camera ${cameraId} frozen — reconnecting`);
+      clearFrozenCheck();
+      // Disconnect and reconnect
+      if (pcRef.current) {
+        pcRef.current.close();
+        pcRef.current = null;
+      }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+      setStateAndNotify("reconnecting");
+      setErrorMsg("Imagen congelada — reconectando...");
+      reconnectAttemptsRef.current = 0;
+      setIsAutoRetrying(true);
+      scheduleReconnect(2000);
+    }
+  }, [isFrozen, state, cameraId, clearFrozenCheck, setStateAndNotify, scheduleReconnect]);
+
   // Auto-connect on mount if requested
   useEffect(() => {
     if (autoConnect) connect();
@@ -346,6 +427,7 @@ export function useCameraStream({
     retry: connect,
     cancelRetry,
     isAutoRetrying,
+    isFrozen,
     isMuted,
     hasAudio,
     volume,

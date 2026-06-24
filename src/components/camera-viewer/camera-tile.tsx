@@ -57,7 +57,7 @@ export const CameraTile = memo(function CameraTile({
   isFavorite: initialFavorite,
 }: CameraTileProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { state, errorMsg, videoRef, connect, disconnect, retry, cancelRetry, isAutoRetrying, isMuted, hasAudio, toggleMute } = useCameraStream({
+  const { state, errorMsg, videoRef, connect, disconnect, retry, cancelRetry, isAutoRetrying, isFrozen, isMuted, hasAudio, toggleMute } = useCameraStream({
     cameraId: camera.id,
     streamType,
   });
@@ -187,7 +187,7 @@ export const CameraTile = memo(function CameraTile({
       />
 
       {/* Status badge — top right */}
-      <CameraStatusBadge state={state} overlay />
+      <CameraStatusBadge state={state} isFrozen={isFrozen} overlay />
 
       {/* Favorite star — top left */}
       <button

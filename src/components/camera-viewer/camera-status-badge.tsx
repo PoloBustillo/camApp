@@ -4,6 +4,7 @@ import type { PlayerState } from "@/types/camera-viewer";
 
 interface CameraStatusBadgeProps {
   state: PlayerState;
+  isFrozen?: boolean;
   /** If true renders as overlay (absolute positioned) */
   overlay?: boolean;
 }
@@ -20,8 +21,15 @@ const STATE_CONFIG: Record<
   reconnecting: { label: "Reconectando", color: "bg-orange-900/80 text-orange-300", dot: "bg-orange-400", pulse: true },
 };
 
-export function CameraStatusBadge({ state, overlay = false }: CameraStatusBadgeProps) {
-  const cfg = STATE_CONFIG[state];
+const FROZEN_CONFIG = {
+  label: "Congelada",
+  color: "bg-amber-900/80 text-amber-300",
+  dot: "bg-amber-400",
+  pulse: true,
+};
+
+export function CameraStatusBadge({ state, isFrozen = false, overlay = false }: CameraStatusBadgeProps) {
+  const cfg = isFrozen && state === "playing" ? FROZEN_CONFIG : STATE_CONFIG[state];
   return (
     <span
       className={[
