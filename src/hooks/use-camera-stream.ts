@@ -36,9 +36,6 @@ export interface UseCameraStreamResult {
 
 const MAX_FAST_ATTEMPTS = 3;
 const POLL_INTERVAL_MS = 30_000;
-const FROZEN_CHECK_MS = 15_000;
-const FROZEN_THRESHOLD = 4;
-const VIDEO_STALL_THRESHOLD = 3;
 const RECONNECT_COOLDOWN_MS = 30_000;
 
 /**
@@ -74,10 +71,6 @@ export function useCameraStream({
   const connectRef = useRef<((isAutoRetry?: boolean) => Promise<void>) | null>(
     null,
   );
-  const frozenCheckRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const prevFramesRef = useRef<number>(-1);
-  const prevBytesRef = useRef<number>(-1);
-  const frozenCountRef = useRef(0);
   const cleanupStallRef = useRef<(() => void) | null>(null);
   const streamTypeRef = useRef(streamType);
   const originalStreamTypeRef = useRef(streamType);
@@ -98,104 +91,6 @@ export function useCameraStream({
       reconnectTimerRef.current = null;
     }
   }, []);
-
-  const clearFrozenCheck = useCallback(() => {
-    if (frozenCheckRef.current) {
-      clearInterval(frozenCheckRef.current);
-      frozenCheckRef.current = null;
-    }
-    prevFramesRef.current = -1;
-    prevBytesRef.current = -1;
-    frozenCountRef.current = 0;
-    setIsFrozen(false);
-  }, []);
-
-  const startFrozenCheck = useCallback(() => {
-    clearFrozenCheck();
-    let prevCanvasHash = "";
-    let videoStallCount = 0;
-
-    frozenCheckRef.current = setInterval(async () => {
-      // Skip frozen check when tab is hidden (mobile background, screen off)
-      if (typeof document !== "undefined" && document.hidden) return;
-
-      const pc = pcRef.current;
-      const video = videoRef.current;
-      if (!pc || pc.connectionState !== "connected" || !video) return;
-
-      // ── Check 1: Video element stall detection via canvas snapshot ──
-      let videoFrozen = false;
-      try {
-        if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
-          const canvas = document.createElement("canvas");
-          canvas.width = 64;
-          canvas.height = 36;
-          const ctx = canvas.getContext("2d");
-          if (ctx) {
-            ctx.drawImage(video, 0, 0, 64, 36);
-            const imageData = ctx.getImageData(0, 0, 64, 36);
-            // Simple hash: sum of first 100 pixels (fast)
-            let hash = 0;
-            for (let i = 0; i < 400 && i < imageData.data.length; i += 4) {
-              hash += imageData.data[i] + imageData.data[i + 1] + imageData.data[i + 2];
-            }
-            const hashStr = String(hash);
-
-            if (prevCanvasHash === hashStr) {
-              videoStallCount++;
-              if (videoStallCount >= VIDEO_STALL_THRESHOLD) {
-                videoFrozen = true;
-              }
-            } else {
-              videoStallCount = 0;
-              videoFrozen = false;
-            }
-            prevCanvasHash = hashStr;
-          }
-        }
-      } catch {
-        // Canvas may fail on some browsers
-      }
-
-      // ── Check 2: WebRTC stats (framesDecoded not incrementing) ──
-      let statsFrozen = false;
-      try {
-        const stats = await pc.getStats();
-        let framesDecoded = 0;
-        let bytesReceived = 0;
-
-        stats.forEach((report) => {
-          if (report.type === "inbound-rtp" && "framesDecoded" in report) {
-            framesDecoded += (report as { framesDecoded: number }).framesDecoded;
-          }
-          if (report.type === "inbound-rtp" && "bytesReceived" in report) {
-            bytesReceived += (report as { bytesReceived: number }).bytesReceived;
-          }
-        });
-
-        if (prevFramesRef.current === framesDecoded && prevBytesRef.current === bytesReceived) {
-          frozenCountRef.current++;
-          if (frozenCountRef.current >= FROZEN_THRESHOLD) {
-            statsFrozen = true;
-          }
-        } else {
-          frozenCountRef.current = 0;
-        }
-
-        prevFramesRef.current = framesDecoded;
-        prevBytesRef.current = bytesReceived;
-      } catch {
-        // getStats can fail if peer connection is closed
-      }
-
-      // ── Combined: frozen if either check detects stall ──
-      if (videoFrozen || statsFrozen) {
-        setIsFrozen(true);
-      } else {
-        setIsFrozen(false);
-      }
-    }, FROZEN_CHECK_MS);
-  }, [clearFrozenCheck]);
 
   const scheduleReconnect = useCallback(
     (delayMs: number) => {
@@ -224,7 +119,7 @@ export function useCameraStream({
   const disconnect = useCallback(() => {
     cancelledRef.current = true;
     clearReconnectTimer();
-    clearFrozenCheck();
+    cleanupStallRef.current?.();
     reconnectAttemptsRef.current = 0;
     setIsAutoRetrying(false);
 
@@ -233,7 +128,6 @@ export function useCameraStream({
       pcRef.current = null;
     }
     if (videoRef.current) {
-      cleanupStallRef.current?.();
       videoRef.current.srcObject = null;
     }
     setState((prev) =>
@@ -241,7 +135,7 @@ export function useCameraStream({
         ? "idle"
         : prev,
     );
-  }, [clearReconnectTimer, clearFrozenCheck]);
+  }, [clearReconnectTimer]);
 
   const connect = useCallback(
     async (isAutoRetry = false) => {
@@ -319,31 +213,37 @@ export function useCameraStream({
           }
         };
 
-        // Detect video stalls immediately via native browser events
+        // Detect video stalls via native browser events
         if (videoRef.current) {
           const video = videoRef.current;
+          let stallTimer: ReturnType<typeof setTimeout> | null = null;
+
           const onVideoWaiting = () => {
             if (cancelledRef.current) return;
-            // Video stalled — wait 15s then check if it recovered
-            setTimeout(() => {
+            // Clear any existing timer
+            if (stallTimer) clearTimeout(stallTimer);
+            // Wait 30s — if video hasn't resumed, it's truly frozen
+            stallTimer = setTimeout(() => {
               if (cancelledRef.current) return;
-              // Skip if we just reconnected (cooldown)
               if (Date.now() - lastReconnectTimeRef.current < RECONNECT_COOLDOWN_MS) return;
-              if (video && video.readyState < 2 && state === "playing") {
-                console.log(`[camstream] Camera ${cameraId} video stalled`);
+              if (video && video.readyState < 2 && !video.paused) {
+                console.log(`[camstream] Camera ${cameraId} video stalled 30s`);
                 setIsFrozen(true);
               }
-            }, 15_000);
+            }, 30_000);
           };
           const onVideoPlaying = () => {
+            if (stallTimer) { clearTimeout(stallTimer); stallTimer = null; }
             setIsFrozen(false);
           };
           video.addEventListener("waiting", onVideoWaiting);
           video.addEventListener("playing", onVideoPlaying);
-          // Store cleanup ref
+          video.addEventListener("canplay", onVideoPlaying);
           cleanupStallRef.current = () => {
+            if (stallTimer) clearTimeout(stallTimer);
             video.removeEventListener("waiting", onVideoWaiting);
             video.removeEventListener("playing", onVideoPlaying);
+            video.removeEventListener("canplay", onVideoPlaying);
           };
         }
 
@@ -411,11 +311,10 @@ export function useCameraStream({
             reconnectAttemptsRef.current = 0;
             frozenReconnectCountRef.current = 0;
             lastReconnectTimeRef.current = 0;
-            // Reset to original stream type on success
             streamTypeRef.current = originalStreamTypeRef.current;
             setIsAutoRetrying(false);
+            setIsFrozen(false);
             setStateAndNotify("playing");
-            startFrozenCheck();
           };
 
           await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
@@ -433,8 +332,8 @@ export function useCameraStream({
               lastReconnectTimeRef.current = 0;
               streamTypeRef.current = originalStreamTypeRef.current;
               setIsAutoRetrying(false);
+              setIsFrozen(false);
               setStateAndNotify("playing");
-              startFrozenCheck();
             }
           }, 2000);
         } else {
@@ -483,18 +382,16 @@ export function useCameraStream({
   // Keep forward ref up to date
   connectRef.current = connect;
 
-  // Auto-reconnect when frozen is detected
+  // Auto-reconnect when frozen is detected (30s stall from native events)
   useEffect(() => {
     if (isFrozen && state === "playing") {
       const now = Date.now();
-      // Cooldown: don't reconnect if we did it less than 30s ago
       if (now - lastReconnectTimeRef.current < RECONNECT_COOLDOWN_MS) return;
 
       frozenReconnectCountRef.current++;
       lastReconnectTimeRef.current = now;
       console.log(`[camstream] Camera ${cameraId} frozen — reconnecting (attempt ${frozenReconnectCountRef.current})`);
 
-      // After 2 failed reconnects with sub stream, switch to main
       if (
         frozenReconnectCountRef.current >= 3 &&
         streamTypeRef.current === "sub"
@@ -504,7 +401,6 @@ export function useCameraStream({
         frozenReconnectCountRef.current = 0;
       }
 
-      clearFrozenCheck();
       // Disconnect and reconnect
       if (pcRef.current) {
         pcRef.current.close();
@@ -524,7 +420,7 @@ export function useCameraStream({
       setIsAutoRetrying(true);
       scheduleReconnect(3000);
     }
-  }, [isFrozen, state, cameraId, clearFrozenCheck, setStateAndNotify, scheduleReconnect]);
+  }, [isFrozen, state, cameraId, setStateAndNotify, scheduleReconnect]);
 
   // Mobile: refresh stream when returning from background
   useEffect(() => {
@@ -541,13 +437,6 @@ export function useCameraStream({
         if (video.paused) {
           video.play().catch(() => {});
         }
-
-        // Reset frozen counters after returning from background
-        // (stats may have stopped changing while hidden)
-        frozenCountRef.current = 0;
-        setIsFrozen(false);
-        prevFramesRef.current = -1;
-        prevBytesRef.current = -1;
       }
 
       // If connection is "connected" but video has no frames after 10s, force reconnect
@@ -558,18 +447,11 @@ export function useCameraStream({
           // Cooldown check
           if (Date.now() - lastReconnectTimeRef.current < RECONNECT_COOLDOWN_MS) return;
 
-          // Check if video is actually playing frames
           const currentVideo = videoRef.current;
-          if (currentVideo.readyState < 2 || currentVideo.paused) {
+          if (currentVideo && (currentVideo.readyState < 2 || currentVideo.paused)) {
             console.log(`[camstream] Camera ${cameraId} stale after background — refreshing`);
 
-            frozenReconnectCountRef.current++;
             lastReconnectTimeRef.current = Date.now();
-            if (frozenReconnectCountRef.current >= 3 && streamTypeRef.current === "sub") {
-              console.log(`[camstream] Sub stream stale 3 times — switching to main`);
-              streamTypeRef.current = "main";
-              frozenReconnectCountRef.current = 0;
-            }
 
             if (pcRef.current) {
               pcRef.current.close();
