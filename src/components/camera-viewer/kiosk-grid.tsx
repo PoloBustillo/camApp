@@ -3,12 +3,14 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Play, Pause, LogOut, RefreshCw } from "lucide-react";
 import { CameraTile } from "./camera-tile";
-import type { CameraViewerItem } from "@/types/camera-viewer";
+import type { CameraViewerItem, PersistedFilters } from "@/types/camera-viewer";
 
 interface KioskGridProps {
   cameras: CameraViewerItem[];
   /** Auto-cycle pages every N seconds (default 15) */
   cycleInterval?: number;
+  /** Per-camera color filter settings */
+  cameraFilters?: Record<string, PersistedFilters>;
 }
 
 interface GridConfig {
@@ -36,6 +38,7 @@ function getGridConfig(width: number, height: number): GridConfig {
 export function KioskGrid({
   cameras,
   cycleInterval = 15_000,
+  cameraFilters,
 }: KioskGridProps) {
   const [page, setPage] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -142,6 +145,7 @@ export function KioskGrid({
             camera={camera}
             streamType="sub"
             pageKey={page}
+            filters={cameraFilters?.[camera.id]}
           />
         </div>
       ))}

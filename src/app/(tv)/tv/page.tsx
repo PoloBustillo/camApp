@@ -1,28 +1,40 @@
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { KioskGrid } from "@/components/camera-viewer/kiosk-grid";
-import type { CameraViewerItem } from "@/types/camera-viewer";
+import type { CameraViewerItem, PersistedFilters } from "@/types/camera-viewer";
 
 export const metadata = { title: "CamWatch TV" };
 
 export default async function TvPage() {
-  await requireSession();
+  const session = await requireSession();
 
-  const rows = await prisma.camera.findMany({
-    where: { enabled: true, online: true },
-    orderBy: [{ name: "asc" }],
-    select: {
-      id: true,
-      name: true,
-      protocol: true,
-      enabled: true,
-      online: true,
-      mediaMtxPath: true,
-      substreamPath: true,
-      edgeServerId: true,
-      site: { select: { name: true } },
-    },
-  });
+  const [rows, cameraFiltersRows] = await Promise.all([
+    prisma.camera.findMany({
+      where: { enabled: true, online: true },
+      orderBy: [{ name: "asc" }],
+      select: {
+        id: true,
+        name: true,
+        protocol: true,
+        enabled: true,
+        online: true,
+        mediaMtxPath: true,
+        substreamPath: true,
+        edgeServerId: true,
+        site: { select: { name: true } },
+      },
+    }),
+    prisma.userCameraFilter.findMany({
+      where: { userId: session.user.id },
+      select: {
+        cameraId: true,
+        brightness: true,
+        contrast: true,
+        saturation: true,
+        preset: true,
+      },
+    }),
+  ]);
 
   const cameras: CameraViewerItem[] = rows.map((c) => ({
     id: c.id,
@@ -36,5 +48,15 @@ export default async function TvPage() {
     protocol: c.protocol,
   }));
 
-  return <KioskGrid cameras={cameras} />;
+  const cameraFiltersMap: Record<string, PersistedFilters> = {};
+  for (const f of cameraFiltersRows) {
+    cameraFiltersMap[f.cameraId] = {
+      brightness: f.brightness,
+      contrast: f.contrast,
+      saturation: f.saturation,
+      preset: f.preset,
+    };
+  }
+
+  return <KioskGrid cameras={cameras} cameraFilters={cameraFiltersMap} />;
 }
