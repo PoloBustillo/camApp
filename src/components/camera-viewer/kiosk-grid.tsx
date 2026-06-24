@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { Play, Pause, LogOut } from "lucide-react";
+import { Play, Pause, LogOut, RefreshCw } from "lucide-react";
 import { CameraTile } from "./camera-tile";
 import type { CameraViewerItem } from "@/types/camera-viewer";
 
@@ -115,6 +115,9 @@ export function KioskGrid({
       if (e.key === "Escape") {
         window.location.href = "/dashboard";
       }
+      if (e.key === "r" || e.key === "R") {
+        window.location.reload();
+      }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
@@ -186,6 +189,16 @@ export function KioskGrid({
               {paused ? "Pausa" : "Auto"}
             </span>
           )}
+
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="text-white/50 hover:text-white transition-colors"
+            aria-label="Actualizar cámaras"
+            title="Actualizar (R)"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
 
           <button
             type="button"
