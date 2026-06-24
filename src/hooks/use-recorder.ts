@@ -10,6 +10,7 @@ export interface RecordingMetadata {
   mimeType: string;
   startTime: string;
   endTime: string;
+  blob: Blob;
 }
 
 export interface UseRecorderReturn {
@@ -34,6 +35,38 @@ async function computeSHA256(blob: Blob): Promise<string> {
   const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Uploads a client-side recording to the server, which saves it to DB and cloud (B2).
+ */
+export async function uploadRecordingToCloud(
+  metadata: RecordingMetadata,
+  cameraId: string,
+): Promise<{ id: string; cloudStatus: string }> {
+  const formData = new FormData();
+  const ext = metadata.mimeType.includes("mp4") ? "mp4" : "webm";
+  const file = new File([metadata.blob], metadata.fileName, { type: metadata.mimeType });
+  formData.append("file", file);
+  formData.append("cameraId", cameraId);
+  formData.append("startTime", metadata.startTime);
+  formData.append("endTime", metadata.endTime);
+  formData.append("duration", String(metadata.duration));
+  formData.append("fileHash", metadata.fileHash);
+  formData.append("mimeType", metadata.mimeType);
+
+  const res = await fetch("/api/recordings/upload", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => null);
+    throw new Error(err?.error?.message || "Error al subir grabación");
+  }
+
+  const json = await res.json();
+  return json.data;
 }
 
 /**
@@ -86,7 +119,6 @@ export function useRecorder(): UseRecorderReturn {
         const blob = new Blob(chunksRef.current, { type: mimeType });
         const fileName = `${filenameRef.current}.${ext}`;
 
-        // Compute SHA-256 hash
         const fileHash = await computeSHA256(blob);
 
         // Download the file
@@ -109,6 +141,7 @@ export function useRecorder(): UseRecorderReturn {
           mimeType,
           startTime: startTimeRef.current,
           endTime,
+          blob,
         });
       };
 

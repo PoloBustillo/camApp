@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useCameraStream } from "@/hooks/use-camera-stream";
 import { useVideoControls } from "@/hooks/use-video-controls";
-import { useRecorder } from "@/hooks/use-recorder";
+import { useRecorder, uploadRecordingToCloud } from "@/hooks/use-recorder";
 import { captureVideoSnapshot } from "@/lib/capture-snapshot";
 import { formatDuration } from "@/lib/format";
 import { CameraStatusBadge } from "./camera-status-badge";
@@ -88,21 +88,7 @@ export function CameraModal({ camera, filters, onFiltersChange, onClose }: Camer
     if (isRecording) {
       const meta = await stopRecording();
       if (meta) {
-        // Send forensic metadata to API
-        fetch("/api/recordings/client", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            cameraId: camera.id,
-            fileName: meta.fileName,
-            fileSize: meta.fileSize,
-            duration: meta.duration,
-            fileHash: meta.fileHash,
-            mimeType: meta.mimeType,
-            startTime: meta.startTime,
-            endTime: meta.endTime,
-          }),
-        }).catch(() => {});
+        uploadRecordingToCloud(meta, camera.id).catch(() => {});
       }
     } else {
       const stream = videoRef.current?.srcObject as MediaStream;

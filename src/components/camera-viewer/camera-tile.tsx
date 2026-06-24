@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useCallback, memo, useMemo, useState } from "react";
 import { useCameraStream } from "@/hooks/use-camera-stream";
-import { useRecorder } from "@/hooks/use-recorder";
+import { useRecorder, uploadRecordingToCloud } from "@/hooks/use-recorder";
 import { formatDuration } from "@/lib/format";
 import { CameraStatusBadge } from "./camera-status-badge";
 import type { CameraViewerItem, StreamType, PersistedFilters } from "@/types/camera-viewer";
@@ -131,20 +131,7 @@ export const CameraTile = memo(function CameraTile({
       if (isRecording) {
         const meta = await stopRecording();
         if (meta) {
-          fetch("/api/recordings/client", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              cameraId: camera.id,
-              fileName: meta.fileName,
-              fileSize: meta.fileSize,
-              duration: meta.duration,
-              fileHash: meta.fileHash,
-              mimeType: meta.mimeType,
-              startTime: meta.startTime,
-              endTime: meta.endTime,
-            }),
-          }).catch(() => {});
+          uploadRecordingToCloud(meta, camera.id).catch(() => {});
         }
       } else {
         const stream = videoRef.current?.srcObject as MediaStream;
