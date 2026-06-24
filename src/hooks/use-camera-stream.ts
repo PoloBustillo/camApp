@@ -165,6 +165,22 @@ export function useCameraStream({
     );
   }, [clearReconnectTimer]);
 
+  function isRetryableError(err: unknown): boolean {
+    if (!(err instanceof Error)) return false;
+    const msg = err.message.toLowerCase();
+    return (
+      msg.includes("whep") ||
+      msg.includes("timeout") ||
+      msg.includes("timed out") ||
+      msg.includes("connection") ||
+      msg.includes("unreachable") ||
+      msg.includes("ice gathering") ||
+      msg.includes("econnrefused") ||
+      msg.includes("econnreset") ||
+      msg.includes("network")
+    );
+  }
+
   // Plain function with latest refs — called via connectRef
   async function connectInternal(isAutoRetry = false) {
     if (!isAutoRetry) {
@@ -375,10 +391,29 @@ export function useCameraStream({
     } catch (err) {
       if (cancelledRef.current) return;
       const msg = err instanceof Error ? err.message : "Error al iniciar stream";
-      setStateAndNotify("error");
-      setErrorMsg(msg);
+      console.error(`[camstream] Camera ${cameraId} connect error:`, msg);
+
       if (pcRef.current) { pcRef.current.close(); pcRef.current = null; }
       if (wsRef.current) { (wsRef.current as WebSocket).close(); wsRef.current = null; }
+
+      if (isRetryableError(err)) {
+        // WHEP/connection errors are usually transient — auto-retry
+        if (reconnectAttemptsRef.current < MAX_FAST_ATTEMPTS) {
+          const attempt = reconnectAttemptsRef.current + 1;
+          reconnectAttemptsRef.current = attempt;
+          const delay = Math.pow(2, attempt - 1) * 1000;
+          setStateAndNotify("reconnecting");
+          setErrorMsg(`Reintentando... (intento ${attempt}/${MAX_FAST_ATTEMPTS})`);
+          scheduleReconnect(delay);
+        } else {
+          setStateAndNotify("offline");
+          setErrorMsg("Cámara offline — reintentando cada 30s...");
+          scheduleReconnect(POLL_INTERVAL_MS);
+        }
+      } else {
+        setStateAndNotify("error");
+        setErrorMsg(msg);
+      }
     }
   }
 
