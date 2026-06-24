@@ -78,6 +78,9 @@ export function useCameraStream({
   const prevBytesRef = useRef<number>(-1);
   const frozenCountRef = useRef(0);
   const cleanupStallRef = useRef<(() => void) | null>(null);
+  const streamTypeRef = useRef(streamType);
+  const originalStreamTypeRef = useRef(streamType);
+  const frozenReconnectCountRef = useRef(0);
 
   const setStateAndNotify = useCallback(
     (s: PlayerState) => {
@@ -262,7 +265,7 @@ export function useCameraStream({
       try {
         // ── 1. Fetch WHEP URL server-side ────────────────────────────
         const res = await fetch(
-          `/api/cameras/${cameraId}/webrtc-url?type=${streamType}`,
+          `/api/cameras/${cameraId}/webrtc-url?type=${streamTypeRef.current}`,
         );
 
         if (!res.ok) {
@@ -402,6 +405,9 @@ export function useCameraStream({
           const video = videoRef.current;
           video.onplaying = () => {
             reconnectAttemptsRef.current = 0;
+            frozenReconnectCountRef.current = 0;
+            // Reset to original stream type on success
+            streamTypeRef.current = originalStreamTypeRef.current;
             setIsAutoRetrying(false);
             setStateAndNotify("playing");
             startFrozenCheck();
@@ -438,7 +444,7 @@ export function useCameraStream({
         }
       }
     },
-    [cameraId, streamType, setStateAndNotify, isMuted, volume, scheduleReconnect],
+    [cameraId, setStateAndNotify, isMuted, volume, scheduleReconnect],
   );
 
   const toggleMute = useCallback(() => {
@@ -472,7 +478,19 @@ export function useCameraStream({
   // Auto-reconnect when frozen is detected
   useEffect(() => {
     if (isFrozen && state === "playing") {
-      console.log(`[camstream] Camera ${cameraId} frozen — reconnecting`);
+      frozenReconnectCountRef.current++;
+      console.log(`[camstream] Camera ${cameraId} frozen — reconnecting (attempt ${frozenReconnectCountRef.current})`);
+
+      // After 1 failed reconnect with sub stream, switch to main
+      if (
+        frozenReconnectCountRef.current >= 2 &&
+        streamTypeRef.current === "sub"
+      ) {
+        console.log(`[camstream] Sub stream frozen twice — switching to main`);
+        streamTypeRef.current = "main";
+        frozenReconnectCountRef.current = 0;
+      }
+
       clearFrozenCheck();
       // Disconnect and reconnect
       if (pcRef.current) {
@@ -480,10 +498,15 @@ export function useCameraStream({
         pcRef.current = null;
       }
       if (videoRef.current) {
+        cleanupStallRef.current?.();
         videoRef.current.srcObject = null;
       }
       setStateAndNotify("reconnecting");
-      setErrorMsg("Imagen congelada — reconectando...");
+      setErrorMsg(
+        streamTypeRef.current === "main"
+          ? "Imagen congelada — usando stream principal..."
+          : "Imagen congelada — reconectando..."
+      );
       reconnectAttemptsRef.current = 0;
       setIsAutoRetrying(true);
       scheduleReconnect(2000);
@@ -524,10 +547,20 @@ export function useCameraStream({
           const currentVideo = videoRef.current;
           if (currentVideo.readyState < 2 || currentVideo.paused) {
             console.log(`[camstream] Camera ${cameraId} stale after background — refreshing`);
+
+            // Switch to main stream if sub keeps failing
+            frozenReconnectCountRef.current++;
+            if (frozenReconnectCountRef.current >= 2 && streamTypeRef.current === "sub") {
+              console.log(`[camstream] Sub stream stale twice — switching to main`);
+              streamTypeRef.current = "main";
+              frozenReconnectCountRef.current = 0;
+            }
+
             if (pcRef.current) {
               pcRef.current.close();
               pcRef.current = null;
             }
+            cleanupStallRef.current?.();
             currentVideo.srcObject = null;
             setStateAndNotify("reconnecting");
             setErrorMsg("Refrescando stream...");
