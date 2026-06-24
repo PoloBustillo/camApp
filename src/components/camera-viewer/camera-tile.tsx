@@ -3,7 +3,7 @@
 import { useEffect, useRef, useCallback, memo, useMemo } from "react";
 import { useCameraStream } from "@/hooks/use-camera-stream";
 import { CameraStatusBadge } from "./camera-status-badge";
-import type { CameraViewerItem, StreamType, PersistedFilters } from "@/types/camera-viewer";
+import type { CameraViewerItem, StreamType, PersistedFilters, PlayerState } from "@/types/camera-viewer";
 import { PRESET_LABELS } from "@/types/camera-viewer";
 import { SlidersHorizontal } from "lucide-react";
 
@@ -14,6 +14,8 @@ interface CameraTileProps {
   onClick?: (camera: CameraViewerItem) => void;
   /** Use WHEP/HTTP signaling instead of WebSocket (better for TV browsers) */
   preferWhep?: boolean;
+  /** Report state changes to parent (used by KioskGrid watchdog) */
+  onStateChange?: (state: PlayerState) => void;
 }
 
 function buildFilterStyle(filters: PersistedFilters | null | undefined): string {
@@ -52,12 +54,14 @@ export const CameraTile = memo(function CameraTile({
   streamType = "sub",
   onClick,
   preferWhep = false,
+  onStateChange,
 }: CameraTileProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { state, errorMsg, videoRef, connect, disconnect, isAutoRetrying, isFrozen } = useCameraStream({
     cameraId: camera.id,
     streamType,
     preferWhep,
+    onStateChange,
   });
 
   const filterStyle = useMemo(() => buildFilterStyle(filters), [filters]);

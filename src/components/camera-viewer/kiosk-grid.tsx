@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Play, Pause, LogOut, RefreshCw } from "lucide-react";
 import { CameraTile } from "./camera-tile";
-import type { CameraViewerItem, PersistedFilters } from "@/types/camera-viewer";
+import type { CameraViewerItem, PersistedFilters, PlayerState } from "@/types/camera-viewer";
 
 interface KioskGridProps {
   cameras: CameraViewerItem[];
@@ -26,12 +26,20 @@ function getGridConfig(width: number, height: number): GridConfig {
   return { cols: 2, pageSize: 4, gap: "gap-1", padding: "p-1" };
 }
 
+const WATCHDOG_THRESHOLD_MS = 60_000;
+const MENU_PULSE_INTERVAL_MS = 30_000;
+const MENU_AUTO_HIDE_MS = 3_000;
+
 /**
  * KioskGrid — TV/Kiosk mode.
- * - Auto-adapts grid layout based on screen resolution (2x2 for FHD, 3x3 for 4K).
- * - Auto-cycles through pages of cameras.
+ *
+ * - Starts PAUSED (no auto-rotation until user presses Play).
+ * - Auto-cycles through pages when unpaused.
  * - Space bar toggles play/pause.
- * - Controls appear on mouse move, hide after 3s.
+ * - Controls appear on mouse move, click, or key press, hide after 3s.
+ * - Menu pulses every 30s for 3s so it's always reachable on TV remotes.
+ * - Watchdog: if ALL cameras are error/offline for 60s → auto-reload.
+ * - Always-visible refresh button in top-right corner.
  * - ESC → redirect to /dashboard.
  */
 export function KioskGrid({
@@ -40,11 +48,15 @@ export function KioskGrid({
   cameraFilters,
 }: KioskGridProps) {
   const [page, setPage] = useState(0);
-  const [paused, setPaused] = useState(false);
+  const [paused, setPaused] = useState(true);
   const [controlsVisible, setControlsVisible] = useState(false);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
+
+  // Watchdog: track state of each visible camera
+  const cameraStatesRef = useRef<Map<string, PlayerState>>(new Map());
+  const allBadSinceRef = useRef<number | null>(null);
 
   // Grid config based on resolution
   const [gridConfig, setGridConfig] = useState<GridConfig>(() =>
@@ -68,7 +80,10 @@ export function KioskGrid({
     [cameras, page, pageSize],
   );
 
+  // Reset watchdog when page changes
   useEffect(() => {
+    cameraStatesRef.current = new Map();
+    allBadSinceRef.current = null;
     console.log(`[kiosk] page=${page + 1}/${totalPages}, cameras=${visibleCameras.map((c) => c.name).join(", ")}`);
   }, [page, totalPages, visibleCameras]);
 
@@ -87,11 +102,11 @@ export function KioskGrid({
     return () => clearInterval(id);
   }, [totalPages, cycleInterval, paused]);
 
-  // Show controls on mouse/touch
+  // Show controls on mouse/touch/click
   const showControls = useCallback(() => {
     setControlsVisible(true);
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-    hideTimerRef.current = setTimeout(() => setControlsVisible(false), 3000);
+    hideTimerRef.current = setTimeout(() => setControlsVisible(false), MENU_AUTO_HIDE_MS);
   }, []);
 
   useEffect(() => {
@@ -100,17 +115,29 @@ export function KioskGrid({
     };
   }, []);
 
-  // Mouse move → show controls
+  // Input listeners: mousemove, click, touchstart, keydown
   useEffect(() => {
     document.addEventListener("mousemove", showControls);
+    document.addEventListener("click", showControls);
     document.addEventListener("touchstart", showControls);
+    document.addEventListener("keydown", showControls);
     return () => {
       document.removeEventListener("mousemove", showControls);
+      document.removeEventListener("click", showControls);
       document.removeEventListener("touchstart", showControls);
+      document.removeEventListener("keydown", showControls);
     };
   }, [showControls]);
 
-  // Keyboard: Space = pause/play, ESC = dashboard
+  // Menu pulse: every 30s show controls briefly so TV remote users can always interact
+  useEffect(() => {
+    const id = setInterval(() => {
+      showControls();
+    }, MENU_PULSE_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [showControls]);
+
+  // Keyboard: Space = pause/play, ESC = dashboard, R = reload
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === " " || e.key === "Spacebar") {
@@ -128,6 +155,40 @@ export function KioskGrid({
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [showControls]);
+
+  // Watchdog: check if all cameras are bad, auto-reload after 60s
+  useEffect(() => {
+    const id = setInterval(() => {
+      const states = cameraStatesRef.current;
+      if (states.size === 0) return; // no reports yet
+
+      const allBad = Array.from(states.values()).every(
+        (s) => s === "error" || s === "offline",
+      );
+
+      if (allBad) {
+        if (allBadSinceRef.current === null) {
+          allBadSinceRef.current = Date.now();
+          console.warn(`[kiosk] All cameras in bad state — watchdog started (60s to reload)`);
+        } else if (Date.now() - allBadSinceRef.current > WATCHDOG_THRESHOLD_MS) {
+          console.warn(`[kiosk] All cameras bad for 60s — auto-reloading page`);
+          window.location.reload();
+        }
+      } else {
+        allBadSinceRef.current = null;
+      }
+    }, 10_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Report camera state changes from tiles
+  const handleTileStateChange = useCallback((cameraId: string, state: PlayerState) => {
+    cameraStatesRef.current.set(cameraId, state);
+  }, []);
+
+  const handleRefresh = useCallback(() => {
+    window.location.reload();
+  }, []);
 
   if (cameras.length === 0) {
     return (
@@ -149,6 +210,7 @@ export function KioskGrid({
             streamType="sub"
             filters={cameraFilters?.[camera.id]}
             preferWhep
+            onStateChange={(state) => handleTileStateChange(camera.id, state)}
           />
         </div>
       ))}
@@ -160,13 +222,24 @@ export function KioskGrid({
         <div key={`empty-${i}`} className="bg-zinc-950 rounded" />
       ))}
 
+      {/* Always-visible refresh button (top-right corner) */}
+      <button
+        type="button"
+        onClick={handleRefresh}
+        className="fixed top-3 right-3 z-20 p-2 rounded-full bg-black/50 text-white/40 hover:text-white hover:bg-black/70 transition-all"
+        aria-label="Actualizar cámaras"
+        title="Actualizar (R)"
+      >
+        <RefreshCw className="w-4 h-4" />
+      </button>
+
       {/* Controls overlay (bottom-center) */}
       {controlsVisible && (
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-black/60 backdrop-blur-sm rounded-full px-4 py-2 z-10 transition-opacity duration-300">
           {totalPages > 1 && (
             <button
               type="button"
-              onClick={() => setPaused((p) => !p)}
+              onClick={() => { setPaused((p) => !p); showControls(); }}
               className="text-white/70 hover:text-white transition-colors"
               aria-label={paused ? "Reanudar rotación" : "Pausar rotación"}
             >
@@ -180,7 +253,7 @@ export function KioskGrid({
                 <button
                   key={i}
                   type="button"
-                  onClick={() => setPage(i)}
+                  onClick={() => { setPage(i); showControls(); }}
                   className={[
                     "h-1.5 rounded-full transition-all",
                     i === page ? "w-4 bg-white/60" : "w-1.5 bg-white/20",
@@ -199,7 +272,7 @@ export function KioskGrid({
 
           <button
             type="button"
-            onClick={() => window.location.reload()}
+            onClick={handleRefresh}
             className="text-white/50 hover:text-white transition-colors"
             aria-label="Actualizar cámaras"
             title="Actualizar (R)"
