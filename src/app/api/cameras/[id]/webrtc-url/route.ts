@@ -66,10 +66,8 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   // WebSocket URL connects directly to go2rtc (more reliable on mobile).
   const whepUrl = `/api/cameras/${camera.id}/whep?type=${streamType}`;
 
-  // Build WebSocket URL for go2rtc signaling
-  const go2rtcHost = camera.edgeServer?.publicHost ?? process.env.GO2RTC_PUBLIC_HOST ?? "50.21.179.210";
-  const go2rtcApiPort = camera.edgeServer?.go2rtcApiPort ?? 9997;
-  const wsUrl = `ws://${go2rtcHost}:${go2rtcApiPort}/api/ws?src=${encodeURIComponent(streamPath)}`;
+  // Build WebSocket URL — same-origin proxy to go2rtc (avoids HTTPS→WS mixed content)
+  const wsUrl = `/api/cameras/${camera.id}/ws?src=${encodeURIComponent(streamPath)}`;
 
   // Audit log (non-blocking)
   prisma.auditLog.create({
