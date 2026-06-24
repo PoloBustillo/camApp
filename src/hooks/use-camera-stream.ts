@@ -193,9 +193,13 @@ export function useCameraStream({
         }
 
         // ── 2. WebRTC WHEP negotiation ───────────────────────────────
+        // Match go2rtc's VideoRTC config: max-bundle, unified-plan, two STUN servers
         const pc = new RTCPeerConnection({
-          iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-          iceTransportPolicy: "all",
+          bundlePolicy: "max-bundle",
+          iceServers: [
+            { urls: "stun:stun.l.google.com:19302" },
+            { urls: "stun:stun.cloudflare.com:3478" },
+          ],
         });
         pcRef.current = pc;
 
@@ -227,7 +231,7 @@ export function useCameraStream({
               if (cancelledRef.current) return;
               if (Date.now() - lastReconnectTimeRef.current < RECONNECT_COOLDOWN_MS) return;
               if (video && video.readyState < 2 && !video.paused) {
-                console.log(`[camstream] Camera ${cameraId} video stalled 30s`);
+                console.log(`[camstream] Camera ${cameraId} video stalled 30s (readyState=${video.readyState}, networkState=${video.networkState}, currentTime=${video.currentTime})`);
                 setIsFrozen(true);
               }
             }, 30_000);
@@ -248,6 +252,7 @@ export function useCameraStream({
         }
 
         pc.oniceconnectionstatechange = () => {
+          console.log(`[camstream] Camera ${cameraId} ICE: ${pc.iceConnectionState}, conn: ${pc.connectionState}`);
           if (cancelledRef.current) return;
 
           if (
@@ -276,6 +281,30 @@ export function useCameraStream({
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
 
+        // Wait for ICE gathering to complete so all candidates are in the SDP.
+        // Without this, mobile devices with slow ICE gathering send offers with
+        // no candidates → connection freezes when candidates arrive too late.
+        await new Promise<void>((resolve) => {
+          if (pc.iceGatheringState === "complete") {
+            resolve();
+            return;
+          }
+          const check = () => {
+            if (pc.iceGatheringState === "complete") {
+              pc.removeEventListener("icegatheringstatechange", check);
+              resolve();
+            }
+          };
+          pc.addEventListener("icegatheringstatechange", check);
+          // Safety timeout: don't block forever
+          setTimeout(() => {
+            pc.removeEventListener("icegatheringstatechange", check);
+            resolve();
+          }, 5000);
+        });
+
+        console.log(`[camstream] Camera ${cameraId} ICE gathering: ${pc.iceGatheringState}, candidates in SDP: ${(pc.localDescription!.sdp.match(/a=candidate:/g) || []).length}`);
+
         const whepRes = await fetch(info.whepUrl, {
           method: "POST",
           headers: { "Content-Type": "application/sdp" },
@@ -303,6 +332,7 @@ export function useCameraStream({
         }
 
         const answerSdp = await whepRes.text();
+        console.log(`[camstream] Camera ${cameraId} SDP answer received, length: ${answerSdp.length}`);
 
         // ── 3. Wait for video ────────────────────────────────────────
         if (videoRef.current) {
