@@ -87,36 +87,19 @@ export const CameraTile = memo(function CameraTile({
   useEffect(() => {
     if (!camera.online || !camera.enabled) return;
 
-    let connected = false;
-    const tryConnect = () => {
-      if (!connected) {
-        connected = true;
-        connect();
-      }
-    };
-
-    // Fallback: if IntersectionObserver never fires (some mobile browsers),
-    // connect after 2s anyway
-    const fallbackTimer = setTimeout(tryConnect, 2000);
-
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          tryConnect();
-          clearTimeout(fallbackTimer);
+          connect();
         } else {
           disconnect();
-          connected = false;
         }
       },
-      { threshold: 0.05 },
+      { threshold: 0.05, rootMargin: "100px" },
     );
 
     if (containerRef.current) observer.observe(containerRef.current);
-    return () => {
-      observer.disconnect();
-      clearTimeout(fallbackTimer);
-    };
+    return () => observer.disconnect();
   }, [camera.online, camera.enabled, connect, disconnect]);
 
   const handleClick = useCallback(() => {
@@ -370,28 +353,6 @@ export const CameraTile = memo(function CameraTile({
           </div>
         )}
       </div>
-
-      {/* Timestamp — top left when playing */}
-      {state === "playing" && <LiveTimestamp />}
     </div>
   );
 });
-
-/** Shows current time, updates every second */
-function LiveTimestamp() {
-  const fmt = () => new Date().toLocaleTimeString("es-MX", { hour12: false });
-  const [time, setTime] = useState(fmt);
-
-  useEffect(() => {
-    const id = setInterval(() => setTime(fmt), 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  return (
-    <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
-      <span className="text-[10px] text-white/70 font-mono bg-black/50 backdrop-blur-sm px-1.5 py-0.5 rounded">
-        {time}
-      </span>
-    </div>
-  );
-}

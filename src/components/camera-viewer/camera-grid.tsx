@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import React, { Suspense, lazy, useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { Play, Pause } from "lucide-react";
 import {
   DndContext,
@@ -15,9 +15,7 @@ import {
   SortableContext,
   sortableKeyboardCoordinates,
   rectSortingStrategy,
-  useSortable,
 } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import { useCameraPage } from "@/hooks/use-camera-page";
 import { useCameraOrder } from "@/hooks/use-camera-order";
 import {
@@ -31,7 +29,10 @@ import { CameraPagination } from "./camera-pagination";
 import { KeyboardHelp } from "./keyboard-help";
 import { GridToolbar } from "./grid-toolbar";
 import type { CameraViewerItem, PersistedFilters } from "@/types/camera-viewer";
-import { GripVertical } from "lucide-react";
+
+const SortableCameraTile = lazy(() =>
+  import("./sortable-camera-tile").then((m) => ({ default: m.SortableCameraTile }))
+);
 
 interface CameraViewerGridProps {
   cameras: CameraViewerItem[];
@@ -43,66 +44,6 @@ interface CameraViewerGridProps {
   cameraFilters?: Record<string, PersistedFilters>;
   /** Show 2×2 / 3×3 and Todas / Favoritas toggles (home page) */
   showGridControls?: boolean;
-}
-
-/**
- * Wrapper that makes a CameraTile sortable via @dnd-kit.
- * Only rendered in edit mode — in normal mode, CameraTile renders directly.
- */
-function SortableCameraTile({
-  camera,
-  isEditing,
-  isFavorite,
-  onClick,
-  pageKey,
-  filters,
-}: {
-  camera: CameraViewerItem;
-  isEditing: boolean;
-  isFavorite: boolean;
-  onClick: (cam: CameraViewerItem) => void;
-  pageKey: number;
-  filters?: PersistedFilters | null;
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: camera.id, disabled: !isEditing });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 50 : undefined,
-    opacity: isDragging ? 0.7 : 1,
-  };
-
-  return (
-    <div ref={setNodeRef} style={style} className="relative">
-      {isEditing && (
-        <button
-          type="button"
-          className="absolute -left-1 top-1/2 -translate-y-1/2 z-20 p-1 rounded bg-black/60 text-white/60 hover:text-white cursor-grab active:cursor-grabbing touch-none"
-          aria-label="Arrastrar para reordenar"
-          {...attributes}
-          {...listeners}
-        >
-          <GripVertical className="w-4 h-4" />
-        </button>
-      )}
-      <CameraTile
-        camera={camera}
-        streamType="sub"
-        onClick={isEditing ? undefined : onClick}
-        pageKey={pageKey}
-        isFavorite={isFavorite}
-        filters={filters}
-      />
-    </div>
-  );
 }
 
 export function CameraViewerGrid({
@@ -349,27 +290,35 @@ export function CameraViewerGrid({
         ) : (
           <>
             {isEditing ? (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-              >
-                <SortableContext items={sortableIds} strategy={rectSortingStrategy}>
-                  <div className={`grid ${gridCols} gap-2 sm:gap-3`}>
-                    {visibleCameras.map((camera) => (
-                      <SortableCameraTile
-                        key={`edit-${camera.id}`}
-                        camera={camera}
-                        isEditing={isEditing}
-                        isFavorite={favoriteSet.has(camera.id) || !!camera.isFavorite}
-                        onClick={handleTileClick}
-                        pageKey={page}
-                        filters={cameraFilters?.[camera.id]}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-              </DndContext>
+              <Suspense fallback={
+                <div className={`grid ${gridCols} gap-2 sm:gap-3`}>
+                  {visibleCameras.map((camera) => (
+                    <div key={`skeleton-${camera.id}`} className="aspect-video rounded-xl bg-zinc-900/50 animate-pulse" />
+                  ))}
+                </div>
+              }>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext items={sortableIds} strategy={rectSortingStrategy}>
+                    <div className={`grid ${gridCols} gap-2 sm:gap-3`}>
+                      {visibleCameras.map((camera) => (
+                        <SortableCameraTile
+                          key={`edit-${camera.id}`}
+                          camera={camera}
+                          isEditing={isEditing}
+                          isFavorite={favoriteSet.has(camera.id) || !!camera.isFavorite}
+                          onClick={handleTileClick}
+                          pageKey={page}
+                          filters={cameraFilters?.[camera.id]}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              </Suspense>
             ) : (
               <div className={`grid ${gridCols} gap-2 sm:gap-3`}>
                 {visibleCameras.map((camera) => (

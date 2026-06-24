@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { onVisibleOnce, removeVisibleListener } from "@/lib/visibility-manager";
 import type {
   PlayerState,
   StreamType,
@@ -469,9 +470,7 @@ export function useCameraStream({
 
   // Mobile: refresh stream when returning from background
   useEffect(() => {
-    const handleVisibility = () => {
-      if (document.hidden) return;
-
+    const handleVisible = () => {
       const pc = pcRef.current;
       if (!pc) return;
 
@@ -482,7 +481,6 @@ export function useCameraStream({
         }
       }
 
-      // If connection is "connected" but video has no frames after 10s, force reconnect
       if (pc.connectionState === "connected" && video && state === "playing") {
         setTimeout(() => {
           if (document.hidden) return;
@@ -492,13 +490,8 @@ export function useCameraStream({
           const currentVideo = videoRef.current;
           if (currentVideo && (currentVideo.readyState < 2 || currentVideo.paused)) {
             console.log(`[camstream] Camera ${cameraId} stale after background — refreshing`);
-
             lastReconnectTimeRef.current = Date.now();
-
-            if (pcRef.current) {
-              pcRef.current.close();
-              pcRef.current = null;
-            }
+            if (pcRef.current) { pcRef.current.close(); pcRef.current = null; }
             cleanupStallRef.current?.();
             currentVideo.srcObject = null;
             setStateAndNotify("reconnecting");
@@ -511,8 +504,8 @@ export function useCameraStream({
       }
     };
 
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
+    onVisibleOnce(cameraId, handleVisible);
+    return () => removeVisibleListener(cameraId);
   }, [state, cameraId, setStateAndNotify, scheduleReconnect]);
 
   // Auto-connect on mount if requested
