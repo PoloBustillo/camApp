@@ -42,6 +42,10 @@ const RECONNECT_TIMEOUT_MS = 15_000;
 const STALL_CHECK_MS = 5_000;
 const STALL_THRESHOLD_MS = 8_000;
 
+const __DEV__ = process.env.NODE_ENV !== "production";
+const dbg = __DEV__ ? console.log.bind(console) : () => {};
+const dbgWarn = __DEV__ ? console.warn.bind(console) : () => {};
+
 /**
  * WebRTC connection using go2rtc's WebSocket signaling.
  *
@@ -87,6 +91,8 @@ export function useCameraStream({
   const connectTsRef = useRef(0);
   const isFrozenRef = useRef(false);
   const useWhepRef = useRef(preferWhep);
+  const onStateChangeRef = useRef(onStateChange);
+  onStateChangeRef.current = onStateChange;
 
   isMutedRef.current = isMuted;
   volumeRef.current = volume;
@@ -96,9 +102,9 @@ export function useCameraStream({
     (s: PlayerState) => {
       setState(s);
       stateRef.current = s;
-      onStateChange?.(s);
+      onStateChangeRef.current?.(s);
     },
-    [onStateChange],
+    [],
   );
 
   const clearReconnectTimer = useCallback(() => {
@@ -192,6 +198,8 @@ export function useCameraStream({
     if (cancelledRef.current) return;
 
     clearReconnectTimer();
+    cleanupStallRef.current?.();
+    cleanupStallRef.current = null;
     if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
     if (pcRef.current) {
       pcRef.current.getSenders().forEach((s) => { if (s.track) s.track.stop(); });
@@ -257,7 +265,7 @@ export function useCameraStream({
 
       pc.onconnectionstatechange = () => {
         const connState = pc.connectionState;
-        console.log(`[camstream] Camera ${cameraId} connection: ${connState}`);
+        dbg(`[camstream] Camera ${cameraId} connection: ${connState}`);
 
         if (cancelledRef.current) return;
 
@@ -285,10 +293,10 @@ export function useCameraStream({
               }
             });
 
-            console.log(`[camstream] Camera ${cameraId} video assigned (${tracks.length} tracks)`);
+            dbg(`[camstream] Camera ${cameraId} video assigned (${tracks.length} tracks)`);
 
             if (wsRef.current) {
-              console.log(`[camstream] Camera ${cameraId} closing WS (WebRTC connected)`);
+              dbg(`[camstream] Camera ${cameraId} closing WS (WebRTC connected)`);
               wsRef.current.close();
               wsRef.current = null;
             }
@@ -337,7 +345,7 @@ export function useCameraStream({
             if (Date.now() - lastReconnectTimeRef.current < RECONNECT_COOLDOWN_MS) return;
             if (stateRef.current !== "playing") return;
             if (isFrozenRef.current) return;
-            console.log(
+            dbg(
               `[camstream] Camera ${cameraId} video stalled ${STALL_THRESHOLD_MS}ms (currentTime=${video.currentTime})`,
             );
             isFrozenRef.current = true;
@@ -424,7 +432,7 @@ export function useCameraStream({
 
     ws.addEventListener("open", () => {
       if (cancelledRef.current) return;
-      console.log(`[camstream] Camera ${cameraId} WS open`);
+      dbg(`[camstream] Camera ${cameraId} WS open`);
 
       pc.createOffer().then((offer) => {
         return pc.setLocalDescription(offer);
@@ -434,7 +442,7 @@ export function useCameraStream({
             type: "webrtc/offer",
             value: pc.localDescription!.sdp,
           }));
-          console.log(`[camstream] Camera ${cameraId} offer sent via WS`);
+          dbg(`[camstream] Camera ${cameraId} offer sent via WS`);
         }
       }).catch((err) => {
         console.error(`[camstream] Camera ${cameraId} offer error:`, err);
@@ -448,7 +456,7 @@ export function useCameraStream({
       const msg = JSON.parse(ev.data);
 
       if (msg.type === "webrtc/answer" && pcRef.current) {
-        console.log(`[camstream] Camera ${cameraId} answer received`);
+        dbg(`[camstream] Camera ${cameraId} answer received`);
         pcRef.current.setRemoteDescription({
           type: "answer",
           sdp: msg.value,
@@ -462,7 +470,7 @@ export function useCameraStream({
           candidate: msg.value,
           sdpMid: "0",
         }).catch((err) => {
-          console.warn(`[camstream] Camera ${cameraId} addIceCandidate error:`, err);
+          dbgWarn(`[camstream] Camera ${cameraId} addIceCandidate error:`, err);
         });
       }
 
@@ -474,7 +482,7 @@ export function useCameraStream({
     });
 
     ws.addEventListener("close", () => {
-      console.log(`[camstream] Camera ${cameraId} WS closed`);
+      dbg(`[camstream] Camera ${cameraId} WS closed`);
       wsRef.current = null;
       // If WS closed before WebRTC connected, fall back to WHEP next time
       if (pc.connectionState !== "connected" && !cancelledRef.current) {
@@ -491,7 +499,7 @@ export function useCameraStream({
   }
 
   async function connectViaWhep(pc: RTCPeerConnection, whepUrl: string) {
-    console.log(`[camstream] Camera ${cameraId} connecting via WHEP: ${whepUrl}`);
+    dbg(`[camstream] Camera ${cameraId} connecting via WHEP: ${whepUrl}`);
 
     // Wait for ICE gathering to complete (non-trickle mode — best for TV browsers)
     const offer = await pc.createOffer();
@@ -529,7 +537,7 @@ export function useCameraStream({
 
     const sdpAnswer = await res.text();
     await pc.setRemoteDescription({ type: "answer", sdp: sdpAnswer });
-    console.log(`[camstream] Camera ${cameraId} WHEP answer set`);
+    dbg(`[camstream] Camera ${cameraId} WHEP answer set`);
   }
 
   const connectRef = useRef(connectInternal);
@@ -572,10 +580,10 @@ export function useCameraStream({
 
       frozenReconnectCountRef.current++;
       lastReconnectTimeRef.current = now;
-      console.log(`[camstream] Camera ${cameraId} frozen — reconnecting (attempt ${frozenReconnectCountRef.current})`);
+      dbg(`[camstream] Camera ${cameraId} frozen — reconnecting (attempt ${frozenReconnectCountRef.current})`);
 
       if (frozenReconnectCountRef.current >= 3 && streamTypeRef.current === "sub") {
-        console.log(`[camstream] Sub stream frozen 3 times — switching to main`);
+        dbg(`[camstream] Sub stream frozen 3 times — switching to main`);
         streamTypeRef.current = "main";
         frozenReconnectCountRef.current = 0;
       }
@@ -620,7 +628,7 @@ export function useCameraStream({
 
           const currentVideo = videoRef.current;
           if (currentVideo && (currentVideo.readyState < 2 || currentVideo.paused)) {
-            console.log(`[camstream] Camera ${cameraId} stale after background — refreshing`);
+            dbg(`[camstream] Camera ${cameraId} stale after background — refreshing`);
             lastReconnectTimeRef.current = Date.now();
             if (pcRef.current) { pcRef.current.close(); pcRef.current = null; }
       if (wsRef.current) { (wsRef.current as WebSocket).close(); wsRef.current = null; }

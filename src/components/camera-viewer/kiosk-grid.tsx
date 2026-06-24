@@ -13,19 +13,7 @@ interface KioskGridProps {
   cameraFilters?: Record<string, PersistedFilters>;
 }
 
-interface GridConfig {
-  cols: number;
-  pageSize: number;
-  gap: string;
-  padding: string;
-}
-
-function getGridConfig(width: number, height: number): GridConfig {
-  // TV browsers (Hisense, etc.) struggle with 9 concurrent WebRTC streams.
-  // Always use 2x2 for stability; user can still rotate pages.
-  return { cols: 2, pageSize: 4, gap: "gap-1", padding: "p-1" };
-}
-
+const PAGE_SIZE = 4; // 2x2 — TV browsers can't handle 9 concurrent WebRTC
 const WATCHDOG_THRESHOLD_MS = 60_000;
 const MENU_PULSE_INTERVAL_MS = 30_000;
 const MENU_AUTO_HIDE_MS = 3_000;
@@ -58,36 +46,20 @@ export function KioskGrid({
   const cameraStatesRef = useRef<Map<string, PlayerState>>(new Map());
   const allBadSinceRef = useRef<number | null>(null);
 
-  // Grid config based on resolution
-  const [gridConfig, setGridConfig] = useState<GridConfig>(() =>
-    typeof window !== "undefined"
-      ? getGridConfig(window.innerWidth, window.innerHeight)
-      : { cols: 2, pageSize: 4, gap: "gap-1", padding: "p-1" }
-  );
-
-  useEffect(() => {
-    const handler = () =>
-      setGridConfig(getGridConfig(window.innerWidth, window.innerHeight));
-    window.addEventListener("resize", handler);
-    return () => window.removeEventListener("resize", handler);
-  }, []);
-
-  const pageSize = gridConfig.pageSize;
-  const totalPages = Math.ceil(cameras.length / pageSize);
+  const totalPages = Math.ceil(cameras.length / PAGE_SIZE);
 
   const visibleCameras = useMemo(
-    () => cameras.slice(page * pageSize, (page + 1) * pageSize),
-    [cameras, page, pageSize],
+    () => cameras.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE),
+    [cameras, page],
   );
 
   // Reset watchdog when page changes
   useEffect(() => {
     cameraStatesRef.current = new Map();
     allBadSinceRef.current = null;
-    console.log(`[kiosk] page=${page + 1}/${totalPages}, cameras=${visibleCameras.map((c) => c.name).join(", ")}`);
-  }, [page, totalPages, visibleCameras]);
+  }, [page]);
 
-  // Clamp page when pageSize changes
+  // Clamp page when total changes
   useEffect(() => {
     const maxPage = Math.max(0, totalPages - 1);
     setPage((p) => Math.min(p, maxPage));
@@ -169,7 +141,6 @@ export function KioskGrid({
       if (allBad) {
         if (allBadSinceRef.current === null) {
           allBadSinceRef.current = Date.now();
-          console.warn(`[kiosk] All cameras in bad state — watchdog started (60s to reload)`);
         } else if (Date.now() - allBadSinceRef.current > WATCHDOG_THRESHOLD_MS) {
           console.warn(`[kiosk] All cameras bad for 60s — auto-reloading page`);
           window.location.reload();
@@ -181,7 +152,7 @@ export function KioskGrid({
     return () => clearInterval(id);
   }, []);
 
-  // Report camera state changes from tiles
+  // Stable callback: (cameraId, state) — no inline arrow per tile
   const handleTileStateChange = useCallback((cameraId: string, state: PlayerState) => {
     cameraStatesRef.current.set(cameraId, state);
   }, []);
@@ -202,7 +173,7 @@ export function KioskGrid({
   }
 
   return (
-    <div className={`fixed inset-0 bg-black grid grid-cols-${gridConfig.cols} ${gridConfig.gap} ${gridConfig.padding}`}>
+    <div className="fixed inset-0 bg-black grid grid-cols-2 gap-1 p-1">
       {visibleCameras.map((camera) => (
         <div key={camera.id} className="relative">
           <CameraTile
@@ -217,7 +188,7 @@ export function KioskGrid({
 
       {/* Empty slots */}
       {Array.from({
-        length: Math.max(0, pageSize - visibleCameras.length),
+        length: Math.max(0, PAGE_SIZE - visibleCameras.length),
       }).map((_, i) => (
         <div key={`empty-${i}`} className="bg-zinc-950 rounded" />
       ))}

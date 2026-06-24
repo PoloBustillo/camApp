@@ -32,14 +32,14 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
   if (!camera) return Errors.notFound("Cámara no encontrada");
 
-  await prisma.auditLog.create({
+  prisma.auditLog.create({
     data: {
       userId: user.id,
       action: "camera_viewed",
       resourceType: "camera",
       resourceId: id,
     },
-  });
+  }).catch(() => {});
 
   return NextResponse.json({ data: camera });
 }
@@ -77,7 +77,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     select: cameraSelect,
   });
 
-  await prisma.auditLog.create({
+  prisma.auditLog.create({
     data: {
       userId: user.id,
       action: "camera_updated",
@@ -85,7 +85,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
       resourceId: id,
       metadata: { changes: { ...rest, pathChanged: !!path } },
     },
-  });
+  }).catch(() => {});
 
   return NextResponse.json({ data: camera });
 }
@@ -103,7 +103,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
 
   await prisma.camera.delete({ where: { id } });
 
-  await prisma.auditLog.create({
+  prisma.auditLog.create({
     data: {
       userId: user.id,
       action: "camera_deleted",
@@ -111,7 +111,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
       resourceId: id,
       metadata: { name: existing.name },
     },
-  });
+  }).catch(() => {});
 
   return new NextResponse(null, { status: 204 });
 }

@@ -51,14 +51,14 @@ export async function POST(_req: NextRequest, { params }: RouteParams) {
   const hasWebrtcConfig = !!(process.env.MEDIAMTX_WEBRTC_URL);
   const whepUrl = hasWebrtcConfig ? `/api/cameras/${camera.id}/whep` : null;
 
-  await prisma.auditLog.create({
+  prisma.auditLog.create({
     data: {
       userId: user.id,
       action: "stream_access",
       resourceType: "camera",
       resourceId: camera.id,
     },
-  });
+  }).catch(() => {});
 
   return NextResponse.json({
     streamToken,

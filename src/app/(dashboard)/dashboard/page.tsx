@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { CameraViewerGrid } from "@/components/camera-viewer/camera-grid";
@@ -41,34 +42,35 @@ async function fetchCamerasForViewer(): Promise<CameraViewerItem[]> {
 export default async function DashboardPage() {
   const session = await requireSession();
 
-  // Sync camera online status from streaming servers (best-effort, non-blocking)
-  await syncCameraStatus();
+  // Sync camera online status in the background — don't block page render
+  after(() => { syncCameraStatus().catch(() => {}); });
 
-  const cameras = await fetchCamerasForViewer();
+  // Parallel: cameras + favorites + order + filters
+  const [cameras, favorites, cameraOrder, cameraFiltersRows] = await Promise.all([
+    fetchCamerasForViewer(),
+    prisma.userFavorite.findMany({
+      where: { userId: session.user.id },
+      select: { cameraId: true },
+    }),
+    prisma.userCameraOrder.findMany({
+      where: { userId: session.user.id },
+      orderBy: { position: "asc" },
+      select: { cameraId: true },
+    }),
+    prisma.userCameraFilter.findMany({
+      where: { userId: session.user.id },
+      select: {
+        cameraId: true,
+        brightness: true,
+        contrast: true,
+        saturation: true,
+        preset: true,
+      },
+    }),
+  ]);
 
-  const favorites = await prisma.userFavorite.findMany({
-    where: { userId: session.user.id },
-    select: { cameraId: true },
-  });
   const favoriteIds = favorites.map((f) => f.cameraId);
-
-  const cameraOrder = await prisma.userCameraOrder.findMany({
-    where: { userId: session.user.id },
-    orderBy: { position: "asc" },
-    select: { cameraId: true },
-  });
   const cameraOrderIds = cameraOrder.map((r) => r.cameraId);
-
-  const cameraFiltersRows = await prisma.userCameraFilter.findMany({
-    where: { userId: session.user.id },
-    select: {
-      cameraId: true,
-      brightness: true,
-      contrast: true,
-      saturation: true,
-      preset: true,
-    },
-  });
   const cameraFiltersMap: Record<string, PersistedFilters> = {};
   for (const f of cameraFiltersRows) {
     cameraFiltersMap[f.cameraId] = {
