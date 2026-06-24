@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { useCameraStream } from "@/hooks/use-camera-stream";
 import { useVideoControls } from "@/hooks/use-video-controls";
+import { useRecorder } from "@/hooks/use-recorder";
 import { captureVideoSnapshot } from "@/lib/capture-snapshot";
+import { formatDuration } from "@/lib/format";
 import { CameraStatusBadge } from "./camera-status-badge";
 import { VideoControlsPanel } from "./video-controls-panel";
 import type { CameraViewerItem, PersistedFilters } from "@/types/camera-viewer";
-import { X, VolumeX, Volume2, Camera, Maximize2, History } from "lucide-react";
+import { X, VolumeX, Volume2, Camera, Maximize2, History, Circle, Square } from "lucide-react";
 import Link from "next/link";
 
 interface CameraModalProps {
@@ -39,6 +41,7 @@ export function CameraModal({ camera, filters, onFiltersChange, onClose }: Camer
 
   const controls = useVideoControls(camera.id, filters, onFiltersChange);
   const [snapshotMsg, setSnapshotMsg] = useState<string | null>(null);
+  const { isRecording, duration, startRecording, stopRecording } = useRecorder();
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -79,6 +82,19 @@ export function CameraModal({ camera, filters, onFiltersChange, onClose }: Camer
       setTimeout(() => setSnapshotMsg(null), 3000);
     }
   }, [videoRef, state, camera.name, controls.filterStyle]);
+
+  const handleToggleRecord = useCallback(() => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      const stream = videoRef.current?.srcObject as MediaStream;
+      if (stream && state === "playing") {
+        const safeName = camera.name.replace(/[^\w.-]+/g, "_").slice(0, 40);
+        const ts = new Date().toISOString().replace(/[:.]/g, "-");
+        startRecording(stream, `${safeName}_${ts}`);
+      }
+    }
+  }, [isRecording, state, camera.name, videoRef, startRecording, stopRecording]);
 
   return (
     <div
@@ -179,6 +195,13 @@ export function CameraModal({ camera, filters, onFiltersChange, onClose }: Camer
               </div>
             )}
 
+            {isRecording && (
+              <div className="absolute top-4 left-4 flex items-center gap-2 px-2 py-1 rounded bg-red-500/80 text-white text-xs z-20">
+                <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
+                REC {formatDuration(duration)}
+              </div>
+            )}
+
             {state === "playing" && controls.state.zoom > 1 && (
               <div className="absolute top-4 left-4 px-2 py-1 rounded bg-black/60 text-white/80 text-xs">
                 Zoom {controls.state.zoom.toFixed(1)}×
@@ -233,6 +256,22 @@ export function CameraModal({ camera, filters, onFiltersChange, onClose }: Camer
                   title="Guardar captura PNG"
                 >
                   <Camera className="w-5 h-5" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleToggleRecord}
+                  disabled={state !== "playing"}
+                  className={[
+                    "p-2 rounded-lg transition-all",
+                    isRecording
+                      ? "bg-red-500/20 text-red-400 hover:bg-red-500/30 animate-pulse"
+                      : "bg-black/50 text-white/70 hover:text-white hover:bg-black/70 disabled:opacity-40 disabled:cursor-not-allowed",
+                  ].join(" ")}
+                  aria-label={isRecording ? "Detener grabación" : "Grabar"}
+                  title={isRecording ? `Grabando ${formatDuration(duration)}` : "Grabar video"}
+                >
+                  {isRecording ? <Square className="w-5 h-5" /> : <Circle className="w-5 h-5" />}
                 </button>
 
                 <Link
@@ -322,6 +361,21 @@ export function CameraModal({ camera, filters, onFiltersChange, onClose }: Camer
           >
             <Camera className="w-4 h-4" />
             Guardar snapshot
+          </button>
+
+          <button
+            type="button"
+            onClick={handleToggleRecord}
+            disabled={state !== "playing"}
+            className={[
+              "w-full px-4 py-2 rounded-lg text-sm transition-all inline-flex items-center justify-center gap-2",
+              isRecording
+                ? "bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                : "bg-white/10 hover:bg-white/20 disabled:opacity-40 text-white",
+            ].join(" ")}
+          >
+            {isRecording ? <Square className="w-4 h-4" /> : <Circle className="w-4 h-4" />}
+            {isRecording ? `Detener (${formatDuration(duration)})` : "Grabar video"}
           </button>
 
           <Link
