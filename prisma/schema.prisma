@@ -219,12 +219,17 @@ model Recording {
   captureDevice  String?   @map("capture_device") @db.VarChar(255) // browser/OS
   serverTimestamp DateTime? @map("server_timestamp") @db.Timestamptz() // trusted timestamp
   custodyLog     Json?     @map("custody_log") @db.JsonB // chain of custody entries
+  // Cloud backup (Cloudflare R2)
+  cloudStorageKey    String?   @map("cloud_storage_key") @db.VarChar(500) // S3 object key
+  cloudBackupAt      DateTime? @map("cloud_backup_at") @db.Timestamptz() // when uploaded to R2
+  cloudBackupStatus  String    @default("none") @map("cloud_backup_status") @db.VarChar(20) // none | pending | uploaded | failed
 
   camera Camera @relation(fields: [cameraId], references: [id], onDelete: Cascade)
 
   @@unique([cameraId, date, fileName])
   @@index([cameraId, date(sort: Desc)], name: "idx_recordings_camera_date")
   @@index([sourceType], name: "idx_recordings_source_type")
+  @@index([cloudBackupStatus], name: "idx_recordings_cloud_backup_status")
   @@map("recordings")
 }
 

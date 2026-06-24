@@ -147,6 +147,9 @@ export interface Recording {
   fileSize: number | null;
   thumbnail: string | null;
   cameraName?: string;
+  cloudStorageKey: string | null;
+  cloudBackupAt: string | null;
+  cloudBackupStatus: string;
 }
 
 // ─── Edge Servers ────────────────────────────────────────

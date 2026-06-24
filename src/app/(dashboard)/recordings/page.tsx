@@ -35,6 +35,9 @@ export default async function RecordingsPage() {
     fileSize: r.fileSize,
     thumbnail: r.thumbnail,
     cameraName: r.camera.name,
+    cloudStorageKey: r.cloudStorageKey,
+    cloudBackupAt: r.cloudBackupAt?.toISOString() ?? null,
+    cloudBackupStatus: r.cloudBackupStatus,
   }));
 
   return (

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Calendar, Clock, Film, Play, Download, Trash2, RefreshCw, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Calendar, Clock, Film, Play, Download, Trash2, RefreshCw, ChevronLeft, ChevronRight, Loader2, Cloud, CloudOff, CheckCircle } from "lucide-react";
 import type { Recording } from "@/types";
 
 interface CameraOption {
@@ -38,6 +38,38 @@ function formatDate(iso: string): string {
   return d.toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" });
 }
 
+function CloudBadge({ status }: { status: string }) {
+  if (status === "uploaded") {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs text-emerald-500" title="Respaldado en la nube">
+        <CheckCircle className="w-3 h-3" />
+        Respaldo
+      </span>
+    );
+  }
+  if (status === "failed") {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs text-red-400" title="Error al respaldar">
+        <CloudOff className="w-3 h-3" />
+        Falló
+      </span>
+    );
+  }
+  if (status === "pending") {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs text-amber-400" title="Respaldando...">
+        <Cloud className="w-3 h-3 animate-pulse" />
+        Respaldando
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground" title="Sin respaldo">
+      <Cloud className="w-3 h-3 opacity-40" />
+    </span>
+  );
+}
+
 export function RecordingsPageClient({ cameras, initialRecordings }: Props) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -50,6 +82,8 @@ export function RecordingsPageClient({ cameras, initialRecordings }: Props) {
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  const [backing, setBacking] = useState(false);
+  const [backupMsg, setBackupMsg] = useState<string | null>(null);
 
   const fetchRecordings = useCallback(async () => {
     setLoading(true);
@@ -88,6 +122,39 @@ export function RecordingsPageClient({ cameras, initialRecordings }: Props) {
     } finally {
       setSyncing(false);
       setTimeout(() => setSyncMsg(null), 4000);
+    }
+  };
+
+  const handleBackup = async () => {
+    setBacking(true);
+    setBackupMsg(null);
+    try {
+      const pendingIds = filteredRecordings
+        .filter((r) => r.cloudBackupStatus === "none" || r.cloudBackupStatus === "failed")
+        .map((r) => r.id);
+
+      if (pendingIds.length === 0) {
+        setBackupMsg("No hay grabaciones para respaldar");
+        setTimeout(() => setBackupMsg(null), 3000);
+        return;
+      }
+
+      const res = await fetch("/api/recordings/backup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recordingIds: pendingIds }),
+      });
+      if (!res.ok) throw new Error("Error al respaldar");
+      const json = await res.json();
+      const uploaded = json.data.filter((r: { status: string }) => r.status === "uploaded").length;
+      const failed = json.data.filter((r: { status: string }) => r.status === "failed").length;
+      setBackupMsg(`${uploaded} respaldadas${failed ? `, ${failed} fallidas` : ""}`);
+      await fetchRecordings();
+    } catch (err) {
+      setBackupMsg(err instanceof Error ? err.message : "Error de respaldo");
+    } finally {
+      setBacking(false);
+      setTimeout(() => setBackupMsg(null), 5000);
     }
   };
 
@@ -154,6 +221,20 @@ export function RecordingsPageClient({ cameras, initialRecordings }: Props) {
         {syncMsg && (
           <span className="text-xs text-muted-foreground">{syncMsg}</span>
         )}
+
+        <button
+          type="button"
+          onClick={handleBackup}
+          disabled={backing}
+          className="h-9 px-4 rounded-lg border border-border bg-background text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors inline-flex items-center gap-2 disabled:opacity-50"
+        >
+          {backing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Cloud className="w-4 h-4" />}
+          {backing ? "Respaldando..." : "Respaldar"}
+        </button>
+
+        {backupMsg && (
+          <span className="text-xs text-muted-foreground">{backupMsg}</span>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -197,14 +278,17 @@ export function RecordingsPageClient({ cameras, initialRecordings }: Props) {
                     {formatDate(rec.startTime)} · {formatFileSize(rec.fileSize)}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); handleDelete(rec); }}
-                  className="p-1.5 rounded text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0"
-                  title="Eliminar"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <CloudBadge status={rec.cloudBackupStatus} />
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); handleDelete(rec); }}
+                    className="p-1.5 rounded text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                    title="Eliminar"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             </button>
           ))}

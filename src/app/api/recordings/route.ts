@@ -45,6 +45,9 @@ export async function GET(req: NextRequest) {
       fileSize: r.fileSize,
       thumbnail: r.thumbnail,
       cameraName: r.camera.name,
+      cloudStorageKey: r.cloudStorageKey,
+      cloudBackupAt: r.cloudBackupAt?.toISOString() ?? null,
+      cloudBackupStatus: r.cloudBackupStatus,
     })),
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   });
