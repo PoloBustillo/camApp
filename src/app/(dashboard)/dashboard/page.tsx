@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { CameraViewerGrid } from "@/components/camera-viewer/camera-grid";
-import { HealthWidget } from "@/components/camera-viewer/health-widget";
 import { syncCameraStatus } from "@/lib/sync-cameras";
 import type { CameraViewerItem } from "@/types/camera-viewer";
 import type { PersistedFilters } from "@/types/camera-viewer";
@@ -80,29 +79,11 @@ export default async function DashboardPage() {
     };
   }
 
-  const onlineCount = cameras.filter((c) => c.online).length;
-  const offlineCount = cameras.length - onlineCount;
-
   return (
     <div className="space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-foreground">Mis cámaras</h1>
-        </div>
-        <div className="pt-1 min-w-0">
-          <HealthWidget
-            initial={{
-              total: cameras.length,
-              online: onlineCount,
-              offline: offlineCount,
-              lastUpdated: new Date(),
-            }}
-          />
-        </div>
-      </div>
       <CameraViewerGrid
         cameras={cameras}
-        title="Vista en vivo"
+        title="Mis cámaras"
         favoriteIds={favoriteIds}
         cameraOrderIds={cameraOrderIds}
         cameraFilters={cameraFiltersMap}
