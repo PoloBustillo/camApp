@@ -200,20 +200,31 @@ model Camera {
 }
 
 model Recording {
-  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  cameraId   String    @map("camera_id") @db.Uuid
-  date       DateTime  @db.Date
-  fileName   String    @map("file_name") @db.VarChar(255)
-  startTime  DateTime  @map("start_time") @db.Timestamptz()
-  endTime    DateTime? @map("end_time") @db.Timestamptz()
-  duration   Int?     // seconds
-  fileSize   Int?     @map("file_size") // bytes
-  thumbnail  String?  @db.VarChar(500)
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cameraId       String    @map("camera_id") @db.Uuid
+  date           DateTime  @db.Date
+  fileName       String    @map("file_name") @db.VarChar(255)
+  startTime      DateTime  @map("start_time") @db.Timestamptz()
+  endTime        DateTime? @map("end_time") @db.Timestamptz()
+  duration       Int?      // seconds
+  fileSize       Int?      @map("file_size") // bytes
+  thumbnail      String?   @db.VarChar(500)
+  // Forensic metadata (client-side recordings)
+  fileHash       String?   @map("file_hash") @db.VarChar(128) // SHA-256
+  codec          String?   @db.VarChar(50)
+  resolution     String?   @db.VarChar(20) // e.g. "1920x1080"
+  fps            Int?      @db.SmallInt
+  sourceType     String    @default("server") @map("source_type") @db.VarChar(32) // server | client
+  capturedBy     String?   @map("captured_by") @db.VarChar(255) // user email
+  captureDevice  String?   @map("capture_device") @db.VarChar(255) // browser/OS
+  serverTimestamp DateTime? @map("server_timestamp") @db.Timestamptz() // trusted timestamp
+  custodyLog     Json?     @map("custody_log") @db.JsonB // chain of custody entries
 
   camera Camera @relation(fields: [cameraId], references: [id], onDelete: Cascade)
 
   @@unique([cameraId, date, fileName])
   @@index([cameraId, date(sort: Desc)], name: "idx_recordings_camera_date")
+  @@index([sourceType], name: "idx_recordings_source_type")
   @@map("recordings")
 }
 

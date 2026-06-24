@@ -126,10 +126,26 @@ export const CameraTile = memo(function CameraTile({
   );
 
   const handleToggleRecord = useCallback(
-    (e: React.MouseEvent) => {
+    async (e: React.MouseEvent) => {
       e.stopPropagation();
       if (isRecording) {
-        stopRecording();
+        const meta = await stopRecording();
+        if (meta) {
+          fetch("/api/recordings/client", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              cameraId: camera.id,
+              fileName: meta.fileName,
+              fileSize: meta.fileSize,
+              duration: meta.duration,
+              fileHash: meta.fileHash,
+              mimeType: meta.mimeType,
+              startTime: meta.startTime,
+              endTime: meta.endTime,
+            }),
+          }).catch(() => {});
+        }
       } else {
         const stream = videoRef.current?.srcObject as MediaStream;
         if (stream && state === "playing") {
@@ -139,7 +155,7 @@ export const CameraTile = memo(function CameraTile({
         }
       }
     },
-    [isRecording, state, camera.name, videoRef, startRecording, stopRecording],
+    [isRecording, state, camera.id, camera.name, videoRef, startRecording, stopRecording],
   );
 
   return (

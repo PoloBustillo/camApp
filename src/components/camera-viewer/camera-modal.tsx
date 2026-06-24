@@ -83,9 +83,26 @@ export function CameraModal({ camera, filters, onFiltersChange, onClose }: Camer
     }
   }, [videoRef, state, camera.name, controls.filterStyle]);
 
-  const handleToggleRecord = useCallback(() => {
+  const handleToggleRecord = useCallback(async () => {
     if (isRecording) {
-      stopRecording();
+      const meta = await stopRecording();
+      if (meta) {
+        // Send forensic metadata to API
+        fetch("/api/recordings/client", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cameraId: camera.id,
+            fileName: meta.fileName,
+            fileSize: meta.fileSize,
+            duration: meta.duration,
+            fileHash: meta.fileHash,
+            mimeType: meta.mimeType,
+            startTime: meta.startTime,
+            endTime: meta.endTime,
+          }),
+        }).catch(() => {});
+      }
     } else {
       const stream = videoRef.current?.srcObject as MediaStream;
       if (stream && state === "playing") {
@@ -94,7 +111,7 @@ export function CameraModal({ camera, filters, onFiltersChange, onClose }: Camer
         startRecording(stream, `${safeName}_${ts}`);
       }
     }
-  }, [isRecording, state, camera.name, videoRef, startRecording, stopRecording]);
+  }, [isRecording, state, camera.id, camera.name, videoRef, startRecording, stopRecording]);
 
   return (
     <div
