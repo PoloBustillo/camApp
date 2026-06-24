@@ -311,7 +311,7 @@ export function CameraModal({ camera, filters, onFiltersChange, onClose }: Camer
             )}
           </div>
 
-          <div className="md:hidden border-t border-zinc-800 p-4 bg-zinc-900 max-h-48 overflow-y-auto">
+          <div className="md:hidden border-t border-zinc-800 p-4 bg-zinc-900 max-h-[60vh] overflow-y-auto">
             <VideoControlsPanel
               brightness={controls.state.brightness}
               contrast={controls.state.contrast}
@@ -328,7 +328,7 @@ export function CameraModal({ camera, filters, onFiltersChange, onClose }: Camer
           </div>
         </div>
 
-        <div className="hidden md:flex flex-col w-72 bg-zinc-900 p-5 gap-5 border-l border-zinc-800">
+        <div className="hidden md:flex flex-col w-72 bg-zinc-900 p-5 gap-5 border-l border-zinc-800 overflow-y-auto min-h-0">
           <div>
             <h2 className="text-white font-semibold text-lg leading-tight">{camera.name}</h2>
             {camera.streamName && (
