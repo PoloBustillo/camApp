@@ -35,7 +35,7 @@ export function CameraStatusBadge({ state, isFrozen = false, overlay = false }: 
       className={[
         "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider",
         cfg.color,
-        overlay ? "absolute top-2 right-2 z-10 backdrop-blur-sm" : "",
+        overlay ? "absolute bottom-2 left-2 z-10 backdrop-blur-sm" : "",
       ]
         .filter(Boolean)
         .join(" ")}
