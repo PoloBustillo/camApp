@@ -7,7 +7,7 @@ import { formatDuration } from "@/lib/format";
 import { CameraStatusBadge } from "./camera-status-badge";
 import type { CameraViewerItem, StreamType, PersistedFilters } from "@/types/camera-viewer";
 import { PRESET_LABELS } from "@/types/camera-viewer";
-import { Star, WifiOff, TriangleAlert, Play, SlidersHorizontal, Circle, Square } from "lucide-react";
+import { Star, WifiOff, TriangleAlert, Play, SlidersHorizontal, Circle, Square, Volume2, VolumeX } from "lucide-react";
 
 interface CameraTileProps {
   camera: CameraViewerItem;
@@ -57,7 +57,7 @@ export const CameraTile = memo(function CameraTile({
   isFavorite: initialFavorite,
 }: CameraTileProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { state, errorMsg, videoRef, connect, disconnect, retry, cancelRetry, isAutoRetrying } = useCameraStream({
+  const { state, errorMsg, videoRef, connect, disconnect, retry, cancelRetry, isAutoRetrying, isMuted, hasAudio, toggleMute } = useCameraStream({
     cameraId: camera.id,
     streamType,
   });
@@ -178,7 +178,7 @@ export const CameraTile = memo(function CameraTile({
       <video
         ref={videoRef}
         autoPlay
-        muted
+        muted={isMuted}
         playsInline
         className={[
           "w-full h-full object-cover",
@@ -236,6 +236,24 @@ export const CameraTile = memo(function CameraTile({
           <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
           REC {formatDuration(duration)}
         </div>
+      )}
+
+      {/* Audio toggle — bottom left, always visible when camera has audio */}
+      {hasAudio && state === "playing" && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); toggleMute(); }}
+          className={[
+            "absolute bottom-10 left-2 z-10 p-1 rounded-full backdrop-blur-sm transition-all",
+            isMuted
+              ? "text-white/40 bg-black/20 hover:text-white/60"
+              : "text-green-400 bg-black/40",
+          ].join(" ")}
+          aria-label={isMuted ? "Activar audio" : "Silenciar audio"}
+          title={isMuted ? "Activar audio" : "Silenciar audio"}
+        >
+          {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+        </button>
       )}
 
       {/* Center overlay for non-playing states */}
