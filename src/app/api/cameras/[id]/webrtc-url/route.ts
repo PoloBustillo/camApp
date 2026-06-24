@@ -62,9 +62,14 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
   const streamToken = await signStreamToken(camera.id, user.id);
 
-  // Return proxy URL — browser calls our API (same origin, no CORS).
-  // Pass streamType as query param so the proxy resolves the correct path.
+  // Return both WHEP proxy URL and direct WebSocket URL.
+  // WebSocket URL connects directly to go2rtc (more reliable on mobile).
   const whepUrl = `/api/cameras/${camera.id}/whep?type=${streamType}`;
+
+  // Build WebSocket URL for go2rtc signaling
+  const go2rtcHost = camera.edgeServer?.publicHost ?? process.env.GO2RTC_PUBLIC_HOST ?? "50.21.179.210";
+  const go2rtcApiPort = camera.edgeServer?.go2rtcApiPort ?? 9997;
+  const wsUrl = `ws://${go2rtcHost}:${go2rtcApiPort}/api/ws?src=${encodeURIComponent(streamPath)}`;
 
   // Audit log (non-blocking)
   prisma.auditLog.create({
@@ -79,6 +84,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
   return NextResponse.json({
     whepUrl,
+    wsUrl,
     streamToken,
     streamType,
     expiresIn: 90,

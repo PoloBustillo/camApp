@@ -48,6 +48,8 @@ export const PRESET_LABELS: Record<string, string> = {
 export interface WebRtcStreamInfo {
   /** Full WHEP URL built server-side (never exposes internal IPs) */
   whepUrl: string;
+  /** WebSocket URL for go2rtc signaling (ws://host:port/api/ws?src=stream) */
+  wsUrl: string;
   /** Short-lived JWT for WHEP Authorization header */
   streamToken: string;
   streamType: StreamType;
