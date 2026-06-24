@@ -83,24 +83,46 @@ export const CameraTile = memo(function CameraTile({
     return PRESET_LABELS[filters.preset] ?? filters.preset;
   }, [filters]);
 
-  // IntersectionObserver: connect when visible, disconnect when hidden
+  const connectRef = useRef(connect);
+  connectRef.current = connect;
+  const disconnectRef = useRef(disconnect);
+  disconnectRef.current = disconnect;
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  // IntersectionObserver: connect when visible, disconnect when hidden.
+  // Uses refs for connect/disconnect so the effect never re-runs.
   useEffect(() => {
     if (!camera.online || !camera.enabled) return;
+
+    const tryConnect = () => {
+      if (stateRef.current === "idle" || stateRef.current === "reconnecting" || stateRef.current === "offline" || stateRef.current === "error") {
+        connectRef.current();
+      }
+    };
+
+    // Smart fallback: if IntersectionObserver never fires on some mobile
+    // browsers, force a connect after 5s (only if not already connected)
+    const fallbackTimer = setTimeout(tryConnect, 5000);
 
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          connect();
+          tryConnect();
+          clearTimeout(fallbackTimer);
         } else {
-          disconnect();
+          disconnectRef.current();
         }
       },
       { threshold: 0.05, rootMargin: "100px" },
     );
 
     if (containerRef.current) observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, [camera.online, camera.enabled, connect, disconnect]);
+    return () => {
+      observer.disconnect();
+      clearTimeout(fallbackTimer);
+    };
+  }, [camera.online, camera.enabled]);
 
   const handleClick = useCallback(() => {
     onClick?.(camera);
