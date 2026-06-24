@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
   output: "standalone",
 
   // Prisma usa binarios nativos — deben excluirse del bundle y resolverse en runtime
-  serverExternalPackages: ["@prisma/client", ".prisma"],
+  serverExternalPackages: ["@prisma/client", ".prisma", "ws"],
 
   async headers() {
     return [
