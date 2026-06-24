@@ -87,19 +87,36 @@ export const CameraTile = memo(function CameraTile({
   useEffect(() => {
     if (!camera.online || !camera.enabled) return;
 
+    let connected = false;
+    const tryConnect = () => {
+      if (!connected) {
+        connected = true;
+        connect();
+      }
+    };
+
+    // Fallback: if IntersectionObserver never fires (some mobile browsers),
+    // connect after 2s anyway
+    const fallbackTimer = setTimeout(tryConnect, 2000);
+
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          connect();
+          tryConnect();
+          clearTimeout(fallbackTimer);
         } else {
           disconnect();
+          connected = false;
         }
       },
-      { threshold: 0.1 },
+      { threshold: 0.05 },
     );
 
     if (containerRef.current) observer.observe(containerRef.current);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      clearTimeout(fallbackTimer);
+    };
   }, [camera.online, camera.enabled, connect, disconnect]);
 
   const handleClick = useCallback(() => {
