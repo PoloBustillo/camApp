@@ -36,9 +36,10 @@ export interface UseCameraStreamResult {
 
 const MAX_FAST_ATTEMPTS = 3;
 const POLL_INTERVAL_MS = 30_000;
-const FROZEN_CHECK_MS = 5_000;
-const FROZEN_THRESHOLD = 3;
-const VIDEO_STALL_THRESHOLD = 2;
+const FROZEN_CHECK_MS = 15_000;
+const FROZEN_THRESHOLD = 4;
+const VIDEO_STALL_THRESHOLD = 3;
+const RECONNECT_COOLDOWN_MS = 30_000;
 
 /**
  * Manages a single WebRTC/WHEP connection for one camera.
@@ -81,6 +82,7 @@ export function useCameraStream({
   const streamTypeRef = useRef(streamType);
   const originalStreamTypeRef = useRef(streamType);
   const frozenReconnectCountRef = useRef(0);
+  const lastReconnectTimeRef = useRef(0);
 
   const setStateAndNotify = useCallback(
     (s: PlayerState) => {
@@ -322,14 +324,16 @@ export function useCameraStream({
           const video = videoRef.current;
           const onVideoWaiting = () => {
             if (cancelledRef.current) return;
-            // Video stalled — wait 8s then check if it recovered
+            // Video stalled — wait 15s then check if it recovered
             setTimeout(() => {
               if (cancelledRef.current) return;
+              // Skip if we just reconnected (cooldown)
+              if (Date.now() - lastReconnectTimeRef.current < RECONNECT_COOLDOWN_MS) return;
               if (video && video.readyState < 2 && state === "playing") {
                 console.log(`[camstream] Camera ${cameraId} video stalled`);
                 setIsFrozen(true);
               }
-            }, 8_000);
+            }, 15_000);
           };
           const onVideoPlaying = () => {
             setIsFrozen(false);
@@ -406,6 +410,7 @@ export function useCameraStream({
           video.onplaying = () => {
             reconnectAttemptsRef.current = 0;
             frozenReconnectCountRef.current = 0;
+            lastReconnectTimeRef.current = 0;
             // Reset to original stream type on success
             streamTypeRef.current = originalStreamTypeRef.current;
             setIsAutoRetrying(false);
@@ -424,6 +429,9 @@ export function useCameraStream({
               state !== "playing"
             ) {
               reconnectAttemptsRef.current = 0;
+              frozenReconnectCountRef.current = 0;
+              lastReconnectTimeRef.current = 0;
+              streamTypeRef.current = originalStreamTypeRef.current;
               setIsAutoRetrying(false);
               setStateAndNotify("playing");
               startFrozenCheck();
@@ -478,15 +486,20 @@ export function useCameraStream({
   // Auto-reconnect when frozen is detected
   useEffect(() => {
     if (isFrozen && state === "playing") {
+      const now = Date.now();
+      // Cooldown: don't reconnect if we did it less than 30s ago
+      if (now - lastReconnectTimeRef.current < RECONNECT_COOLDOWN_MS) return;
+
       frozenReconnectCountRef.current++;
+      lastReconnectTimeRef.current = now;
       console.log(`[camstream] Camera ${cameraId} frozen — reconnecting (attempt ${frozenReconnectCountRef.current})`);
 
-      // After 1 failed reconnect with sub stream, switch to main
+      // After 2 failed reconnects with sub stream, switch to main
       if (
-        frozenReconnectCountRef.current >= 2 &&
+        frozenReconnectCountRef.current >= 3 &&
         streamTypeRef.current === "sub"
       ) {
-        console.log(`[camstream] Sub stream frozen twice — switching to main`);
+        console.log(`[camstream] Sub stream frozen 3 times — switching to main`);
         streamTypeRef.current = "main";
         frozenReconnectCountRef.current = 0;
       }
@@ -509,7 +522,7 @@ export function useCameraStream({
       );
       reconnectAttemptsRef.current = 0;
       setIsAutoRetrying(true);
-      scheduleReconnect(2000);
+      scheduleReconnect(3000);
     }
   }, [isFrozen, state, cameraId, clearFrozenCheck, setStateAndNotify, scheduleReconnect]);
 
@@ -542,16 +555,18 @@ export function useCameraStream({
         setTimeout(() => {
           if (document.hidden) return;
           if (!videoRef.current || !pcRef.current) return;
+          // Cooldown check
+          if (Date.now() - lastReconnectTimeRef.current < RECONNECT_COOLDOWN_MS) return;
 
           // Check if video is actually playing frames
           const currentVideo = videoRef.current;
           if (currentVideo.readyState < 2 || currentVideo.paused) {
             console.log(`[camstream] Camera ${cameraId} stale after background — refreshing`);
 
-            // Switch to main stream if sub keeps failing
             frozenReconnectCountRef.current++;
-            if (frozenReconnectCountRef.current >= 2 && streamTypeRef.current === "sub") {
-              console.log(`[camstream] Sub stream stale twice — switching to main`);
+            lastReconnectTimeRef.current = Date.now();
+            if (frozenReconnectCountRef.current >= 3 && streamTypeRef.current === "sub") {
+              console.log(`[camstream] Sub stream stale 3 times — switching to main`);
               streamTypeRef.current = "main";
               frozenReconnectCountRef.current = 0;
             }
