@@ -106,6 +106,9 @@ export function useCameraStream({
   const startFrozenCheck = useCallback(() => {
     clearFrozenCheck();
     frozenCheckRef.current = setInterval(async () => {
+      // Skip frozen check when tab is hidden (mobile background, screen off)
+      if (typeof document !== "undefined" && document.hidden) return;
+
       const pc = pcRef.current;
       if (!pc || pc.connectionState !== "connected") return;
 
@@ -411,6 +414,59 @@ export function useCameraStream({
       scheduleReconnect(2000);
     }
   }, [isFrozen, state, cameraId, clearFrozenCheck, setStateAndNotify, scheduleReconnect]);
+
+  // Mobile: refresh stream when returning from background
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.hidden) return;
+
+      const pc = pcRef.current;
+      if (!pc) return;
+
+      // If video is playing, check if stream is still alive
+      const video = videoRef.current;
+      if (video && state === "playing") {
+        // On mobile, browser may have paused the video
+        if (video.paused) {
+          video.play().catch(() => {});
+        }
+
+        // Reset frozen counters after returning from background
+        // (stats may have stopped changing while hidden)
+        frozenCountRef.current = 0;
+        setIsFrozen(false);
+        prevFramesRef.current = -1;
+        prevBytesRef.current = -1;
+      }
+
+      // If connection is "connected" but video has no frames after 10s, force reconnect
+      if (pc.iceConnectionState === "connected" && video && state === "playing") {
+        setTimeout(() => {
+          if (document.hidden) return;
+          if (!videoRef.current || !pcRef.current) return;
+
+          // Check if video is actually playing frames
+          const currentVideo = videoRef.current;
+          if (currentVideo.readyState < 2 || currentVideo.paused) {
+            console.log(`[camstream] Camera ${cameraId} stale after background — refreshing`);
+            if (pcRef.current) {
+              pcRef.current.close();
+              pcRef.current = null;
+            }
+            currentVideo.srcObject = null;
+            setStateAndNotify("reconnecting");
+            setErrorMsg("Refrescando stream...");
+            reconnectAttemptsRef.current = 0;
+            setIsAutoRetrying(true);
+            scheduleReconnect(1000);
+          }
+        }, 10_000);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [state, cameraId, setStateAndNotify, scheduleReconnect]);
 
   // Auto-connect on mount if requested
   useEffect(() => {
