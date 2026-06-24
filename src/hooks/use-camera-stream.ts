@@ -39,14 +39,11 @@ const POLL_INTERVAL_MS = 30_000;
 const RECONNECT_COOLDOWN_MS = 30_000;
 
 /**
- * Manages a single WebRTC/WHEP connection for one camera.
- *
- * Two-phase retry strategy:
- * - Phase 1 (fast): 3 attempts with exponential backoff (1s, 2s, 4s)
- * - Phase 2 (polling): every 30s indefinitely until camera responds or user cancels
- *
- * Handles CAMERA_OFFLINE / STREAM_TIMEOUT errors from the WHEP proxy by
- * entering Phase 2 immediately (network issues take time to resolve).
+ * WebRTC connection matching go2rtc's video-rtc.js behavior:
+ * - ICE gathering: no explicit wait (matches go2rtc CreateOffer)
+ * - Connection state: use connectionState (not iceConnectionState)
+ * - Video assignment: get tracks from transceivers on 'connected', warm up with temp video
+ * - Reconnect: on connectionState 'failed' or 'disconnected'
  */
 export function useCameraStream({
   cameraId,
@@ -173,7 +170,6 @@ export function useCameraStream({
             return;
           }
           if (code === "CAMERA_OFFLINE" || code === "STREAM_TIMEOUT") {
-            // Network issue — go straight to Phase 2 polling
             setStateAndNotify("offline");
             setErrorMsg("Cámara offline — reintentando cada 30s...");
             scheduleReconnect(POLL_INTERVAL_MS);
@@ -184,7 +180,6 @@ export function useCameraStream({
 
         const info: WebRtcStreamInfo = await res.json();
 
-        // If server says camera is offline, enter polling mode
         if (info.isOffline) {
           setStateAndNotify("offline");
           setErrorMsg("Cámara offline — reintentando cada 30s...");
@@ -192,8 +187,8 @@ export function useCameraStream({
           return;
         }
 
-        // ── 2. WebRTC WHEP negotiation ───────────────────────────────
-        // Match go2rtc's VideoRTC config: max-bundle, unified-plan, two STUN servers
+        // ── 2. WebRTC — match go2rtc's video-rtc.js exactly ────────
+        // go2rtc pcConfig: bundlePolicy max-bundle, unified-plan, two STUN servers
         const pc = new RTCPeerConnection({
           bundlePolicy: "max-bundle",
           iceServers: [
@@ -203,17 +198,93 @@ export function useCameraStream({
         });
         pcRef.current = pc;
 
+        // go2rtc: addTransceiver for video and audio (recvonly)
         pc.addTransceiver("video", { direction: "recvonly" });
         pc.addTransceiver("audio", { direction: "recvonly" });
 
-        pc.ontrack = ({ streams, track }) => {
+        // Detect audio presence from track events
+        pc.ontrack = ({ track }) => {
           if (track.kind === "audio") setHasAudio(true);
-          if (videoRef.current && streams[0]) {
-            videoRef.current.srcObject = streams[0];
-            videoRef.current.muted = isMuted;
-            videoRef.current.volume = volume;
-            const audioTracks = streams[0].getAudioTracks();
-            if (audioTracks.length > 0) setHasAudio(true);
+        };
+
+        // ── Connection state handler (matches go2rtc's connectionstatechange) ──
+        // go2rtc waits for connectionState === 'connected', then gets tracks
+        // from transceivers, creates temp video to warm up, assigns to main video.
+        // go2rtc reconnects on 'failed' or 'disconnected'.
+        let videoAssigned = false;
+
+        pc.onconnectionstatechange = () => {
+          const connState = pc.connectionState;
+          console.log(`[camstream] Camera ${cameraId} connection: ${connState}`);
+
+          if (cancelledRef.current) return;
+
+          if (connState === "connected" && !videoAssigned) {
+            videoAssigned = true;
+            // go2rtc: get tracks from transceivers, not from ontrack streams
+            const tracks = pc
+              .getTransceivers()
+              .filter((tr) => tr.currentDirection === "recvonly")
+              .map((tr) => tr.receiver.track);
+
+            if (tracks.length > 0 && videoRef.current) {
+              const stream = new MediaStream(tracks);
+
+              // Check for audio tracks
+              const audioTracks = stream.getAudioTracks();
+              if (audioTracks.length > 0) setHasAudio(true);
+
+              // go2rtc: create temp video to warm up decoder, then assign to main
+              const tempVideo = document.createElement("video");
+              tempVideo.playsInline = true;
+              tempVideo.muted = true;
+              tempVideo.srcObject = stream;
+
+              const assignToMain = () => {
+                if (cancelledRef.current || !videoRef.current) return;
+                videoRef.current.srcObject = stream;
+                videoRef.current.muted = isMuted;
+                videoRef.current.volume = volume;
+                videoRef.current.play().catch(() => {});
+                console.log(`[camstream] Camera ${cameraId} video assigned (${tracks.length} tracks)`);
+              };
+
+              tempVideo.addEventListener(
+                "loadeddata",
+                () => {
+                  assignToMain();
+                  tempVideo.srcObject = null;
+                },
+                { once: true },
+              );
+
+              // Fallback: if loadeddata never fires, assign anyway after 2s
+              setTimeout(() => {
+                if (!videoAssigned) return;
+                if (!videoRef.current?.srcObject) assignToMain();
+                tempVideo.srcObject = null;
+              }, 2000);
+            }
+          }
+
+          if (
+            connState === "failed" ||
+            connState === "disconnected"
+          ) {
+            if (reconnectAttemptsRef.current < MAX_FAST_ATTEMPTS) {
+              const attempt = reconnectAttemptsRef.current + 1;
+              reconnectAttemptsRef.current = attempt;
+              const delay = Math.pow(2, attempt - 1) * 1000;
+              setStateAndNotify("reconnecting");
+              setErrorMsg(
+                `Reconectando... (intento ${attempt}/${MAX_FAST_ATTEMPTS})`,
+              );
+              scheduleReconnect(delay);
+            } else {
+              setStateAndNotify("offline");
+              setErrorMsg("Cámara offline — reintentando cada 30s...");
+              scheduleReconnect(POLL_INTERVAL_MS);
+            }
           }
         };
 
@@ -224,9 +295,7 @@ export function useCameraStream({
 
           const onVideoWaiting = () => {
             if (cancelledRef.current) return;
-            // Clear any existing timer
             if (stallTimer) clearTimeout(stallTimer);
-            // Wait 30s — if video hasn't resumed, it's truly frozen
             stallTimer = setTimeout(() => {
               if (cancelledRef.current) return;
               if (Date.now() - lastReconnectTimeRef.current < RECONNECT_COOLDOWN_MS) return;
@@ -251,59 +320,12 @@ export function useCameraStream({
           };
         }
 
-        pc.oniceconnectionstatechange = () => {
-          console.log(`[camstream] Camera ${cameraId} ICE: ${pc.iceConnectionState}, conn: ${pc.connectionState}`);
-          if (cancelledRef.current) return;
-
-          if (
-            pc.iceConnectionState === "failed" ||
-            pc.iceConnectionState === "disconnected"
-          ) {
-            if (reconnectAttemptsRef.current < MAX_FAST_ATTEMPTS) {
-              // Phase 1: fast exponential backoff (1s, 2s, 4s)
-              const attempt = reconnectAttemptsRef.current + 1;
-              reconnectAttemptsRef.current = attempt;
-              const delay = Math.pow(2, attempt - 1) * 1000;
-              setStateAndNotify("reconnecting");
-              setErrorMsg(
-                `Reconectando... (intento ${attempt}/${MAX_FAST_ATTEMPTS})`,
-              );
-              scheduleReconnect(delay);
-            } else {
-              // Phase 2: slow polling every 30s
-              setStateAndNotify("offline");
-              setErrorMsg("Cámara offline — reintentando cada 30s...");
-              scheduleReconnect(POLL_INTERVAL_MS);
-            }
-          }
-        };
-
+        // ── 3. SDP exchange — match go2rtc's CreateOffer flow ────────
+        // go2rtc: createOffer → setLocalDescription → send SDP (no ICE wait)
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
 
-        // Wait for ICE gathering to complete so all candidates are in the SDP.
-        // Without this, mobile devices with slow ICE gathering send offers with
-        // no candidates → connection freezes when candidates arrive too late.
-        await new Promise<void>((resolve) => {
-          if (pc.iceGatheringState === "complete") {
-            resolve();
-            return;
-          }
-          const check = () => {
-            if (pc.iceGatheringState === "complete") {
-              pc.removeEventListener("icegatheringstatechange", check);
-              resolve();
-            }
-          };
-          pc.addEventListener("icegatheringstatechange", check);
-          // Safety timeout: don't block forever
-          setTimeout(() => {
-            pc.removeEventListener("icegatheringstatechange", check);
-            resolve();
-          }, 5000);
-        });
-
-        console.log(`[camstream] Camera ${cameraId} ICE gathering: ${pc.iceGatheringState}, candidates in SDP: ${(pc.localDescription!.sdp.match(/a=candidate:/g) || []).length}`);
+        console.log(`[camstream] Camera ${cameraId} offer created, ICE: ${pc.iceGatheringState}`);
 
         const whepRes = await fetch(info.whepUrl, {
           method: "POST",
@@ -332,43 +354,37 @@ export function useCameraStream({
         }
 
         const answerSdp = await whepRes.text();
-        console.log(`[camstream] Camera ${cameraId} SDP answer received, length: ${answerSdp.length}`);
+        console.log(`[camstream] Camera ${cameraId} answer received (${answerSdp.length} bytes, candidates: ${(answerSdp.match(/a=candidate:/g) || []).length})`);
 
-        // ── 3. Wait for video ────────────────────────────────────────
+        // go2rtc: setRemoteDescription(answer) — then wait for connectionstatechange
+        await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
+
+        // Mark as playing after remote description is set and video starts
+        // go2rtc marks playing after onpcvideo (loadeddata on temp video)
+        // Our onconnectionstatechange handler does the video assignment.
+        // Mark state once connection is established.
+        const markPlaying = () => {
+          if (cancelledRef.current) return;
+          reconnectAttemptsRef.current = 0;
+          frozenReconnectCountRef.current = 0;
+          lastReconnectTimeRef.current = 0;
+          streamTypeRef.current = originalStreamTypeRef.current;
+          setIsAutoRetrying(false);
+          setIsFrozen(false);
+          setStateAndNotify("playing");
+        };
+
+        // Use onplaying event as primary signal
         if (videoRef.current) {
-          const video = videoRef.current;
-          video.onplaying = () => {
-            reconnectAttemptsRef.current = 0;
-            frozenReconnectCountRef.current = 0;
-            lastReconnectTimeRef.current = 0;
-            streamTypeRef.current = originalStreamTypeRef.current;
-            setIsAutoRetrying(false);
-            setIsFrozen(false);
-            setStateAndNotify("playing");
-          };
-
-          await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
-          video.play().catch(() => {});
-
-          // Fallback: if onplaying never fires, poll for playing state
-          setTimeout(() => {
-            if (
-              video.readyState >= 2 &&
-              !video.paused &&
-              state !== "playing"
-            ) {
-              reconnectAttemptsRef.current = 0;
-              frozenReconnectCountRef.current = 0;
-              lastReconnectTimeRef.current = 0;
-              streamTypeRef.current = originalStreamTypeRef.current;
-              setIsAutoRetrying(false);
-              setIsFrozen(false);
-              setStateAndNotify("playing");
-            }
-          }, 2000);
-        } else {
-          await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
+          videoRef.current.onplaying = markPlaying;
         }
+
+        // Fallback: if playing doesn't fire within 5s, mark anyway
+        setTimeout(() => {
+          if (state !== "playing" && !cancelledRef.current) {
+            markPlaying();
+          }
+        }, 5000);
       } catch (err) {
         if (cancelledRef.current) return;
         const msg =
@@ -431,7 +447,6 @@ export function useCameraStream({
         frozenReconnectCountRef.current = 0;
       }
 
-      // Disconnect and reconnect
       if (pcRef.current) {
         pcRef.current.close();
         pcRef.current = null;
@@ -460,21 +475,18 @@ export function useCameraStream({
       const pc = pcRef.current;
       if (!pc) return;
 
-      // If video is playing, check if stream is still alive
       const video = videoRef.current;
       if (video && state === "playing") {
-        // On mobile, browser may have paused the video
         if (video.paused) {
           video.play().catch(() => {});
         }
       }
 
       // If connection is "connected" but video has no frames after 10s, force reconnect
-      if (pc.iceConnectionState === "connected" && video && state === "playing") {
+      if (pc.connectionState === "connected" && video && state === "playing") {
         setTimeout(() => {
           if (document.hidden) return;
           if (!videoRef.current || !pcRef.current) return;
-          // Cooldown check
           if (Date.now() - lastReconnectTimeRef.current < RECONNECT_COOLDOWN_MS) return;
 
           const currentVideo = videoRef.current;
