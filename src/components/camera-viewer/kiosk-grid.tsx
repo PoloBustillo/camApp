@@ -143,11 +143,10 @@ export function KioskGrid({
   return (
     <div className={`fixed inset-0 bg-black grid grid-cols-${gridConfig.cols} ${gridConfig.gap} ${gridConfig.padding}`}>
       {visibleCameras.map((camera) => (
-        <div key={`page${page}-${camera.id}`} className="relative">
+        <div key={camera.id} className="relative">
           <CameraTile
             camera={camera}
             streamType="sub"
-            pageKey={page}
             filters={cameraFilters?.[camera.id]}
             preferWhep
           />

@@ -86,6 +86,7 @@ export function useCameraStream({
   const wsUrlRef = useRef<string | null>(null);
   const connectTsRef = useRef(0);
   const isFrozenRef = useRef(false);
+  const useWhepRef = useRef(preferWhep);
 
   isMutedRef.current = isMuted;
   volumeRef.current = volume;
@@ -169,6 +170,7 @@ export function useCameraStream({
     if (!isAutoRetry) {
       reconnectAttemptsRef.current = 0;
       cancelledRef.current = false;
+      useWhepRef.current = preferWhep;
     }
 
     if (cancelledRef.current) return;
@@ -245,6 +247,7 @@ export function useCameraStream({
 
         if (connState === "connected" && !videoAssigned) {
           videoAssigned = true;
+          useWhepRef.current = preferWhep; // reset signaling preference on success
           const tracks = pc
             .getTransceivers()
             .filter((tr) => tr.currentDirection === "recvonly")
@@ -355,8 +358,9 @@ export function useCameraStream({
         }
       }, 5000);
 
-      // Choose signaling method: WHEP for TV browsers, WebSocket for everything else
-      const useWhep = preferWhep || !info.wsUrl;
+      // Choose signaling method: WHEP for TV browsers, WebSocket for everything else.
+      // If WebSocket failed previously, fall back to WHEP for subsequent retries.
+      const useWhep = useWhepRef.current || !info.wsUrl;
       if (useWhep) {
         if (!info.whepUrl) {
           throw new Error("No WHEP URL provided by server");
@@ -366,7 +370,7 @@ export function useCameraStream({
         if (!info.wsUrl) {
           throw new Error("No WebSocket URL provided by server");
         }
-        await connectViaWebSocket(pc, info.wsUrl, markPlaying);
+        await connectViaWebSocket(pc, info.wsUrl);
       }
     } catch (err) {
       if (cancelledRef.current) return;
@@ -378,7 +382,7 @@ export function useCameraStream({
     }
   }
 
-  async function connectViaWebSocket(pc: RTCPeerConnection, wsUrl: string, markPlaying: () => void) {
+  async function connectViaWebSocket(pc: RTCPeerConnection, wsUrl: string) {
     const wsConnectTS = Date.now();
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
@@ -437,8 +441,9 @@ export function useCameraStream({
     ws.addEventListener("close", () => {
       console.log(`[camstream] Camera ${cameraId} WS closed`);
       wsRef.current = null;
-      // If WS closed before WebRTC connected, reconnect
+      // If WS closed before WebRTC connected, fall back to WHEP next time
       if (pc.connectionState !== "connected" && !cancelledRef.current) {
+        useWhepRef.current = true;
         const delay = Math.max(RECONNECT_TIMEOUT_MS - (Date.now() - wsConnectTS), 0);
         scheduleReconnect(delay);
       }
@@ -446,6 +451,7 @@ export function useCameraStream({
 
     ws.addEventListener("error", () => {
       console.error(`[camstream] Camera ${cameraId} WS error`);
+      useWhepRef.current = true;
     });
   }
 
@@ -464,7 +470,7 @@ export function useCameraStream({
       const timeout = setTimeout(() => {
         pc.removeEventListener("icegatheringstatechange", check);
         reject(new Error("ICE gathering timeout"));
-      }, 10000);
+      }, 15000);
       const check = () => {
         if (pc.iceGatheringState === "complete") {
           clearTimeout(timeout);

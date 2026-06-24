@@ -11,13 +11,11 @@ export const SortableCameraTile = memo(function SortableCameraTile({
   camera,
   isEditing,
   onClick,
-  pageKey,
   filters,
 }: {
   camera: CameraViewerItem;
   isEditing: boolean;
   onClick: (cam: CameraViewerItem) => void;
-  pageKey: number;
   filters?: PersistedFilters | null;
 }) {
   const {
@@ -53,7 +51,6 @@ export const SortableCameraTile = memo(function SortableCameraTile({
         camera={camera}
         streamType="sub"
         onClick={isEditing ? undefined : onClick}
-        pageKey={pageKey}
         filters={filters}
       />
     </div>

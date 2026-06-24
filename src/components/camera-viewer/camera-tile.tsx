@@ -12,8 +12,6 @@ interface CameraTileProps {
   filters?: PersistedFilters | null;
   streamType?: StreamType;
   onClick?: (camera: CameraViewerItem) => void;
-  /** Page key — when this changes, tile fully remounts = WebRTC disconnects */
-  pageKey: number;
   /** Use WHEP/HTTP signaling instead of WebSocket (better for TV browsers) */
   preferWhep?: boolean;
 }
@@ -89,21 +87,12 @@ export const CameraTile = memo(function CameraTile({
   useEffect(() => {
     if (!camera.online || !camera.enabled) return;
 
-    const tryConnect = () => {
-      if (stateRef.current === "idle" || stateRef.current === "reconnecting" || stateRef.current === "offline" || stateRef.current === "error") {
-        connectRef.current();
-      }
-    };
-
-    // Smart fallback: if IntersectionObserver never fires on some mobile
-    // browsers, force a connect after 5s (only if not already connected)
-    const fallbackTimer = setTimeout(tryConnect, 5000);
-
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          tryConnect();
-          clearTimeout(fallbackTimer);
+          if (stateRef.current === "idle" || stateRef.current === "reconnecting" || stateRef.current === "offline" || stateRef.current === "error") {
+            connectRef.current();
+          }
         } else {
           disconnectRef.current();
         }
@@ -114,7 +103,6 @@ export const CameraTile = memo(function CameraTile({
     if (containerRef.current) observer.observe(containerRef.current);
     return () => {
       observer.disconnect();
-      clearTimeout(fallbackTimer);
     };
   }, [camera.online, camera.enabled]);
 

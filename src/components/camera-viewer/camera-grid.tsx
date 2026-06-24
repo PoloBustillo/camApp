@@ -310,7 +310,6 @@ export function CameraViewerGrid({
                           camera={camera}
                           isEditing={isEditing}
                           onClick={handleTileClick}
-                          pageKey={page}
                           filters={cameraFilters?.[camera.id]}
                         />
                       ))}
@@ -326,7 +325,6 @@ export function CameraViewerGrid({
                     camera={camera}
                     streamType="sub"
                     onClick={handleTileClick}
-                    pageKey={page}
                     filters={cameraFilters?.[camera.id]}
                   />
                 ))}
