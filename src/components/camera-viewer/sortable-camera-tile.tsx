@@ -1,12 +1,13 @@
 "use client";
 
+import { memo } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { CameraTile } from "./camera-tile";
 import { GripVertical } from "lucide-react";
 import type { CameraViewerItem, PersistedFilters } from "@/types/camera-viewer";
 
-export function SortableCameraTile({
+export const SortableCameraTile = memo(function SortableCameraTile({
   camera,
   isEditing,
   isFavorite,
@@ -60,4 +61,4 @@ export function SortableCameraTile({
       />
     </div>
   );
-}
+});

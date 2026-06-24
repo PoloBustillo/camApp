@@ -45,6 +45,14 @@ export function useCameraPage(
     [totalPages],
   );
 
+  const nextPage = useCallback(() => {
+    setPage((p) => Math.min(p + 1, totalPages));
+  }, [totalPages]);
+
+  const prevPage = useCallback(() => {
+    setPage((p) => Math.max(p - 1, 1));
+  }, [totalPages]);
+
   return {
     page,
     totalPages,
@@ -52,7 +60,7 @@ export function useCameraPage(
     hasNext: page < totalPages,
     hasPrev: page > 1,
     goToPage,
-    nextPage: () => goToPage(page + 1),
-    prevPage: () => goToPage(page - 1),
+    nextPage,
+    prevPage,
   };
 }

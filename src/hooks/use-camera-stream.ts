@@ -37,8 +37,8 @@ const MAX_FAST_ATTEMPTS = 3;
 const POLL_INTERVAL_MS = 30_000;
 const RECONNECT_COOLDOWN_MS = 30_000;
 const RECONNECT_TIMEOUT_MS = 15_000;
-const STALL_CHECK_MS = 2_000;
-const STALL_THRESHOLD_MS = 5_000;
+const STALL_CHECK_MS = 5_000;
+const STALL_THRESHOLD_MS = 8_000;
 
 /**
  * WebRTC connection using go2rtc's WebSocket signaling.
@@ -72,6 +72,7 @@ export function useCameraStream({
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancelledRef = useRef(false);
   const cleanupStallRef = useRef<(() => void) | null>(null);
+  const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const streamTypeRef = useRef(streamType);
   const originalStreamTypeRef = useRef(streamType);
   const frozenReconnectCountRef = useRef(0);
@@ -81,6 +82,7 @@ export function useCameraStream({
   const stateRef = useRef<PlayerState>("idle");
   const wsUrlRef = useRef<string | null>(null);
   const connectTsRef = useRef(0);
+  const isFrozenRef = useRef(false);
 
   isMutedRef.current = isMuted;
   volumeRef.current = volume;
@@ -99,6 +101,10 @@ export function useCameraStream({
     if (reconnectTimerRef.current) {
       clearTimeout(reconnectTimerRef.current);
       reconnectTimerRef.current = null;
+    }
+    if (fallbackTimerRef.current) {
+      clearTimeout(fallbackTimerRef.current);
+      fallbackTimerRef.current = null;
     }
   }, []);
 
@@ -145,6 +151,7 @@ export function useCameraStream({
       pcRef.current = null;
     }
     if (videoRef.current) {
+      videoRef.current.onplaying = null;
       videoRef.current.srcObject = null;
     }
     setState((prev) =>
@@ -312,13 +319,18 @@ export function useCameraStream({
           if (video.currentTime !== lastTime) {
             lastTime = video.currentTime;
             lastTimeChange = Date.now();
-            setIsFrozen(false);
+            if (isFrozenRef.current) {
+              isFrozenRef.current = false;
+              setIsFrozen(false);
+            }
           } else if (Date.now() - lastTimeChange > STALL_THRESHOLD_MS) {
             if (Date.now() - lastReconnectTimeRef.current < RECONNECT_COOLDOWN_MS) return;
             if (stateRef.current !== "playing") return;
+            if (isFrozenRef.current) return; // already frozen, don't re-trigger
             console.log(
               `[camstream] Camera ${cameraId} video stalled ${STALL_THRESHOLD_MS}ms (currentTime=${video.currentTime})`,
             );
+            isFrozenRef.current = true;
             setIsFrozen(true);
             lastTimeChange = Date.now();
           }
@@ -417,7 +429,8 @@ export function useCameraStream({
         videoRef.current.onplaying = markPlaying;
       }
 
-      setTimeout(() => {
+      fallbackTimerRef.current = setTimeout(() => {
+        fallbackTimerRef.current = null;
         if (stateRef.current !== "playing" && !cancelledRef.current) {
           markPlaying();
         }
@@ -462,7 +475,7 @@ export function useCameraStream({
       videoRef.current.muted = isMuted;
       videoRef.current.volume = volume;
     }
-  }, [isMuted, volume, state]);
+  }, [isMuted, volume]);
 
   // Auto-reconnect when frozen
   useEffect(() => {
@@ -505,12 +518,15 @@ export function useCameraStream({
       if (!pc) return;
 
       const video = videoRef.current;
-      if (video && state === "playing" && video.paused) {
+      if (video && stateRef.current === "playing" && video.paused) {
         video.play().catch(() => {});
       }
 
-      if (pc.connectionState === "connected" && video && state === "playing") {
-        setTimeout(() => {
+      if (pc.connectionState === "connected" && video && stateRef.current === "playing") {
+        // Stagger: random 1-8s delay to avoid 9 cameras reconnecting at once
+        const delay = 1000 + Math.random() * 7000;
+        fallbackTimerRef.current = setTimeout(() => {
+          fallbackTimerRef.current = null;
           if (document.hidden) return;
           if (!videoRef.current || !pcRef.current) return;
           if (Date.now() - lastReconnectTimeRef.current < RECONNECT_COOLDOWN_MS) return;
@@ -529,13 +545,19 @@ export function useCameraStream({
             setIsAutoRetrying(true);
             scheduleReconnect(1000);
           }
-        }, 10_000);
+        }, delay);
       }
     };
 
     onVisibleOnce(cameraId, handleVisible);
-    return () => removeVisibleListener(cameraId);
-  }, [state, cameraId, setStateAndNotify, scheduleReconnect]);
+    return () => {
+      removeVisibleListener(cameraId);
+      if (fallbackTimerRef.current) {
+        clearTimeout(fallbackTimerRef.current);
+        fallbackTimerRef.current = null;
+      }
+    };
+  }, [cameraId, setStateAndNotify, scheduleReconnect]);
 
   // Auto-connect on mount if requested
   useEffect(() => {
