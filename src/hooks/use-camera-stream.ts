@@ -38,6 +38,7 @@ const MAX_FAST_ATTEMPTS = 3;
 const POLL_INTERVAL_MS = 30_000;
 const FROZEN_CHECK_MS = 5_000;
 const FROZEN_THRESHOLD = 3;
+const VIDEO_STALL_THRESHOLD = 2;
 
 /**
  * Manages a single WebRTC/WHEP connection for one camera.
@@ -76,6 +77,7 @@ export function useCameraStream({
   const prevFramesRef = useRef<number>(-1);
   const prevBytesRef = useRef<number>(-1);
   const frozenCountRef = useRef(0);
+  const cleanupStallRef = useRef<(() => void) | null>(null);
 
   const setStateAndNotify = useCallback(
     (s: PlayerState) => {
@@ -105,13 +107,53 @@ export function useCameraStream({
 
   const startFrozenCheck = useCallback(() => {
     clearFrozenCheck();
+    let prevCanvasHash = "";
+    let videoStallCount = 0;
+
     frozenCheckRef.current = setInterval(async () => {
       // Skip frozen check when tab is hidden (mobile background, screen off)
       if (typeof document !== "undefined" && document.hidden) return;
 
       const pc = pcRef.current;
-      if (!pc || pc.connectionState !== "connected") return;
+      const video = videoRef.current;
+      if (!pc || pc.connectionState !== "connected" || !video) return;
 
+      // ── Check 1: Video element stall detection via canvas snapshot ──
+      let videoFrozen = false;
+      try {
+        if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
+          const canvas = document.createElement("canvas");
+          canvas.width = 64;
+          canvas.height = 36;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(video, 0, 0, 64, 36);
+            const imageData = ctx.getImageData(0, 0, 64, 36);
+            // Simple hash: sum of first 100 pixels (fast)
+            let hash = 0;
+            for (let i = 0; i < 400 && i < imageData.data.length; i += 4) {
+              hash += imageData.data[i] + imageData.data[i + 1] + imageData.data[i + 2];
+            }
+            const hashStr = String(hash);
+
+            if (prevCanvasHash === hashStr) {
+              videoStallCount++;
+              if (videoStallCount >= VIDEO_STALL_THRESHOLD) {
+                videoFrozen = true;
+              }
+            } else {
+              videoStallCount = 0;
+              videoFrozen = false;
+            }
+            prevCanvasHash = hashStr;
+          }
+        }
+      } catch {
+        // Canvas may fail on some browsers
+      }
+
+      // ── Check 2: WebRTC stats (framesDecoded not incrementing) ──
+      let statsFrozen = false;
       try {
         const stats = await pc.getStats();
         let framesDecoded = 0;
@@ -129,17 +171,23 @@ export function useCameraStream({
         if (prevFramesRef.current === framesDecoded && prevBytesRef.current === bytesReceived) {
           frozenCountRef.current++;
           if (frozenCountRef.current >= FROZEN_THRESHOLD) {
-            setIsFrozen(true);
+            statsFrozen = true;
           }
         } else {
           frozenCountRef.current = 0;
-          setIsFrozen(false);
         }
 
         prevFramesRef.current = framesDecoded;
         prevBytesRef.current = bytesReceived;
       } catch {
         // getStats can fail if peer connection is closed
+      }
+
+      // ── Combined: frozen if either check detects stall ──
+      if (videoFrozen || statsFrozen) {
+        setIsFrozen(true);
+      } else {
+        setIsFrozen(false);
       }
     }, FROZEN_CHECK_MS);
   }, [clearFrozenCheck]);
@@ -180,6 +228,7 @@ export function useCameraStream({
       pcRef.current = null;
     }
     if (videoRef.current) {
+      cleanupStallRef.current?.();
       videoRef.current.srcObject = null;
     }
     setState((prev) =>
@@ -264,6 +313,32 @@ export function useCameraStream({
             if (audioTracks.length > 0) setHasAudio(true);
           }
         };
+
+        // Detect video stalls immediately via native browser events
+        if (videoRef.current) {
+          const video = videoRef.current;
+          const onVideoWaiting = () => {
+            if (cancelledRef.current) return;
+            // Video stalled — wait 8s then check if it recovered
+            setTimeout(() => {
+              if (cancelledRef.current) return;
+              if (video && video.readyState < 2 && state === "playing") {
+                console.log(`[camstream] Camera ${cameraId} video stalled`);
+                setIsFrozen(true);
+              }
+            }, 8_000);
+          };
+          const onVideoPlaying = () => {
+            setIsFrozen(false);
+          };
+          video.addEventListener("waiting", onVideoWaiting);
+          video.addEventListener("playing", onVideoPlaying);
+          // Store cleanup ref
+          cleanupStallRef.current = () => {
+            video.removeEventListener("waiting", onVideoWaiting);
+            video.removeEventListener("playing", onVideoPlaying);
+          };
+        }
 
         pc.oniceconnectionstatechange = () => {
           if (cancelledRef.current) return;
