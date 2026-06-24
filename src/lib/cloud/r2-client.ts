@@ -46,10 +46,15 @@ export function isCloudConfigured(): boolean {
   );
 }
 
+export interface CloudMetadata {
+  [key: string]: string;
+}
+
 export async function uploadToCloud(
   key: string,
   body: Buffer | Uint8Array,
   contentType = "video/mp4",
+  metadata?: CloudMetadata,
 ): Promise<{ key: string; bucket: string }> {
   const client = getClient();
   const bucket = getBucket();
@@ -60,6 +65,7 @@ export async function uploadToCloud(
       Key: key,
       Body: body,
       ContentType: contentType,
+      Metadata: metadata,
     }),
   );
 
@@ -106,7 +112,7 @@ export async function deleteFromCloud(key: string): Promise<void> {
 
 export async function headCloudObject(
   key: string,
-): Promise<{ exists: boolean; size?: number }> {
+): Promise<{ exists: boolean; size?: number; metadata?: Record<string, string> }> {
   const client = getClient();
   const bucket = getBucket();
 
@@ -114,7 +120,11 @@ export async function headCloudObject(
     const res = await client.send(
       new HeadObjectCommand({ Bucket: bucket, Key: key }),
     );
-    return { exists: true, size: res.ContentLength ?? undefined };
+    return {
+      exists: true,
+      size: res.ContentLength ?? undefined,
+      metadata: (res.Metadata as Record<string, string>) ?? undefined,
+    };
   } catch (err: unknown) {
     if (
       err instanceof Error &&

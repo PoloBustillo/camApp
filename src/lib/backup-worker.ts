@@ -60,7 +60,54 @@ export async function backupRecording(
     const buffer = Buffer.from(await res.arrayBuffer());
 
     const cloudKey = buildCloudKey(recording);
-    await uploadToCloud(cloudKey, buffer, "video/mp4");
+    const metaKey = cloudKey.replace(/\.[^.]+$/, ".meta.json");
+
+    // S3 metadata headers
+    const s3Metadata: Record<string, string> = {
+      "camera-id": recording.cameraId,
+      "camera-name": recording.camera.name,
+      "file-hash": recording.fileHash || "unknown",
+      "codec": recording.codec || "unknown",
+      "source-type": recording.sourceType || "server",
+      "start-time": recording.startTime.toISOString(),
+      "end-time": recording.endTime?.toISOString() || "",
+      "duration": String(recording.duration || 0),
+      "server-timestamp": recording.serverTimestamp?.toISOString() || new Date().toISOString(),
+    };
+
+    // Sidecar JSON
+    const metaJson = {
+      version: "1.0",
+      recording: {
+        id: recording.id,
+        fileName: recording.fileName,
+        fileSize: recording.fileSize,
+        fileHash: recording.fileHash,
+        mimeType: "video/mp4",
+        codec: recording.codec,
+        duration: recording.duration,
+      },
+      camera: {
+        id: recording.cameraId,
+        name: recording.camera.name,
+      },
+      timestamps: {
+        startTime: recording.startTime.toISOString(),
+        endTime: recording.endTime?.toISOString() || null,
+        serverTimestamp: recording.serverTimestamp?.toISOString() || new Date().toISOString(),
+      },
+      source: {
+        type: recording.sourceType || "server",
+        capturedBy: recording.capturedBy,
+        captureDevice: recording.captureDevice,
+      },
+      custodyLog: recording.custodyLog,
+    };
+
+    await Promise.all([
+      uploadToCloud(cloudKey, buffer, "video/mp4", s3Metadata),
+      uploadToCloud(metaKey, Buffer.from(JSON.stringify(metaJson, null, 2)), "application/json"),
+    ]);
 
     await prisma.recording.update({
       where: { id: recordingId },

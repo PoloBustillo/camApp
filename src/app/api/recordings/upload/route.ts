@@ -83,9 +83,56 @@ export async function POST(req: NextRequest) {
       const camName = recording.camera.name.toLowerCase().replace(/\s+/g, "-");
       const dateStr = date.toISOString().slice(0, 10);
       const cloudKey = `recordings/${camName}/${dateStr}/${file.name}`;
+      const metaKey = cloudKey.replace(/\.[^.]+$/, ".meta.json");
+
+      // S3 object metadata (x-amz-meta-* headers)
+      const s3Metadata: Record<string, string> = {
+        "camera-id": cameraId,
+        "camera-name": recording.camera.name,
+        "file-hash": fileHash,
+        "codec": codec || "unknown",
+        "source-type": "client",
+        "captured-by": user.email,
+        "start-time": start.toISOString(),
+        "end-time": end.toISOString(),
+        "duration": String(Math.round(Number(duration) || 0)),
+        "server-timestamp": serverTimestamp.toISOString(),
+      };
+
+      // Sidecar JSON with full forensic metadata
+      const metaJson = {
+        version: "1.0",
+        recording: {
+          id: recording.id,
+          fileName: file.name,
+          fileSize: file.size,
+          fileHash,
+          mimeType: file.type || "video/webm",
+          codec,
+          duration: Math.round(Number(duration) || 0),
+        },
+        camera: {
+          id: cameraId,
+          name: recording.camera.name,
+        },
+        timestamps: {
+          startTime: start.toISOString(),
+          endTime: end.toISOString(),
+          serverTimestamp: serverTimestamp.toISOString(),
+        },
+        source: {
+          type: "client",
+          capturedBy: user.email,
+          captureDevice,
+        },
+        custodyLog,
+      };
 
       const arrayBuffer = await file.arrayBuffer();
-      await uploadToCloud(cloudKey, Buffer.from(arrayBuffer), file.type || "video/webm");
+      await Promise.all([
+        uploadToCloud(cloudKey, Buffer.from(arrayBuffer), file.type || "video/webm", s3Metadata),
+        uploadToCloud(metaKey, Buffer.from(JSON.stringify(metaJson, null, 2)), "application/json"),
+      ]);
 
       await prisma.recording.update({
         where: { id: recording.id },
