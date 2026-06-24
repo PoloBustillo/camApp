@@ -13,6 +13,8 @@ export interface UseCameraStreamOptions {
   streamType?: StreamType;
   autoConnect?: boolean;
   startMuted?: boolean;
+  /** Use WHEP/HTTP signaling instead of WebSocket (better for TV browsers) */
+  preferWhep?: boolean;
   onStateChange?: (state: PlayerState) => void;
 }
 
@@ -55,6 +57,7 @@ export function useCameraStream({
   streamType = "sub",
   autoConnect = false,
   startMuted = true,
+  preferWhep = false,
   onStateChange,
 }: UseCameraStreamOptions): UseCameraStreamResult {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -185,7 +188,6 @@ export function useCameraStream({
     setErrorMsg(null);
 
     try {
-      // 1. Fetch WebSocket URL from server
       const res = await fetch(
         `/api/cameras/${cameraId}/webrtc-url?type=${streamTypeRef.current}`,
       );
@@ -216,14 +218,7 @@ export function useCameraStream({
         return;
       }
 
-      const wsUrl = info.wsUrl;
-      if (!wsUrl) {
-        throw new Error("No WebSocket URL provided by server");
-      }
-
-      console.log(`[camstream] Camera ${cameraId} connecting via WS: ${wsUrl}`);
-
-      // 2. Create RTCPeerConnection — match go2rtc's video-rtc.js exactly
+      // Create RTCPeerConnection — match go2rtc's video-rtc.js exactly
       const pc = new RTCPeerConnection({
         bundlePolicy: "max-bundle",
         iceServers: [
@@ -240,7 +235,6 @@ export function useCameraStream({
         if (track.kind === "audio") setHasAudio(true);
       };
 
-      // Connection state handler
       let videoAssigned = false;
 
       pc.onconnectionstatechange = () => {
@@ -261,12 +255,10 @@ export function useCameraStream({
             const audioTracks = stream.getAudioTracks();
             if (audioTracks.length > 0) setHasAudio(true);
 
-            // Assign directly to main video
             videoRef.current.srcObject = stream;
             videoRef.current.muted = isMutedRef.current;
             videoRef.current.volume = volumeRef.current;
 
-            // go2rtc play() with auto-mute fallback
             videoRef.current.play().catch(() => {
               if (videoRef.current && !videoRef.current.muted) {
                 videoRef.current.muted = true;
@@ -276,7 +268,6 @@ export function useCameraStream({
 
             console.log(`[camstream] Camera ${cameraId} video assigned (${tracks.length} tracks)`);
 
-            // Close WebSocket after WebRTC connects (like go2rtc)
             if (wsRef.current) {
               console.log(`[camstream] Camera ${cameraId} closing WS (WebRTC connected)`);
               wsRef.current.close();
@@ -326,7 +317,7 @@ export function useCameraStream({
           } else if (Date.now() - lastTimeChange > STALL_THRESHOLD_MS) {
             if (Date.now() - lastReconnectTimeRef.current < RECONNECT_COOLDOWN_MS) return;
             if (stateRef.current !== "playing") return;
-            if (isFrozenRef.current) return; // already frozen, don't re-trigger
+            if (isFrozenRef.current) return;
             console.log(
               `[camstream] Camera ${cameraId} video stalled ${STALL_THRESHOLD_MS}ms (currentTime=${video.currentTime})`,
             );
@@ -340,78 +331,6 @@ export function useCameraStream({
           clearInterval(checkInterval);
         };
       }
-
-      // 3. Open WebSocket for signaling (like go2rtc's onconnect)
-      const wsConnectTS = Date.now();
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
-
-      ws.addEventListener("open", () => {
-        if (cancelledRef.current) return;
-        console.log(`[camstream] Camera ${cameraId} WS open`);
-
-        // Create offer and send via WebSocket (go2rtc's onwebrtc)
-        pc.createOffer().then((offer) => {
-          return pc.setLocalDescription(offer);
-        }).then(() => {
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({
-              type: "webrtc/offer",
-              value: pc.localDescription!.sdp,
-            }));
-            console.log(`[camstream] Camera ${cameraId} offer sent via WS`);
-          }
-        }).catch((err) => {
-          console.error(`[camstream] Camera ${cameraId} offer error:`, err);
-          setStateAndNotify("error");
-          setErrorMsg(err.message);
-        });
-      });
-
-      ws.addEventListener("message", (ev) => {
-        if (typeof ev.data !== "string") return;
-        const msg = JSON.parse(ev.data);
-
-        if (msg.type === "webrtc/answer" && pcRef.current) {
-          console.log(`[camstream] Camera ${cameraId} answer received`);
-          pcRef.current.setRemoteDescription({
-            type: "answer",
-            sdp: msg.value,
-          }).catch((err) => {
-            console.error(`[camstream] Camera ${cameraId} setRemoteDescription error:`, err);
-          });
-        }
-
-        if (msg.type === "webrtc/candidate" && pcRef.current) {
-          pcRef.current.addIceCandidate({
-            candidate: msg.value,
-            sdpMid: "0",
-          }).catch((err) => {
-            console.warn(`[camstream] Camera ${cameraId} addIceCandidate error:`, err);
-          });
-        }
-
-        if (msg.type === "error") {
-          console.error(`[camstream] Camera ${cameraId} server error: ${msg.value}`);
-          setStateAndNotify("error");
-          setErrorMsg(msg.value);
-        }
-      });
-
-      ws.addEventListener("close", () => {
-        console.log(`[camstream] Camera ${cameraId} WS closed`);
-        wsRef.current = null;
-
-        // If WS closed before WebRTC connected, reconnect (like go2rtc onclose)
-        if (!videoAssigned && !cancelledRef.current) {
-          const delay = Math.max(RECONNECT_TIMEOUT_MS - (Date.now() - wsConnectTS), 0);
-          scheduleReconnect(delay);
-        }
-      });
-
-      ws.addEventListener("error", () => {
-        console.error(`[camstream] Camera ${cameraId} WS error`);
-      });
 
       // Fallback: if playing doesn't fire within 5s, mark anyway
       const markPlaying = () => {
@@ -435,14 +354,141 @@ export function useCameraStream({
           markPlaying();
         }
       }, 5000);
+
+      // Choose signaling method: WHEP for TV browsers, WebSocket for everything else
+      const useWhep = preferWhep || !info.wsUrl;
+      if (useWhep) {
+        if (!info.whepUrl) {
+          throw new Error("No WHEP URL provided by server");
+        }
+        await connectViaWhep(pc, info.whepUrl);
+      } else {
+        if (!info.wsUrl) {
+          throw new Error("No WebSocket URL provided by server");
+        }
+        await connectViaWebSocket(pc, info.wsUrl, markPlaying);
+      }
     } catch (err) {
       if (cancelledRef.current) return;
       const msg = err instanceof Error ? err.message : "Error al iniciar stream";
       setStateAndNotify("error");
       setErrorMsg(msg);
       if (pcRef.current) { pcRef.current.close(); pcRef.current = null; }
-      if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
+      if (wsRef.current) { (wsRef.current as WebSocket).close(); wsRef.current = null; }
     }
+  }
+
+  async function connectViaWebSocket(pc: RTCPeerConnection, wsUrl: string, markPlaying: () => void) {
+    const wsConnectTS = Date.now();
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+
+    ws.addEventListener("open", () => {
+      if (cancelledRef.current) return;
+      console.log(`[camstream] Camera ${cameraId} WS open`);
+
+      pc.createOffer().then((offer) => {
+        return pc.setLocalDescription(offer);
+      }).then(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: "webrtc/offer",
+            value: pc.localDescription!.sdp,
+          }));
+          console.log(`[camstream] Camera ${cameraId} offer sent via WS`);
+        }
+      }).catch((err) => {
+        console.error(`[camstream] Camera ${cameraId} offer error:`, err);
+        setStateAndNotify("error");
+        setErrorMsg(err.message);
+      });
+    });
+
+    ws.addEventListener("message", (ev) => {
+      if (typeof ev.data !== "string") return;
+      const msg = JSON.parse(ev.data);
+
+      if (msg.type === "webrtc/answer" && pcRef.current) {
+        console.log(`[camstream] Camera ${cameraId} answer received`);
+        pcRef.current.setRemoteDescription({
+          type: "answer",
+          sdp: msg.value,
+        }).catch((err) => {
+          console.error(`[camstream] Camera ${cameraId} setRemoteDescription error:`, err);
+        });
+      }
+
+      if (msg.type === "webrtc/candidate" && pcRef.current) {
+        pcRef.current.addIceCandidate({
+          candidate: msg.value,
+          sdpMid: "0",
+        }).catch((err) => {
+          console.warn(`[camstream] Camera ${cameraId} addIceCandidate error:`, err);
+        });
+      }
+
+      if (msg.type === "error") {
+        console.error(`[camstream] Camera ${cameraId} server error: ${msg.value}`);
+        setStateAndNotify("error");
+        setErrorMsg(msg.value);
+      }
+    });
+
+    ws.addEventListener("close", () => {
+      console.log(`[camstream] Camera ${cameraId} WS closed`);
+      wsRef.current = null;
+      // If WS closed before WebRTC connected, reconnect
+      if (pc.connectionState !== "connected" && !cancelledRef.current) {
+        const delay = Math.max(RECONNECT_TIMEOUT_MS - (Date.now() - wsConnectTS), 0);
+        scheduleReconnect(delay);
+      }
+    });
+
+    ws.addEventListener("error", () => {
+      console.error(`[camstream] Camera ${cameraId} WS error`);
+    });
+  }
+
+  async function connectViaWhep(pc: RTCPeerConnection, whepUrl: string) {
+    console.log(`[camstream] Camera ${cameraId} connecting via WHEP: ${whepUrl}`);
+
+    // Wait for ICE gathering to complete (non-trickle mode — best for TV browsers)
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+
+    await new Promise<void>((resolve, reject) => {
+      if (pc.iceGatheringState === "complete") {
+        resolve();
+        return;
+      }
+      const timeout = setTimeout(() => {
+        pc.removeEventListener("icegatheringstatechange", check);
+        reject(new Error("ICE gathering timeout"));
+      }, 10000);
+      const check = () => {
+        if (pc.iceGatheringState === "complete") {
+          clearTimeout(timeout);
+          pc.removeEventListener("icegatheringstatechange", check);
+          resolve();
+        }
+      };
+      pc.addEventListener("icegatheringstatechange", check);
+    });
+
+    const res = await fetch(whepUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/sdp" },
+      body: pc.localDescription!.sdp,
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body?.error?.message ?? `WHEP error ${res.status}`);
+    }
+
+    const sdpAnswer = await res.text();
+    await pc.setRemoteDescription({ type: "answer", sdp: sdpAnswer });
+    console.log(`[camstream] Camera ${cameraId} WHEP answer set`);
   }
 
   const connectRef = useRef(connectInternal);
@@ -536,7 +582,7 @@ export function useCameraStream({
             console.log(`[camstream] Camera ${cameraId} stale after background — refreshing`);
             lastReconnectTimeRef.current = Date.now();
             if (pcRef.current) { pcRef.current.close(); pcRef.current = null; }
-            if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
+      if (wsRef.current) { (wsRef.current as WebSocket).close(); wsRef.current = null; }
             cleanupStallRef.current?.();
             currentVideo.srcObject = null;
             setStateAndNotify("reconnecting");

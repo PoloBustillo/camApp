@@ -10,14 +10,12 @@ import type { CameraViewerItem, PersistedFilters } from "@/types/camera-viewer";
 export const SortableCameraTile = memo(function SortableCameraTile({
   camera,
   isEditing,
-  isFavorite,
   onClick,
   pageKey,
   filters,
 }: {
   camera: CameraViewerItem;
   isEditing: boolean;
-  isFavorite: boolean;
   onClick: (cam: CameraViewerItem) => void;
   pageKey: number;
   filters?: PersistedFilters | null;
@@ -56,7 +54,6 @@ export const SortableCameraTile = memo(function SortableCameraTile({
         streamType="sub"
         onClick={isEditing ? undefined : onClick}
         pageKey={pageKey}
-        isFavorite={isFavorite}
         filters={filters}
       />
     </div>

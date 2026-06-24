@@ -1,13 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useCallback, memo, useMemo, useState } from "react";
+import { useEffect, useRef, useCallback, memo, useMemo } from "react";
 import { useCameraStream } from "@/hooks/use-camera-stream";
-import { useRecorder, uploadRecordingToCloud } from "@/hooks/use-recorder";
-import { formatDuration } from "@/lib/format";
 import { CameraStatusBadge } from "./camera-status-badge";
 import type { CameraViewerItem, StreamType, PersistedFilters } from "@/types/camera-viewer";
 import { PRESET_LABELS } from "@/types/camera-viewer";
-import { Star, WifiOff, TriangleAlert, Play, SlidersHorizontal, Circle, Square, Volume2, VolumeX, Maximize2 } from "lucide-react";
+import { SlidersHorizontal } from "lucide-react";
 
 interface CameraTileProps {
   camera: CameraViewerItem;
@@ -16,7 +14,8 @@ interface CameraTileProps {
   onClick?: (camera: CameraViewerItem) => void;
   /** Page key — when this changes, tile fully remounts = WebRTC disconnects */
   pageKey: number;
-  isFavorite?: boolean;
+  /** Use WHEP/HTTP signaling instead of WebSocket (better for TV browsers) */
+  preferWhep?: boolean;
 }
 
 function buildFilterStyle(filters: PersistedFilters | null | undefined): string {
@@ -41,32 +40,27 @@ function buildFilterStyle(filters: PersistedFilters | null | undefined): string 
 /**
  * CameraTile — renders one camera in the grid mosaic.
  *
- * Key design decisions:
- * - IntersectionObserver: only maintains WebRTC connection when tile is visible
- *   in viewport. This prevents wasted bandwidth for off-screen cameras.
- * - Memoized with React.memo to prevent re-renders from parent state changes.
- * - pageKey changes cause full remount (new React key in parent) which triggers
- *   cleanup of all WebRTC connections from the previous page.
- * - Grid mode always uses "sub" stream (640x360, 10-15fps) for efficiency.
+ * Minimal view-only tile:
+ * - Status badge
+ * - Camera name / site
+ * - Filter indicator
+ * - Click opens the detail modal
+ *
+ * Recording, audio, fullscreen, favorite, and retry actions live in CameraModal.
  */
 export const CameraTile = memo(function CameraTile({
   camera,
   filters,
   streamType = "sub",
   onClick,
-  isFavorite: initialFavorite,
+  preferWhep = false,
 }: CameraTileProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { state, errorMsg, videoRef, connect, disconnect, retry, cancelRetry, isAutoRetrying, isFrozen, isMuted, hasAudio, toggleMute } = useCameraStream({
+  const { state, errorMsg, videoRef, connect, disconnect, isAutoRetrying, isFrozen } = useCameraStream({
     cameraId: camera.id,
     streamType,
+    preferWhep,
   });
-
-  const [favorited, setFavorited] = useState(
-    initialFavorite ?? camera.isFavorite ?? false,
-  );
-
-  const { isRecording, duration, startRecording, stopRecording } = useRecorder();
 
   const filterStyle = useMemo(() => buildFilterStyle(filters), [filters]);
 
@@ -128,56 +122,6 @@ export const CameraTile = memo(function CameraTile({
     onClick?.(camera);
   }, [onClick, camera]);
 
-  const handleFavoriteToggle = useCallback(
-    async (e: React.MouseEvent) => {
-      e.stopPropagation();
-      const next = !favorited;
-      setFavorited(next);
-      try {
-        await fetch("/api/favorites", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cameraId: camera.id }),
-        });
-      } catch {
-        // revert on error
-        setFavorited(!next);
-      }
-    },
-    [favorited, camera.id],
-  );
-
-  const handleToggleRecord = useCallback(
-    async (e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (isRecording) {
-        const meta = await stopRecording();
-        if (meta) {
-          uploadRecordingToCloud(meta, camera.id).catch(() => {});
-        }
-      } else {
-        const stream = videoRef.current?.srcObject as MediaStream;
-        if (stream && state === "playing") {
-          const safeName = camera.name.replace(/[^\w.-]+/g, "_").slice(0, 40);
-          const ts = new Date().toISOString().replace(/[:.]/g, "-");
-          startRecording(stream, `${safeName}_${ts}`);
-        }
-      }
-    },
-    [isRecording, state, camera.id, camera.name, videoRef, startRecording, stopRecording],
-  );
-
-  const handleFullscreen = useCallback(async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const el = containerRef.current;
-    if (!el) return;
-    if (!document.fullscreenElement) {
-      await el.requestFullscreen();
-    } else {
-      await document.exitFullscreen();
-    }
-  }, []);
-
   return (
     <div
       ref={containerRef}
@@ -198,7 +142,7 @@ export const CameraTile = memo(function CameraTile({
       <video
         ref={videoRef}
         autoPlay
-        muted={isMuted}
+        muted
         playsInline
         className={[
           "w-full h-full object-cover",
@@ -211,85 +155,9 @@ export const CameraTile = memo(function CameraTile({
       {/* Status badge — top right */}
       <CameraStatusBadge state={state} isFrozen={isFrozen} overlay />
 
-      {/* Favorite star — top left */}
-      <button
-        type="button"
-        onClick={handleFavoriteToggle}
-        className={[
-          "absolute top-2 left-2 z-10 p-1 rounded-full backdrop-blur-sm transition-all",
-          "opacity-0 group-hover:opacity-100",
-          favorited
-            ? "opacity-100 text-yellow-400 bg-black/40"
-            : "text-white/40 bg-black/20 hover:text-yellow-300",
-        ].join(" ")}
-        aria-label={favorited ? "Quitar de favoritas" : "Añadir a favoritas"}
-      >
-        <Star
-          className="w-3.5 h-3.5"
-          fill={favorited ? "currentColor" : "none"}
-          stroke="currentColor"
-          strokeWidth="2"
-        />
-      </button>
-
-      {/* Record button — top left, next to favorite */}
-      <button
-        type="button"
-        onClick={handleToggleRecord}
-        disabled={state !== "playing"}
-        className={[
-          "absolute top-2 left-9 z-10 p-1 rounded-full backdrop-blur-sm transition-all",
-          "opacity-0 group-hover:opacity-100",
-          isRecording
-            ? "opacity-100 text-red-400 bg-black/40 animate-pulse"
-            : "text-white/40 bg-black/20 hover:text-red-300 disabled:opacity-0 disabled:cursor-not-allowed",
-        ].join(" ")}
-        aria-label={isRecording ? "Detener grabación" : "Grabar"}
-        title={isRecording ? `Grabando ${formatDuration(duration)}` : "Grabar video"}
-      >
-        {isRecording ? <Square className="w-3.5 h-3.5" /> : <Circle className="w-3.5 h-3.5" />}
-      </button>
-
-      {/* REC indicator */}
-      {isRecording && (
-        <div className="absolute top-2 left-[52px] z-10 flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-500/80 text-white text-[9px] font-mono">
-          <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
-          REC {formatDuration(duration)}
-        </div>
-      )}
-
-      {/* Audio toggle — bottom left, always visible when camera has audio */}
-      {hasAudio && state === "playing" && (
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); toggleMute(); }}
-          className={[
-            "absolute bottom-10 left-2 z-10 p-1 rounded-full backdrop-blur-sm transition-all",
-            isMuted
-              ? "text-white/40 bg-black/20 hover:text-white/60"
-              : "text-green-400 bg-black/40",
-          ].join(" ")}
-          aria-label={isMuted ? "Activar audio" : "Silenciar audio"}
-          title={isMuted ? "Activar audio" : "Silenciar audio"}
-        >
-          {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-        </button>
-      )}
-
-      {/* Fullscreen toggle — bottom left, below audio */}
-      <button
-        type="button"
-        onClick={handleFullscreen}
-        className="absolute bottom-10 right-2 z-10 p-1 rounded-full bg-black/20 text-white/40 hover:text-white/60 backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100"
-        aria-label="Pantalla completa"
-        title="Pantalla completa"
-      >
-        <Maximize2 className="w-3.5 h-3.5" />
-      </button>
-
       {/* Center overlay for non-playing states */}
       {state !== "playing" && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
           {state === "connecting" && (
             <>
               <div className="h-8 w-8 rounded-full border-2 border-white/30 border-t-white animate-spin" />
@@ -304,55 +172,17 @@ export const CameraTile = memo(function CameraTile({
           )}
           {state === "offline" && (
             <>
-              <div className="text-white/20 text-4xl">
-                <WifiOff className="w-10 h-10" />
-              </div>
               <p className="text-white/40 text-xs font-medium">Sin señal</p>
               {isAutoRetrying && (
-                <p className="text-white/30 text-[10px] mt-1">Reintentando cada 30s...</p>
+                <p className="text-white/30 text-[10px]">Reintentando cada 30s...</p>
               )}
-              <div className="flex gap-2 mt-2">
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); retry(); }}
-                  className="text-[10px] px-3 py-1 rounded border border-white/20 text-white/50 hover:text-white hover:border-white/50 transition-all"
-                >
-                  Reintentar
-                </button>
-                {isAutoRetrying && (
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); cancelRetry(); }}
-                    className="text-[10px] px-3 py-1 rounded border border-white/10 text-white/30 hover:text-white/60 hover:border-white/30 transition-all"
-                  >
-                    Cancelar
-                  </button>
-                )}
-              </div>
             </>
           )}
           {state === "idle" && camera.online && (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); connect(); }}
-              className="flex flex-col items-center gap-2 text-white/40 hover:text-white/80 transition-colors"
-            >
-              <Play className="w-8 h-8" />
-              <span className="text-[10px]">Reproducir</span>
-            </button>
+            <p className="text-white/40 text-xs">Toca para conectar</p>
           )}
           {state === "error" && (
-            <>
-              <TriangleAlert className="w-8 h-8 text-red-400" />
-              <p className="text-white/40 text-[10px] text-center px-4 max-w-[120px]">{errorMsg}</p>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); retry(); }}
-                className="text-[10px] px-3 py-1 rounded border border-white/20 text-white/50 hover:text-white hover:border-white/50 transition-all"
-              >
-                Reintentar
-              </button>
-            </>
+            <p className="text-white/40 text-[10px] text-center px-4 max-w-[120px]">{errorMsg}</p>
           )}
         </div>
       )}

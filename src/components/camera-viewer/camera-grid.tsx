@@ -309,7 +309,6 @@ export function CameraViewerGrid({
                           key={`edit-${camera.id}`}
                           camera={camera}
                           isEditing={isEditing}
-                          isFavorite={favoriteSet.has(camera.id) || !!camera.isFavorite}
                           onClick={handleTileClick}
                           pageKey={page}
                           filters={cameraFilters?.[camera.id]}
@@ -328,7 +327,6 @@ export function CameraViewerGrid({
                     streamType="sub"
                     onClick={handleTileClick}
                     pageKey={page}
-                    isFavorite={favoriteSet.has(camera.id) || camera.isFavorite}
                     filters={cameraFilters?.[camera.id]}
                   />
                 ))}

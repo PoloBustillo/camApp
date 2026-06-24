@@ -9,7 +9,7 @@ import { formatDuration } from "@/lib/format";
 import { CameraStatusBadge } from "./camera-status-badge";
 import { VideoControlsPanel } from "./video-controls-panel";
 import type { CameraViewerItem, PersistedFilters } from "@/types/camera-viewer";
-import { X, VolumeX, Volume2, Camera, Maximize2, History, Circle, Square, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { X, VolumeX, Volume2, Camera, Maximize2, History, Circle, Square, PanelRightClose, PanelRightOpen, Star } from "lucide-react";
 import Link from "next/link";
 
 interface CameraModalProps {
@@ -43,6 +43,7 @@ export function CameraModal({ camera, filters, onFiltersChange, onClose }: Camer
   const controls = useVideoControls(camera.id, filters, onFiltersChange);
   const [snapshotMsg, setSnapshotMsg] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [favorited, setFavorited] = useState(camera.isFavorite ?? false);
   const { isRecording, duration, startRecording, stopRecording } = useRecorder();
 
   useEffect(() => {
@@ -101,6 +102,21 @@ export function CameraModal({ camera, filters, onFiltersChange, onClose }: Camer
     }
   }, [isRecording, state, camera.id, camera.name, videoRef, startRecording, stopRecording]);
 
+  const handleFavoriteToggle = useCallback(async () => {
+    const next = !favorited;
+    setFavorited(next);
+    try {
+      await fetch("/api/favorites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cameraId: camera.id }),
+      });
+    } catch {
+      // revert on error
+      setFavorited(!next);
+    }
+  }, [favorited, camera.id]);
+
   return (
     <div
       className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-0 md:p-6"
@@ -120,6 +136,26 @@ export function CameraModal({ camera, filters, onFiltersChange, onClose }: Camer
           aria-label="Cerrar"
         >
           <X className="w-5 h-5" />
+        </button>
+
+        <button
+          type="button"
+          onClick={handleFavoriteToggle}
+          className={[
+            "absolute top-4 left-4 z-20 p-2 rounded-full transition-all",
+            favorited
+              ? "text-yellow-400 bg-black/60"
+              : "text-white/70 bg-black/40 hover:text-yellow-300 hover:bg-black/60",
+          ].join(" ")}
+          aria-label={favorited ? "Quitar de favoritas" : "Añadir a favoritas"}
+          title={favorited ? "Favorita" : "Añadir a favoritas"}
+        >
+          <Star
+            className="w-5 h-5"
+            fill={favorited ? "currentColor" : "none"}
+            stroke="currentColor"
+            strokeWidth="2"
+          />
         </button>
 
         <div className={`relative flex-1 min-h-0 bg-black flex flex-col transition-all ${!sidebarOpen ? "w-full" : ""}`}>
@@ -329,11 +365,32 @@ export function CameraModal({ camera, filters, onFiltersChange, onClose }: Camer
         </div>
 
         <div className={`hidden md:flex flex-col bg-zinc-900 p-5 gap-5 border-l border-zinc-800 overflow-y-auto min-h-0 shrink-0 transition-all duration-300 ${sidebarOpen ? "w-72 opacity-100" : "w-0 p-0 opacity-0 overflow-hidden border-l-0"}`}>
-          <div>
-            <h2 className="text-white font-semibold text-lg leading-tight">{camera.name}</h2>
-            {camera.streamName && (
-              <p className="text-zinc-500 text-xs font-mono mt-1 truncate">{camera.streamName}</p>
-            )}
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <h2 className="text-white font-semibold text-lg leading-tight">{camera.name}</h2>
+              {camera.streamName && (
+                <p className="text-zinc-500 text-xs font-mono mt-1 truncate">{camera.streamName}</p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={handleFavoriteToggle}
+              className={[
+                "shrink-0 p-1.5 rounded-full transition-all",
+                favorited
+                  ? "text-yellow-400 bg-black/60"
+                  : "text-zinc-400 hover:text-yellow-300 hover:bg-black/60",
+              ].join(" ")}
+              aria-label={favorited ? "Quitar de favoritas" : "Añadir a favoritas"}
+              title={favorited ? "Favorita" : "Añadir a favoritas"}
+            >
+              <Star
+                className="w-5 h-5"
+                fill={favorited ? "currentColor" : "none"}
+                stroke="currentColor"
+                strokeWidth="2"
+              />
+            </button>
           </div>
 
           <div className="space-y-2">

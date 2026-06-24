@@ -21,9 +21,8 @@ interface GridConfig {
 }
 
 function getGridConfig(width: number, height: number): GridConfig {
-  if (width >= 3840 || height >= 2160) {
-    return { cols: 3, pageSize: 9, gap: "gap-0.5", padding: "p-0.5" };
-  }
+  // TV browsers (Hisense, etc.) struggle with 9 concurrent WebRTC streams.
+  // Always use 2x2 for stability; user can still rotate pages.
   return { cols: 2, pageSize: 4, gap: "gap-1", padding: "p-1" };
 }
 
@@ -68,6 +67,10 @@ export function KioskGrid({
     () => cameras.slice(page * pageSize, (page + 1) * pageSize),
     [cameras, page, pageSize],
   );
+
+  useEffect(() => {
+    console.log(`[kiosk] page=${page + 1}/${totalPages}, cameras=${visibleCameras.map((c) => c.name).join(", ")}`);
+  }, [page, totalPages, visibleCameras]);
 
   // Clamp page when pageSize changes
   useEffect(() => {
@@ -146,6 +149,7 @@ export function KioskGrid({
             streamType="sub"
             pageKey={page}
             filters={cameraFilters?.[camera.id]}
+            preferWhep
           />
         </div>
       ))}
