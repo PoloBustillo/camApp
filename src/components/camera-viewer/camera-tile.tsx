@@ -16,6 +16,8 @@ interface CameraTileProps {
   preferWhep?: boolean;
   /** Report state changes to parent (used by KioskGrid watchdog) */
   onStateChange?: (state: PlayerState) => void;
+  /** Always show info bar (TV mode) instead of hiding on hover */
+  alwaysShowInfo?: boolean;
 }
 
 function buildFilterStyle(filters: PersistedFilters | null | undefined): string {
@@ -55,6 +57,7 @@ export const CameraTile = memo(function CameraTile({
   onClick,
   preferWhep = false,
   onStateChange,
+  alwaysShowInfo = false,
 }: CameraTileProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { state, errorMsg, videoRef, connect, disconnect, isAutoRetrying, isFrozen } = useCameraStream({
@@ -179,12 +182,12 @@ export const CameraTile = memo(function CameraTile({
         </div>
       )}
 
-      {/* Bottom info bar — always visible, dims on hover */}
+      {/* Bottom info bar */}
       <div className={[
         "absolute bottom-0 left-0 right-0 px-3 py-2",
         "bg-gradient-to-t from-black/80 via-black/40 to-transparent",
         "transition-opacity duration-300",
-        state === "playing" ? "opacity-0 group-hover:opacity-100" : "opacity-100",
+        alwaysShowInfo || state !== "playing" ? "opacity-100" : "opacity-0 group-hover:opacity-100",
       ].join(" ")}>
         <p className="text-white text-xs font-semibold truncate leading-tight">{camera.name}</p>
         {camera.siteName && (

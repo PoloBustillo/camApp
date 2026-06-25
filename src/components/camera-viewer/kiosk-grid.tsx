@@ -109,24 +109,37 @@ export function KioskGrid({
     return () => clearInterval(id);
   }, [showControls]);
 
-  // Keyboard: Space = pause/play, ESC = dashboard, R = reload
+  // Keyboard: Space = pause/play, ArrowLeft/ArrowRight = page, ESC = dashboard, R = reload
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === " " || e.key === "Spacebar") {
         e.preventDefault();
         setPaused((p) => !p);
         showControls();
+        return;
+      }
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        e.preventDefault();
+        setPaused(true);
+        setPage((p) => {
+          if (e.key === "ArrowLeft") return Math.max(0, p - 1);
+          return Math.min(totalPages - 1, p + 1);
+        });
+        showControls();
+        return;
       }
       if (e.key === "Escape") {
         window.location.href = "/dashboard";
+        return;
       }
       if (e.key === "r" || e.key === "R") {
         window.location.reload();
+        return;
       }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [showControls]);
+  }, [showControls, totalPages]);
 
   // Watchdog: check if all cameras are bad, auto-reload after 60s
   useEffect(() => {
@@ -181,6 +194,7 @@ export function KioskGrid({
             streamType="sub"
             filters={cameraFilters?.[camera.id]}
             preferWhep
+            alwaysShowInfo
             onStateChange={(state) => handleTileStateChange(camera.id, state)}
           />
         </div>
