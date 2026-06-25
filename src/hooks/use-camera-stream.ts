@@ -549,9 +549,8 @@ export function useCameraStream({
     setIsMuted((prev) => {
       const next = !prev;
       isMutedRef.current = next;
-      if (videoRef.current) {
-        videoRef.current.muted = next;
-        if (!next) videoRef.current.play().catch(() => {});
+      if (!next && videoRef.current) {
+        videoRef.current.play().catch(() => {});
       }
       return next;
     });
@@ -561,7 +560,6 @@ export function useCameraStream({
     const clamped = Math.min(1, Math.max(0, v));
     setVolumeState(clamped);
     volumeRef.current = clamped;
-    if (videoRef.current) videoRef.current.volume = clamped;
     if (clamped > 0) setIsMuted(false);
   }, []);
 

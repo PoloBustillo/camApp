@@ -15,7 +15,7 @@ export const SortableCameraTile = memo(function SortableCameraTile({
 }: {
   camera: CameraViewerItem;
   isEditing: boolean;
-  onClick: (cam: CameraViewerItem) => void;
+  onClick?: (cam: CameraViewerItem) => void;
   filters?: PersistedFilters | null;
 }) {
   const {

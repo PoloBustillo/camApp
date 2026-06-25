@@ -230,6 +230,8 @@ model Recording {
   @@index([cameraId, date(sort: Desc)], name: "idx_recordings_camera_date")
   @@index([sourceType], name: "idx_recordings_source_type")
   @@index([cloudBackupStatus], name: "idx_recordings_cloud_backup_status")
+  @@index([cloudBackupStatus, startTime(sort: Desc)], name: "idx_recordings_backup_time")
+  @@index([date(sort: Desc), startTime(sort: Desc)], name: "idx_recordings_date_time")
   @@map("recordings")
 }
 

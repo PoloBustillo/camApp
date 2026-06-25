@@ -2,20 +2,7 @@
 
 import React, { Suspense, lazy, useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { Play, Pause } from "lucide-react";
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  rectSortingStrategy,
-} from "@dnd-kit/sortable";
+import type { DragEndEvent } from "@dnd-kit/core";
 import { useCameraPage } from "@/hooks/use-camera-page";
 import { useCameraOrder } from "@/hooks/use-camera-order";
 import {
@@ -30,8 +17,8 @@ import { KeyboardHelp } from "./keyboard-help";
 import { GridToolbar } from "./grid-toolbar";
 import type { CameraViewerItem, PersistedFilters } from "@/types/camera-viewer";
 
-const SortableCameraTile = lazy(() =>
-  import("./sortable-camera-tile").then((m) => ({ default: m.SortableCameraTile }))
+const SortableGrid = lazy(() =>
+  import("./sortable-grid").then((m) => ({ default: m.SortableGrid }))
 );
 
 interface CameraViewerGridProps {
@@ -131,26 +118,15 @@ export function CameraViewerGrid({
     setCameraFilters((prev) => ({ ...prev, [cameraId]: filters }));
   }, []);
 
-  // Drag-and-drop sensors
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
-  );
-
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       const { active, over } = event;
       if (!over || active.id === over.id) return;
 
-      // Find positions in the full displayCameras array
       const oldIndex = displayCameras.findIndex((c) => c.id === active.id);
       const newIndex = displayCameras.findIndex((c) => c.id === over.id);
       if (oldIndex === -1 || newIndex === -1) return;
 
-      // Map from displayCameras index to orderedCameras index
-      // (displayCameras may be filtered by favorites)
       const orderedOldIndex = orderedCameras.findIndex((c) => c.id === active.id);
       const orderedNewIndex = orderedCameras.findIndex((c) => c.id === over.id);
       if (orderedOldIndex === -1 || orderedNewIndex === -1) return;
@@ -297,25 +273,14 @@ export function CameraViewerGrid({
                   ))}
                 </div>
               }>
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
+                <SortableGrid
+                  cameras={visibleCameras}
+                  sortableIds={sortableIds}
                   onDragEnd={handleDragEnd}
-                >
-                  <SortableContext items={sortableIds} strategy={rectSortingStrategy}>
-                    <div className={`grid ${gridCols} gap-2 sm:gap-3`}>
-                      {visibleCameras.map((camera) => (
-                        <SortableCameraTile
-                          key={`edit-${camera.id}`}
-                          camera={camera}
-                          isEditing={isEditing}
-                          onClick={handleTileClick}
-                          filters={cameraFilters?.[camera.id]}
-                        />
-                      ))}
-                    </div>
-                  </SortableContext>
-                </DndContext>
+                  onTileClick={handleTileClick}
+                  cameraFilters={cameraFilters}
+                  gridCols={gridCols}
+                />
               </Suspense>
             ) : (
               <div className={`grid ${gridCols} gap-2 sm:gap-3`}>

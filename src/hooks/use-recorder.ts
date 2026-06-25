@@ -81,6 +81,7 @@ export function useRecorder(): UseRecorderReturn {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const filenameRef = useRef("grabacion");
   const startTimeRef = useRef<string>("");
+  const durationRef = useRef(0);
 
   const startRecording = useCallback((stream: MediaStream, filename?: string) => {
     if (recorderRef.current?.state === "recording") return;
@@ -99,8 +100,10 @@ export function useRecorder(): UseRecorderReturn {
     recorderRef.current = recorder;
     setIsRecording(true);
     setDuration(0);
+    durationRef.current = 0;
 
     timerRef.current = setInterval(() => {
+      durationRef.current += 1;
       setDuration((d) => d + 1);
     }, 1000);
   }, []);
@@ -109,7 +112,7 @@ export function useRecorder(): UseRecorderReturn {
     if (recorderRef.current?.state !== "recording") return null;
 
     const endTime = new Date().toISOString();
-    const finalDuration = duration;
+    const finalDuration = durationRef.current;
 
     return new Promise((resolve) => {
       const recorder = recorderRef.current!;
@@ -152,8 +155,9 @@ export function useRecorder(): UseRecorderReturn {
       }
       setIsRecording(false);
       setDuration(0);
+      durationRef.current = 0;
     });
-  }, [duration]);
+  }, []);
 
   useEffect(() => {
     return () => {

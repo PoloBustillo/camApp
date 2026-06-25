@@ -6,6 +6,11 @@ const nextConfig: NextConfig = {
   // Prisma usa binarios nativos — deben excluirse del bundle y resolverse en runtime
   serverExternalPackages: ["@prisma/client", ".prisma", "ws"],
 
+  // Tree-shaking de iconos y componentes UI pesados
+  experimental: {
+    optimizePackageImports: ["lucide-react"],
+  },
+
   async headers() {
     return [
       {
