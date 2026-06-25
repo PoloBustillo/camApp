@@ -49,5 +49,6 @@ export function isMobile(userAgent?: string | null): boolean {
 /** Get the best initial route for this device */
 export function getDeviceRoute(userAgent?: string | null): string {
   if (isTvBrowser(userAgent)) return "/tv";
+  if (isMobile(userAgent)) return "/lite";
   return "/dashboard";
 }

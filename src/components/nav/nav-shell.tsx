@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogoutButton } from "@/components/auth/logout-button";
-import { Home, Satellite, Star, Tv, Shield, History, Menu, X, ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
+import { Home, Satellite, Star, Tv, Shield, History, Zap, Menu, X, ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
 
 interface NavShellProps {
   userName: string;
@@ -18,6 +18,7 @@ const mainLinks = [
   { href: "/cameras", label: "Proveedores", icon: Satellite },
   { href: "/favorites", label: "Favoritas", icon: Star },
   { href: "/tv", label: "Modo TV", icon: Tv },
+  { href: "/lite", label: "Vista Lite", icon: Zap },
 ];
 
 const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
