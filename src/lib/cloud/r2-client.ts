@@ -1,14 +1,14 @@
-// Lazy-load @aws-sdk/client-s3 — only imported when cloud is actually used
-let _client: any = null;
-let _sdk: any = null;
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+  HeadObjectCommand,
+} from "@aws-sdk/client-s3";
 
-async function getSdk() {
-  if (_sdk) return _sdk;
-  _sdk = await import("@aws-sdk/client-s3");
-  return _sdk;
-}
+let _client: S3Client | null = null;
 
-async function getClient() {
+function getClient(): S3Client {
   if (_client) return _client;
 
   const endpoint = process.env.CLOUD_ENDPOINT;
@@ -21,7 +21,6 @@ async function getClient() {
     );
   }
 
-  const { S3Client } = await getSdk();
   _client = new S3Client({
     endpoint,
     region: "us-east-1",
@@ -57,9 +56,8 @@ export async function uploadToCloud(
   contentType = "video/mp4",
   metadata?: CloudMetadata,
 ): Promise<{ key: string; bucket: string }> {
-  const client = await getClient();
+  const client = getClient();
   const bucket = getBucket();
-  const { PutObjectCommand } = await getSdk();
 
   await client.send(
     new PutObjectCommand({
@@ -77,9 +75,8 @@ export async function uploadToCloud(
 export async function getCloudObject(
   key: string,
 ): Promise<{ body: Buffer; contentType: string } | null> {
-  const client = await getClient();
+  const client = getClient();
   const bucket = getBucket();
-  const { GetObjectCommand } = await getSdk();
 
   try {
     const res = await client.send(
@@ -105,9 +102,8 @@ export async function getCloudObject(
 }
 
 export async function deleteFromCloud(key: string): Promise<void> {
-  const client = await getClient();
+  const client = getClient();
   const bucket = getBucket();
-  const { DeleteObjectCommand } = await getSdk();
 
   await client.send(
     new DeleteObjectCommand({ Bucket: bucket, Key: key }),
@@ -117,9 +113,8 @@ export async function deleteFromCloud(key: string): Promise<void> {
 export async function headCloudObject(
   key: string,
 ): Promise<{ exists: boolean; size?: number; metadata?: Record<string, string> }> {
-  const client = await getClient();
+  const client = getClient();
   const bucket = getBucket();
-  const { HeadObjectCommand } = await getSdk();
 
   try {
     const res = await client.send(

@@ -80,6 +80,7 @@ export async function POST(req: NextRequest) {
   let cloudStatus = "none";
   if (isCloudConfigured()) {
     try {
+      console.log(`[upload] Starting B2 upload for recording ${recording.id}`);
       const camName = recording.camera.name.toLowerCase().replace(/\s+/g, "-");
       const dateStr = date.toISOString().slice(0, 10);
       const cloudKey = `recordings/${camName}/${dateStr}/${file.name}`;
@@ -144,13 +145,16 @@ export async function POST(req: NextRequest) {
       });
       cloudStatus = "uploaded";
     } catch (err) {
-      console.error("[upload] Cloud upload failed:", err);
+      console.error(`[upload] B2 upload failed for recording ${recording.id}:`, err instanceof Error ? err.message : err);
+      console.error(`[upload] B2 upload details:`, err instanceof Error ? err.stack : String(err));
       await prisma.recording.update({
         where: { id: recording.id },
         data: { cloudBackupStatus: "failed" },
       }).catch(() => {});
       cloudStatus = "failed";
     }
+  } else {
+    console.log(`[upload] B2 not configured — skipping cloud upload for recording ${recording.id}`);
   }
 
   await prisma.auditLog.create({
