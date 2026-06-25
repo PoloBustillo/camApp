@@ -72,6 +72,14 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   const recording = await prisma.recording.findUnique({ where: { id } });
   if (!recording) return Errors.notFound("Recording");
 
+  // Block deletion if under legal hold
+  if (recording.legalHold) {
+    return NextResponse.json(
+      { error: { code: "LEGAL_HOLD", message: "Grabación bajo custodia legal — no se puede eliminar" } },
+      { status: 409 },
+    );
+  }
+
   await prisma.auditLog.create({
     data: {
       userId: user.id,
@@ -82,12 +90,21 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
         cameraId: recording.cameraId,
         fileName: recording.fileName,
         date: recording.date.toISOString(),
+        fileHash: recording.fileHash,
+        cloudStorageKey: recording.cloudStorageKey,
+        fileSize: recording.fileSize,
+        duration: recording.duration,
+        startTime: recording.startTime.toISOString(),
+        endTime: recording.endTime?.toISOString(),
       },
     },
   });
 
-  // Remove from DB (file on PC remains; cleanup handles it)
-  await prisma.recording.delete({ where: { id } });
+  // Soft-delete: marca deletedAt en vez de borrar
+  await prisma.recording.update({
+    where: { id },
+    data: { deletedAt: new Date() },
+  });
 
   return new NextResponse(null, { status: 204 });
 }

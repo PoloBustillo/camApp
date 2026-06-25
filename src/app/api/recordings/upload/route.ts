@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHash } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/middleware";
 import { Errors } from "@/lib/errors";
@@ -28,6 +29,16 @@ export async function POST(req: NextRequest) {
   if (!startTime) return Errors.validation({ startTime: "Required" });
   if (!endTime) return Errors.validation({ endTime: "Required" });
   if (!fileHash) return Errors.validation({ fileHash: "Required" });
+
+  // Verificar integridad: recomputar SHA-256 del archivo recibido
+  const arrayBuffer = await file.arrayBuffer();
+  const serverHash = createHash("sha256").update(Buffer.from(arrayBuffer)).digest("hex");
+  if (serverHash !== fileHash) {
+    return NextResponse.json(
+      { error: { code: "HASH_MISMATCH", message: "Integrity check failed — file hash mismatch" } },
+      { status: 422 },
+    );
+  }
 
   const camera = await prisma.camera.findUnique({ where: { id: cameraId } });
   if (!camera) return Errors.notFound("Camera");
@@ -129,7 +140,6 @@ export async function POST(req: NextRequest) {
         custodyLog,
       };
 
-      const arrayBuffer = await file.arrayBuffer();
       await Promise.all([
         uploadToCloud(cloudKey, Buffer.from(arrayBuffer), file.type || "video/webm", s3Metadata),
         uploadToCloud(metaKey, Buffer.from(JSON.stringify(metaJson, null, 2)), "application/json"),

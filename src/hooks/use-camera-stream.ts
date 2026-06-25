@@ -404,6 +404,13 @@ export function useCameraStream({
       if (pcRef.current) { pcRef.current.close(); pcRef.current = null; }
       if (wsRef.current) { (wsRef.current as WebSocket).close(); wsRef.current = null; }
 
+      // If sub stream keeps failing, switch to main on next retry
+      if (streamTypeRef.current === "sub" && reconnectAttemptsRef.current >= MAX_FAST_ATTEMPTS) {
+        dbg(`[camstream] Sub stream failed ${reconnectAttemptsRef.current} times — switching to main`);
+        streamTypeRef.current = "main";
+        reconnectAttemptsRef.current = 0;
+      }
+
       if (isRetryableError(err)) {
         // WHEP/connection errors are usually transient — auto-retry
         if (reconnectAttemptsRef.current < MAX_FAST_ATTEMPTS) {

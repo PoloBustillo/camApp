@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { uploadToCloud, isCloudConfigured } from "./cloud/r2-client";
+import { createHash } from "crypto";
 
 const RECORDER_PC_URL = process.env.RECORDER_PC_URL || "";
 const POLL_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
@@ -38,6 +39,10 @@ export async function backupRecording(
   });
   if (!recording) return { status: "failed", error: "Recording not found" };
 
+  if (recording.deletedAt) {
+    return { status: "failed", error: "Recording has been deleted" };
+  }
+
   if (recording.cloudBackupStatus === "uploaded") {
     return { status: "uploaded" };
   }
@@ -59,6 +64,12 @@ export async function backupRecording(
     }
     const buffer = Buffer.from(await res.arrayBuffer());
 
+    // Compute hash of downloaded bytes for integrity verification
+    const computedHash = createHash("sha256").update(buffer).digest("hex");
+    if (recording.fileHash && computedHash !== recording.fileHash) {
+      console.error(`[backup-worker] Hash mismatch for ${recordingId}: expected=${recording.fileHash} got=${computedHash}`);
+    }
+
     const cloudKey = buildCloudKey(recording);
     const metaKey = cloudKey.replace(/\.[^.]+$/, ".meta.json");
 
@@ -75,7 +86,22 @@ export async function backupRecording(
       "server-timestamp": recording.serverTimestamp?.toISOString() || new Date().toISOString(),
     };
 
-    // Sidecar JSON
+    // Append backup entry to chain of custody
+    const now = new Date();
+    const existingCustody = (recording.custodyLog as any[]) || [];
+    const updatedCustodyLog = [
+      ...existingCustody,
+      {
+        action: "uploaded_to_cloud",
+        at: now.toISOString(),
+        cloudKey,
+        bucket: process.env.CLOUD_BUCKET_NAME || "unknown",
+        backupHash: computedHash,
+        previousHash: recording.fileHash,
+      },
+    ];
+
+    // Sidecar JSON with updated custody chain
     const metaJson = {
       version: "1.0",
       recording: {
@@ -101,7 +127,7 @@ export async function backupRecording(
         capturedBy: recording.capturedBy,
         captureDevice: recording.captureDevice,
       },
-      custodyLog: recording.custodyLog,
+      custodyLog: updatedCustodyLog,
     };
 
     await Promise.all([
@@ -113,8 +139,11 @@ export async function backupRecording(
       where: { id: recordingId },
       data: {
         cloudStorageKey: cloudKey,
-        cloudBackupAt: new Date(),
+        cloudBackupAt: now,
         cloudBackupStatus: "uploaded",
+        fileHash: recording.fileHash || computedHash,
+        serverTimestamp: recording.serverTimestamp || now,
+        custodyLog: updatedCustodyLog,
       },
     });
 
@@ -140,6 +169,7 @@ async function processPendingBackups(): Promise<void> {
       where: {
         cloudBackupStatus: "none",
         startTime: { lt: cutoff },
+        deletedAt: null,
       },
       include: { camera: { select: { name: true } } },
       take: 5,

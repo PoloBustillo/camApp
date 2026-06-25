@@ -224,7 +224,10 @@ model Recording {
   cloudBackupAt      DateTime? @map("cloud_backup_at") @db.Timestamptz() // when uploaded to R2
   cloudBackupStatus  String    @default("none") @map("cloud_backup_status") @db.VarChar(20) // none | pending | uploaded | failed
 
-  camera Camera @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz()
+  legalHold     Boolean   @default(false) @map("legal_hold")
+
+  camera Camera @relation(fields: [cameraId], references: [id], onDelete: NoAction)
 
   @@unique([cameraId, date, fileName])
   @@index([cameraId, date(sort: Desc)], name: "idx_recordings_camera_date")

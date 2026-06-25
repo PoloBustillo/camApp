@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   const page = Math.max(1, Number(searchParams.get("page") ?? 1));
   const limit = Math.min(100, Math.max(1, Number(searchParams.get("limit") ?? 50)));
 
-  const where: Record<string, unknown> = {};
+  const where: Record<string, unknown> = { deletedAt: null };
   if (cameraId) where.cameraId = cameraId;
   if (date) {
     const d = new Date(date);
