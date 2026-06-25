@@ -245,6 +245,9 @@ export function useCameraStream({
       }
 
       // Create RTCPeerConnection — match go2rtc's video-rtc.js exactly
+      if (typeof RTCPeerConnection === "undefined") {
+        throw new Error("WebRTC no soportado en este navegador");
+      }
       const pc = new RTCPeerConnection({
         bundlePolicy: "max-bundle",
         iceServers: [

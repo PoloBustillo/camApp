@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, Component } from "react";
 import { Play, Pause, LogOut, RefreshCw } from "lucide-react";
 import { CameraTile } from "./camera-tile";
 import type { CameraViewerItem, PersistedFilters, PlayerState } from "@/types/camera-viewer";
@@ -17,6 +17,46 @@ const PAGE_SIZE = 4; // 2x2 — TV browsers can't handle 9 concurrent WebRTC
 const WATCHDOG_THRESHOLD_MS = 60_000;
 const MENU_PULSE_INTERVAL_MS = 30_000;
 const MENU_AUTO_HIDE_MS = 3_000;
+
+/** Error boundary for TV mode — prevents white screen on JS errors */
+class KioskErrorBoundary extends Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error("[kiosk] Render error:", error.message);
+    // Auto-reload after 5s
+    setTimeout(() => window.location.reload(), 5000);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="fixed inset-0 bg-black flex items-center justify-center">
+          <div className="text-center text-zinc-500">
+            <p className="text-sm mb-4">Error al cargar — recargando...</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="text-xs px-4 py-2 rounded bg-white/10 hover:bg-white/20 text-white/60 transition-all"
+            >
+              Recargar ahora
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 /**
  * KioskGrid — TV/Kiosk mode.
@@ -186,6 +226,7 @@ export function KioskGrid({
   }
 
   return (
+    <KioskErrorBoundary>
     <div className="fixed inset-0 bg-black grid grid-cols-2 gap-1 p-1">
       {visibleCameras.map((camera) => (
         <div key={camera.id} className="relative">
@@ -277,5 +318,6 @@ export function KioskGrid({
         </div>
       )}
     </div>
+    </KioskErrorBoundary>
   );
 }

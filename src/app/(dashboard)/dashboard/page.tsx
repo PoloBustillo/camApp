@@ -3,6 +3,7 @@ import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { CameraViewerGrid } from "@/components/camera-viewer/camera-grid";
+import { TvRedirect } from "@/components/tv-redirect";
 import { syncCameraStatus } from "@/lib/sync-cameras";
 import type { CameraViewerItem } from "@/types/camera-viewer";
 import type { PersistedFilters } from "@/types/camera-viewer";
@@ -83,6 +84,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-4">
+      <TvRedirect />
       <CameraViewerGrid
         cameras={cameras}
         title="Mis cámaras"

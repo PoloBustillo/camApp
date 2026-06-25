@@ -90,27 +90,40 @@ export const CameraTile = memo(function CameraTile({
   stateRef.current = state;
 
   // IntersectionObserver: connect when visible, disconnect when hidden.
-  // Uses refs for connect/disconnect so the effect never re-runs.
+  // Falls back to timer if IntersectionObserver is not supported (older TVs).
   useEffect(() => {
     if (!camera.online || !camera.enabled) return;
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          if (stateRef.current === "idle" || stateRef.current === "reconnecting" || stateRef.current === "offline" || stateRef.current === "error") {
-            connectRef.current();
-          }
-        } else {
-          disconnectRef.current();
-        }
-      },
-      { threshold: 0.05, rootMargin: "100px" },
-    );
-
-    if (containerRef.current) observer.observe(containerRef.current);
-    return () => {
-      observer.disconnect();
+    const tryConnect = () => {
+      if (stateRef.current === "idle" || stateRef.current === "reconnecting" || stateRef.current === "offline" || stateRef.current === "error") {
+        connectRef.current();
+      }
     };
+
+    let cleanup: () => void;
+    try {
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) tryConnect();
+          else disconnectRef.current();
+        },
+        { threshold: 0.05, rootMargin: "100px" },
+      );
+
+      if (containerRef.current) observer.observe(containerRef.current);
+      // Connect after 3s delay in TV mode (IntersectionObserver may lag on TVs)
+      const fallbackTimer = setTimeout(tryConnect, 3000);
+      cleanup = () => {
+        observer.disconnect();
+        clearTimeout(fallbackTimer);
+      };
+    } catch {
+      // IntersectionObserver not available (old TV) — connect immediately
+      tryConnect();
+      cleanup = () => {};
+    }
+
+    return cleanup;
   }, [camera.online, camera.enabled]);
 
   const handleClick = useCallback(() => {
