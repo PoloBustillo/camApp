@@ -3,15 +3,13 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: "standalone",
 
-  // Increase body size for video uploads (default 10MB)
-  middlewareClientMaxBodySize: 100 * 1024 * 1024, // 100MB
-
   // Prisma usa binarios nativos — deben excluirse del bundle y resolverse en runtime
   serverExternalPackages: ["@prisma/client", ".prisma", "ws"],
 
-  // Tree-shaking de iconos y componentes UI pesados
+  // Tree-shaking + body size limit
   experimental: {
     optimizePackageImports: ["lucide-react"],
+    middlewareClientMaxBodySize: 104857600, // 100MB for video uploads
   },
 
   async headers() {

@@ -34,6 +34,7 @@ CMD ["./node_modules/.bin/prisma", "migrate", "deploy"]
 FROM base AS production
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV BUN_MAX_REQUEST_BODY_SIZE=104857600
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
