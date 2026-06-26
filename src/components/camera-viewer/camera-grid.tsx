@@ -1,7 +1,6 @@
 "use client";
 
 import React, { Suspense, lazy, useState, useCallback, useMemo, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { Play, Pause } from "lucide-react";
 import type { DragEndEvent } from "@dnd-kit/core";
 import { useCameraPage } from "@/hooks/use-camera-page";
@@ -16,7 +15,6 @@ import { CameraModal } from "./camera-modal";
 import { CameraPagination } from "./camera-pagination";
 import { KeyboardHelp } from "./keyboard-help";
 import { GridToolbar } from "./grid-toolbar";
-import { isTvBrowser } from "@/lib/device";
 import type { CameraViewerItem, PersistedFilters } from "@/types/camera-viewer";
 
 const SortableGrid = lazy(() =>
@@ -43,16 +41,8 @@ export function CameraViewerGrid({
   cameraFilters: initialCameraFilters,
   showGridControls = false,
 }: CameraViewerGridProps) {
-  const router = useRouter();
   const { layout, filter, setLayout, setFilter } = useGridPreferences();
   const pageSize = getPageSize(layout);
-
-  // Redirect TV browsers to /tv immediately
-  useEffect(() => {
-    if (isTvBrowser()) {
-      router.replace("/tv");
-    }
-  }, [router]);
 
   // Mutable copy of filters — updated when modal saves
   const [cameraFilters, setCameraFilters] = useState(initialCameraFilters);
