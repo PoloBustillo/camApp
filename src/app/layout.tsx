@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { TvRedirect } from "@/components/tv-redirect";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -30,7 +31,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        <TvRedirect />
+        {children}
+      </body>
     </html>
   );
 }

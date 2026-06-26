@@ -13,6 +13,10 @@ interface KioskGridProps {
   cameraFilters?: Record<string, PersistedFilters>;
   /** Stream type to use for each camera (default "sub") */
   streamType?: StreamType;
+  /** Use WHEP/HTTP signaling instead of WebSocket (default true) */
+  preferWhep?: boolean;
+  /** Connection stagger between cameras in ms (default 2000) */
+  connectStaggerMs?: number;
 }
 
 const PAGE_SIZE = 4; // 2x2 — TV browsers can't handle 9 concurrent WebRTC
@@ -77,6 +81,8 @@ export function KioskGrid({
   cycleInterval = 15_000,
   cameraFilters,
   streamType = "sub",
+  preferWhep = true,
+  connectStaggerMs = 2000,
 }: KioskGridProps) {
   const [page, setPage] = useState(0);
   const [paused, setPaused] = useState(true);
@@ -231,14 +237,15 @@ export function KioskGrid({
   return (
     <KioskErrorBoundary>
     <div className="fixed inset-0 bg-black grid grid-cols-2 gap-1 p-1">
-      {visibleCameras.map((camera) => (
+      {visibleCameras.map((camera, idx) => (
         <div key={camera.id} className="relative">
           <CameraTile
             camera={camera}
             streamType={streamType}
             filters={cameraFilters?.[camera.id]}
-            preferWhep
+            preferWhep={preferWhep}
             alwaysShowInfo
+            connectDelay={3000 + idx * connectStaggerMs}
             onStateChange={(state) => handleTileStateChange(camera.id, state)}
           />
         </div>

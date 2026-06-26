@@ -12,12 +12,14 @@ interface CameraTileProps {
   filters?: PersistedFilters | null;
   streamType?: StreamType;
   onClick?: (camera: CameraViewerItem) => void;
-  /** Use WHEP/HTTP signaling instead of WebSocket (better for TV browsers) */
+  /** Use WHEP/HTTP signaling instead of WebSocket */
   preferWhep?: boolean;
   /** Report state changes to parent (used by KioskGrid watchdog) */
   onStateChange?: (state: PlayerState) => void;
   /** Always show info bar (TV mode) instead of hiding on hover */
   alwaysShowInfo?: boolean;
+  /** Delay before initial connection attempt in ms (default 3000) */
+  connectDelay?: number;
 }
 
 function buildFilterStyle(filters: PersistedFilters | null | undefined): string {
@@ -58,6 +60,7 @@ export const CameraTile = memo(function CameraTile({
   preferWhep = false,
   onStateChange,
   alwaysShowInfo = false,
+  connectDelay = 3000,
 }: CameraTileProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { state, errorMsg, videoRef, connect, disconnect, isAutoRetrying, isFrozen } = useCameraStream({
@@ -111,8 +114,8 @@ export const CameraTile = memo(function CameraTile({
       );
 
       if (containerRef.current) observer.observe(containerRef.current);
-      // Connect after 3s delay in TV mode (IntersectionObserver may lag on TVs)
-      const fallbackTimer = setTimeout(tryConnect, 3000);
+      // Staggered delay to avoid all cameras connecting simultaneously
+      const fallbackTimer = setTimeout(tryConnect, connectDelay);
       cleanup = () => {
         observer.disconnect();
         clearTimeout(fallbackTimer);

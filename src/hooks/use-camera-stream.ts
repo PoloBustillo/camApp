@@ -13,7 +13,7 @@ export interface UseCameraStreamOptions {
   streamType?: StreamType;
   autoConnect?: boolean;
   startMuted?: boolean;
-  /** Use WHEP/HTTP signaling instead of WebSocket (better for TV browsers) */
+  /** Use WHEP/HTTP signaling (trickle ICE) instead of WebSocket */
   preferWhep?: boolean;
   onStateChange?: (state: PlayerState) => void;
 }
@@ -61,7 +61,7 @@ export function useCameraStream({
   streamType = "sub",
   autoConnect = false,
   startMuted = true,
-  preferWhep = false,
+  preferWhep = true,
   onStateChange,
 }: UseCameraStreamOptions): UseCameraStreamResult {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -385,9 +385,9 @@ export function useCameraStream({
         }
       }, 5000);
 
-      // Choose signaling method: WHEP for TV browsers, WebSocket for everything else.
-      // If WebSocket failed previously, fall back to WHEP for subsequent retries.
-      const useWhep = useWhepRef.current || !info.wsUrl;
+      // Use WHEP by default (HTTP POST + trickle ICE via PATCH).
+      // Fall back to WebSocket if WHEP URL is missing (legacy).
+      const useWhep = useWhepRef.current && !!info.whepUrl;
       if (useWhep) {
         if (!info.whepUrl) {
           throw new Error("No WHEP URL provided by server");
@@ -511,29 +511,10 @@ export function useCameraStream({
   async function connectViaWhep(pc: RTCPeerConnection, whepUrl: string) {
     dbg(`[camstream] Camera ${cameraId} connecting via WHEP: ${whepUrl}`);
 
-    // Wait for ICE gathering to complete (non-trickle mode — best for TV browsers)
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
 
-    await new Promise<void>((resolve, reject) => {
-      if (pc.iceGatheringState === "complete") {
-        resolve();
-        return;
-      }
-      const timeout = setTimeout(() => {
-        pc.removeEventListener("icegatheringstatechange", check);
-        reject(new Error("ICE gathering timeout"));
-      }, 15000);
-      const check = () => {
-        if (pc.iceGatheringState === "complete") {
-          clearTimeout(timeout);
-          pc.removeEventListener("icegatheringstatechange", check);
-          resolve();
-        }
-      };
-      pc.addEventListener("icegatheringstatechange", check);
-    });
-
+    // Trickle ICE: send offer immediately (with whatever candidates gathered so far)
     const res = await fetch(whepUrl, {
       method: "POST",
       headers: { "Content-Type": "application/sdp" },
@@ -548,6 +529,19 @@ export function useCameraStream({
     const sdpAnswer = await res.text();
     await pc.setRemoteDescription({ type: "answer", sdp: sdpAnswer });
     dbg(`[camstream] Camera ${cameraId} WHEP answer set`);
+
+    // PATCH remaining ICE candidates as they arrive (trickle)
+    if (pc.iceGatheringState !== "complete") {
+      pc.onicecandidate = (e) => {
+        if (!e.candidate || cancelledRef.current || !pcRef.current) return;
+        const fragment = `a=${e.candidate.candidate}\r\n`;
+        fetch(whepUrl, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/trickle-ice-sdpfrag" },
+          body: fragment,
+        }).catch(() => {});
+      };
+    }
   }
 
   const connectRef = useRef(connectInternal);
