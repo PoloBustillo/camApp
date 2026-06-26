@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { LitePlayer } from "@/components/lite-player";
 
+export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Vista Lite — CamWatch" };
 
 export default async function LitePage() {
@@ -19,6 +20,8 @@ export default async function LitePage() {
       mediaMtxPath: true,
     },
   });
+
+  console.log(`[lite] Found ${cameras.length} online cameras`);
 
   return (
     <LitePlayer
