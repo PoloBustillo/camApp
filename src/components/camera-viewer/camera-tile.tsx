@@ -2,10 +2,12 @@
 
 import { useEffect, useRef, useCallback, memo, useMemo } from "react";
 import { useCameraStream } from "@/hooks/use-camera-stream";
+import { useRecorder, uploadRecordingToCloud } from "@/hooks/use-recorder";
+import { formatDuration } from "@/lib/format";
 import { CameraStatusBadge } from "./camera-status-badge";
 import type { CameraViewerItem, StreamType, PersistedFilters, PlayerState } from "@/types/camera-viewer";
 import { PRESET_LABELS } from "@/types/camera-viewer";
-import { SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal, VolumeX, Volume2, Circle, Square } from "lucide-react";
 
 interface CameraTileProps {
   camera: CameraViewerItem;
@@ -60,12 +62,13 @@ export const CameraTile = memo(function CameraTile({
   alwaysShowInfo = false,
 }: CameraTileProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { state, errorMsg, videoRef, connect, disconnect, isAutoRetrying, isFrozen } = useCameraStream({
+  const { state, errorMsg, videoRef, connect, disconnect, isAutoRetrying, isFrozen, isMuted, hasAudio, toggleMute } = useCameraStream({
     cameraId: camera.id,
     streamType,
     preferWhep,
     onStateChange,
   });
+  const { isRecording, duration, startRecording, stopRecording } = useRecorder();
 
   const filterStyle = useMemo(() => buildFilterStyle(filters), [filters]);
 
@@ -125,6 +128,23 @@ export const CameraTile = memo(function CameraTile({
 
     return cleanup;
   }, [camera.online, camera.enabled]);
+
+  const handleToggleRecord = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isRecording) {
+      const meta = await stopRecording();
+      if (meta) {
+        uploadRecordingToCloud(meta, camera.id).catch(() => {});
+      }
+    } else {
+      const stream = videoRef.current?.srcObject as MediaStream;
+      if (stream && state === "playing") {
+        const safeName = camera.name.replace(/[^\w.-]+/g, "_").slice(0, 40);
+        const ts = new Date().toISOString().replace(/[:.]/g, "-");
+        startRecording(stream, `${safeName}_${ts}`);
+      }
+    }
+  }, [isRecording, state, camera.id, camera.name, videoRef, startRecording, stopRecording]);
 
   const handleClick = useCallback(() => {
     onClick?.(camera);
@@ -195,6 +215,14 @@ export const CameraTile = memo(function CameraTile({
         </div>
       )}
 
+      {/* REC badge */}
+      {isRecording && (
+        <div className="absolute top-4 left-4 flex items-center gap-1.5 px-2 py-1 rounded bg-red-500/80 text-white text-[10px] z-20">
+          <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+          REC {formatDuration(duration)}
+        </div>
+      )}
+
       {/* Bottom info bar */}
       <div className={[
         "absolute bottom-0 left-0 right-0 px-3 py-2",
@@ -213,6 +241,52 @@ export const CameraTile = memo(function CameraTile({
           </div>
         )}
       </div>
+
+      {/* Hover overlay: mute + record buttons */}
+      {state === "playing" && (
+        <div className={[
+          "absolute bottom-10 right-2 flex items-center gap-1.5 z-20",
+          "transition-opacity duration-200",
+          "opacity-0 group-hover:opacity-100",
+        ].join(" ")}>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); toggleMute(); }}
+            disabled={!hasAudio}
+            className={[
+              "p-1.5 rounded-lg transition-all",
+              hasAudio
+                ? "bg-black/60 text-white/70 hover:text-white hover:bg-black/80"
+                : "bg-black/40 text-white/30 cursor-not-allowed",
+            ].join(" ")}
+            aria-label={isMuted ? "Activar sonido" : "Silenciar"}
+            title={
+              !hasAudio
+                ? "Esta cámara no envía audio"
+                : isMuted
+                  ? "Activar sonido"
+                  : "Silenciar"
+            }
+          >
+            {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleToggleRecord}
+            className={[
+              "p-1.5 rounded-lg transition-all",
+              isRecording
+                ? "bg-red-500/20 text-red-400 hover:bg-red-500/30 animate-pulse"
+                : "bg-black/60 text-white/70 hover:text-white hover:bg-black/80",
+            ].join(" ")}
+            aria-label={isRecording ? "Detener grabación" : "Grabar video"}
+            title={isRecording ? `Grabando ${formatDuration(duration)}` : "Grabar video"}
+          >
+            {isRecording ? <Square className="w-3 h-3" /> : <Circle className="w-3.5 h-3.5" />}
+          </button>
+        </div>
+      )}
     </div>
   );
 });
