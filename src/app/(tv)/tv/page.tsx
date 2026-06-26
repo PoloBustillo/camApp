@@ -62,7 +62,7 @@ export default async function TvPage() {
     <KioskGrid
       cameras={cameras}
       cameraFilters={cameraFiltersMap}
-      preferWhep={false}
+      streamType="main"
     />
   );
 }
