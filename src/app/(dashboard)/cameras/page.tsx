@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession, isAdmin, isOperator } from "@/lib/session";
 import { redirect } from "next/navigation";
@@ -12,8 +11,8 @@ export default async function CamerasPage() {
   const session = await requireSession();
   if (!(isAdmin(session.user) || isOperator(session.user))) redirect("/dashboard");
 
-  // Sync in background — don't block render
-  after(() => { syncCameraStatus().catch(() => {}); });
+  // Sync in background — fire-and-forget
+  syncCameraStatus().catch(() => {});
 
   const [cameras, servers] = await Promise.all([
     prisma.camera.findMany({

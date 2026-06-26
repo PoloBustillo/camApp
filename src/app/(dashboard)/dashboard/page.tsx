@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
-import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { CameraViewerGrid } from "@/components/camera-viewer/camera-grid";
-import { TvRedirect } from "@/components/tv-redirect";
 import { syncCameraStatus } from "@/lib/sync-cameras";
 import type { CameraViewerItem } from "@/types/camera-viewer";
 import type { PersistedFilters } from "@/types/camera-viewer";
@@ -43,8 +41,8 @@ async function fetchCamerasForViewer(): Promise<CameraViewerItem[]> {
 export default async function DashboardPage() {
   const session = await requireSession();
 
-  // Sync camera online status in the background — don't block page render
-  after(() => { syncCameraStatus().catch(() => {}); });
+  // Sync camera status in background — fire-and-forget
+  syncCameraStatus().catch(() => {});
 
   // Parallel: cameras + favorites + order + filters
   const [cameras, favorites, cameraOrder, cameraFiltersRows] = await Promise.all([
@@ -84,7 +82,6 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-4">
-      <TvRedirect />
       <CameraViewerGrid
         cameras={cameras}
         title="Mis cámaras"
@@ -96,4 +93,3 @@ export default async function DashboardPage() {
     </div>
   );
 }
-
