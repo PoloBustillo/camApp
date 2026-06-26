@@ -219,8 +219,13 @@ export function useCameraStream({
       );
 
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        const code = body?.error?.code ?? "STREAM_ERROR";
+        const text = await res.text().catch(() => "");
+        let body: Record<string, unknown> | null = null;
+        try { body = JSON.parse(text); } catch { body = null; }
+        if (!body) {
+          throw new Error(`HTTP ${res.status}${text ? `: ${text.slice(0, 100)}` : ""}`);
+        }
+        const code = (body?.error as Record<string, unknown> | undefined)?.code ?? "STREAM_ERROR";
         if (code === "CAMERA_DISABLED") {
           setStateAndNotify("offline");
           setErrorMsg("Cámara deshabilitada");
@@ -232,7 +237,7 @@ export function useCameraStream({
           scheduleReconnect(POLL_INTERVAL_MS);
           return;
         }
-        throw new Error(body?.error?.message ?? `HTTP ${res.status}`);
+        throw new Error(((body?.error as Record<string, unknown> | undefined)?.message as string) ?? `HTTP ${res.status}`);
       }
 
       const info: WebRtcStreamInfo = await res.json();
@@ -514,7 +519,24 @@ export function useCameraStream({
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
 
-    // Trickle ICE: send offer immediately (with whatever candidates gathered so far)
+    // Wait for ICE gathering so the offer includes candidates (go2rtc needs them).
+    // Timeout prevents slow TVs from blocking indefinitely.
+    if (pc.iceGatheringState !== "complete") {
+      await new Promise<void>((resolve) => {
+        const timeout = setTimeout(() => {
+          pc.removeEventListener("icegatheringstatechange", check);
+          resolve();
+        }, 5000);
+        const check = () => {
+          if (pc.iceGatheringState === "complete") {
+            clearTimeout(timeout);
+            resolve();
+          }
+        };
+        pc.addEventListener("icegatheringstatechange", check);
+      });
+    }
+
     const res = await fetch(whepUrl, {
       method: "POST",
       headers: { "Content-Type": "application/sdp" },
@@ -522,15 +544,22 @@ export function useCameraStream({
     });
 
     if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body?.error?.message ?? `WHEP error ${res.status}`);
+      const text = await res.text().catch(() => "");
+      let msg: string;
+      try {
+        const body = JSON.parse(text);
+        msg = body?.error?.message ?? `HTTP ${res.status}`;
+      } catch {
+        msg = `HTTP ${res.status}${text ? `: ${text.slice(0, 100)}` : ""}`;
+      }
+      throw new Error(msg);
     }
 
     const sdpAnswer = await res.text();
     await pc.setRemoteDescription({ type: "answer", sdp: sdpAnswer });
     dbg(`[camstream] Camera ${cameraId} WHEP answer set`);
 
-    // PATCH remaining ICE candidates as they arrive (trickle)
+    // PATCH remaining ICE candidates (if gathering timed out)
     if (pc.iceGatheringState !== "complete") {
       pc.onicecandidate = (e) => {
         if (!e.candidate || cancelledRef.current || !pcRef.current) return;
