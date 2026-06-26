@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef, Component } from "react";
 import { Play, Pause, LogOut, RefreshCw } from "lucide-react";
 import { CameraTile } from "./camera-tile";
-import type { CameraViewerItem, PersistedFilters, PlayerState, StreamType } from "@/types/camera-viewer";
+import type { CameraViewerItem, PersistedFilters, PlayerState } from "@/types/camera-viewer";
 
 interface KioskGridProps {
   cameras: CameraViewerItem[];
@@ -11,8 +11,6 @@ interface KioskGridProps {
   cycleInterval?: number;
   /** Per-camera color filter settings */
   cameraFilters?: Record<string, PersistedFilters>;
-  /** Stream type to use for each camera (default "sub") */
-  streamType?: StreamType;
 }
 
 const PAGE_SIZE = 4; // 2x2 — TV browsers can't handle 9 concurrent WebRTC
@@ -76,7 +74,6 @@ export function KioskGrid({
   cameras,
   cycleInterval = 15_000,
   cameraFilters,
-  streamType = "sub",
 }: KioskGridProps) {
   const [page, setPage] = useState(0);
   const [paused, setPaused] = useState(true);
@@ -235,7 +232,7 @@ export function KioskGrid({
         <div key={camera.id} className="relative">
           <CameraTile
             camera={camera}
-            streamType={streamType}
+            streamType="sub"
             filters={cameraFilters?.[camera.id]}
             preferWhep
             alwaysShowInfo

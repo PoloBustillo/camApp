@@ -58,5 +58,5 @@ export default async function TvPage() {
     };
   }
 
-  return <KioskGrid cameras={cameras} cameraFilters={cameraFiltersMap} streamType="main" />;
+  return <KioskGrid cameras={cameras} cameraFilters={cameraFiltersMap} />;
 }
