@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { requireSession } from "@/lib/session";
-import { DashboardShell } from "@/components/nav/dashboard-shell";
-import { TvDetector } from "@/components/nav/tv-detector";
+import { NavShell } from "@/components/nav/nav-shell";
 
 export const metadata: Metadata = {
   title: "Dashboard — CamWatch",
@@ -16,9 +15,12 @@ export default async function DashboardLayout({
   const user = session.user;
 
   return (
-    <DashboardShell userName={user.name ?? ""} userEmail={user.email ?? ""} userRole={user.role}>
-      <TvDetector />
+    <NavShell
+      userName={user.name ?? ""}
+      userEmail={user.email ?? ""}
+      userRole={user.role}
+    >
       {children}
-    </DashboardShell>
+    </NavShell>
   );
 }

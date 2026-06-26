@@ -36,33 +36,18 @@ const TV_PATTERNS = [
 export function isTvBrowser(userAgent?: string | null): boolean {
   const ua = userAgent ?? (typeof navigator !== "undefined" ? navigator.userAgent : "");
   if (!ua) return false;
-
-  // Explicit TV patterns
-  if (TV_PATTERNS.some((pattern) => pattern.test(ua))) return true;
-
-  // Android without "Mobi" = TV box / Android TV
-  if (/Android/i.test(ua) && !/Mobi/i.test(ua)) return true;
-
-  // Linux-based TVs: LG webOS, Tizen, etc.
-  // These present as Linux + WebKit without X11/Wayland/Mobile
-  if (/Linux/i.test(ua) && !/X11|Wayland|Mobi|Android|CrOS/i.test(ua)) {
-    return true; // Any Linux with WebKit but no desktop/mobile indicators = TV
-  }
-
-  return false;
+  return TV_PATTERNS.some((pattern) => pattern.test(ua));
 }
 
-/** Detect if we're on a mobile device (phone, NOT tablet/TV) */
+/** Detect if we're on a mobile device */
 export function isMobile(userAgent?: string | null): boolean {
   const ua = userAgent ?? (typeof navigator !== "undefined" ? navigator.userAgent : "");
   if (!ua) return false;
-  // Only match phones, not tablets or TVs
-  return /Mobi|iPhone|iPod/i.test(ua);
+  return /Mobi|Android|iPhone|iPad|iPod/i.test(ua);
 }
 
 /** Get the best initial route for this device */
 export function getDeviceRoute(userAgent?: string | null): string {
   if (isTvBrowser(userAgent)) return "/tv";
-  if (isMobile(userAgent)) return "/lite";
   return "/dashboard";
 }
