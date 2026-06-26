@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "prebuild": "mkdir -p .next/server/app/'(dashboard)' && touch .next/server/app/'(dashboard)'/page_client-reference-manifest.js",
-    "build": "next build && bash scripts/fix-standalone-manifest.sh",
+    "build": "next build && sh scripts/fix-standalone-manifest.sh",
     "start": "next start",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",

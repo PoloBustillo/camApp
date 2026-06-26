@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 # Fix: Next.js standalone fails to generate client-reference-manifest for route group layouts.
 set -e
 
