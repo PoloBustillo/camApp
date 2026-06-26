@@ -37,16 +37,16 @@ export function isTvBrowser(userAgent?: string | null): boolean {
   const ua = userAgent ?? (typeof navigator !== "undefined" ? navigator.userAgent : "");
   if (!ua) return false;
 
-  // Check explicit TV patterns first
+  // Explicit TV patterns
   if (TV_PATTERNS.some((pattern) => pattern.test(ua))) return true;
 
-  // Android without "Mobi" is likely an Android TV box
+  // Android without "Mobi" = TV box / Android TV
   if (/Android/i.test(ua) && !/Mobi/i.test(ua)) return true;
 
-  // Linux without X11/Wayland, without Mobile, with large screen
-  if (/Linux/i.test(ua) && !/X11|Wayland|Mobi|Android/i.test(ua)) {
-    // Could be LG webOS, Tizen, etc. that didn't match above
-    return /(?:TV|SmartTV|HbbTV|Large|Screen)/i.test(ua);
+  // Linux-based TVs: LG webOS, Tizen, etc.
+  // These present as Linux + WebKit without X11/Wayland/Mobile
+  if (/Linux/i.test(ua) && !/X11|Wayland|Mobi|Android|CrOS/i.test(ua)) {
+    return true; // Any Linux with WebKit but no desktop/mobile indicators = TV
   }
 
   return false;
