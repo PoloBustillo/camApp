@@ -107,6 +107,7 @@ export function CameraViewerGrid({
       const n = displayCameras.length;
       if (n <= 2) return "grid-cols-1 sm:grid-cols-2";
       if (n <= 4) return "grid-cols-2";
+      if (n === 5) return "grid-cols-6";
       return "grid-cols-2 sm:grid-cols-3";
     }
     return layout === "3x3"
@@ -292,15 +293,21 @@ export function CameraViewerGrid({
               </Suspense>
             ) : (
               <div className={`grid ${gridCols} gap-2 sm:gap-3`}>
-                {visibleCameras.map((camera) => (
-                  <CameraTile
-                    key={`page${page}-${camera.id}`}
-                    camera={camera}
-                    streamType="sub"
-                    onClick={handleTileClick}
-                    filters={cameraFilters?.[camera.id]}
-                  />
-                ))}
+                {visibleCameras.map((camera, i) => {
+                  const spanClass = layout === "auto" && visibleCameras.length === 5
+                    ? i < 3 ? "col-span-2" : "col-span-3"
+                    : "";
+                  return (
+                    <CameraTile
+                      key={`page${page}-${camera.id}`}
+                      camera={camera}
+                      streamType="sub"
+                      onClick={handleTileClick}
+                      filters={cameraFilters?.[camera.id]}
+                      className={spanClass}
+                    />
+                  );
+                })}
 
                 {Array.from({
                   length: Math.max(0, pageSize - visibleCameras.length),

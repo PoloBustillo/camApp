@@ -31,15 +31,21 @@ export function SortableGrid({
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
       <SortableContext items={sortableIds} strategy={rectSortingStrategy}>
         <div className={`grid ${gridCols} gap-2 sm:gap-3`}>
-          {cameras.map((camera) => (
-            <SortableCameraTile
-              key={`edit-${camera.id}`}
-              camera={camera}
-              isEditing
-              onClick={onTileClick}
-              filters={cameraFilters?.[camera.id]}
-            />
-          ))}
+          {cameras.map((camera, i) => {
+            const spanClass = gridCols === "grid-cols-6" && cameras.length === 5
+              ? i < 3 ? "col-span-2" : "col-span-3"
+              : "";
+            return (
+              <SortableCameraTile
+                key={`edit-${camera.id}`}
+                camera={camera}
+                isEditing
+                onClick={onTileClick}
+                filters={cameraFilters?.[camera.id]}
+                className={spanClass}
+              />
+            );
+          })}
         </div>
       </SortableContext>
     </DndContext>

@@ -22,6 +22,8 @@ interface CameraTileProps {
   alwaysShowInfo?: boolean;
   /** Remove aspect-ratio constraint and fill grid cell (TV/kiosk mode) */
   fillContainer?: boolean;
+  /** Additional CSS class names for the tile container */
+  className?: string;
 }
 
 function buildFilterStyle(filters: PersistedFilters | null | undefined): string {
@@ -63,6 +65,7 @@ export const CameraTile = memo(function CameraTile({
   onStateChange,
   alwaysShowInfo = false,
   fillContainer = false,
+  className = "",
 }: CameraTileProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { state, errorMsg, videoRef, connect, disconnect, isAutoRetrying, isFrozen, isMuted, hasAudio, toggleMute } = useCameraStream({
@@ -165,6 +168,7 @@ export const CameraTile = memo(function CameraTile({
         fillContainer ? "h-full" : "aspect-video rounded-xl",
         "ring-1 ring-white/10",
         onClick ? "cursor-pointer hover:ring-white/30 transition-all duration-200" : "",
+        className,
       ]
         .filter(Boolean)
         .join(" ")}

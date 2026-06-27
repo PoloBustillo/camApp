@@ -12,11 +12,13 @@ export const SortableCameraTile = memo(function SortableCameraTile({
   isEditing,
   onClick,
   filters,
+  className,
 }: {
   camera: CameraViewerItem;
   isEditing: boolean;
   onClick?: (cam: CameraViewerItem) => void;
   filters?: PersistedFilters | null;
+  className?: string;
 }) {
   const {
     attributes,
@@ -35,7 +37,7 @@ export const SortableCameraTile = memo(function SortableCameraTile({
   };
 
   return (
-    <div ref={setNodeRef} style={style} className="relative">
+    <div ref={setNodeRef} style={style} className={`relative ${className ?? ""}`}>
       {isEditing && (
         <button
           type="button"

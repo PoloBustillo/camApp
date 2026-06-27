@@ -90,7 +90,9 @@ export function KioskGrid({
   const gridCols = useMemo(() => {
     if (gridMode === "auto") {
       const n = cameras.length;
+      if (n <= 2) return "grid-cols-2";
       if (n <= 4) return "grid-cols-2";
+      if (n === 5) return "grid-cols-6";
       if (n <= 6) return "grid-cols-3";
       return "grid-cols-4";
     }
@@ -243,19 +245,24 @@ export function KioskGrid({
   return (
     <KioskErrorBoundary>
     <div className={`fixed inset-0 bg-black grid ${gridCols} gap-1 p-1`}>
-      {visibleCameras.map((camera) => (
-        <div key={camera.id} className="relative">
-          <CameraTile
-            camera={camera}
-            streamType="sub"
-            filters={cameraFilters?.[camera.id]}
-            preferWhep
-            alwaysShowInfo
-            fillContainer
-            onStateChange={(state) => handleTileStateChange(camera.id, state)}
-          />
-        </div>
-      ))}
+      {visibleCameras.map((camera, i) => {
+        const spanClass = gridCols === "grid-cols-6" && cameras.length === 5
+          ? i < 3 ? "col-span-2" : "col-span-3"
+          : "";
+        return (
+          <div key={camera.id} className={`relative ${spanClass}`}>
+            <CameraTile
+              camera={camera}
+              streamType="sub"
+              filters={cameraFilters?.[camera.id]}
+              preferWhep
+              alwaysShowInfo
+              fillContainer
+              onStateChange={(state) => handleTileStateChange(camera.id, state)}
+            />
+          </div>
+        );
+      })}
 
       {/* Empty slots */}
       {Array.from({
