@@ -87,6 +87,16 @@ export function KioskGrid({
 
   const pageSize = gridMode === "auto" ? cameras.length : PAGE_SIZE;
 
+  const gridCols = useMemo(() => {
+    if (gridMode === "auto") {
+      const n = cameras.length;
+      if (n <= 4) return "grid-cols-2";
+      if (n <= 6) return "grid-cols-3";
+      return "grid-cols-4";
+    }
+    return "grid-cols-2";
+  }, [gridMode, cameras.length]);
+
   // Watchdog: track state of each visible camera
   const cameraStatesRef = useRef<Map<string, PlayerState>>(new Map());
   const allBadSinceRef = useRef<number | null>(null);
@@ -232,7 +242,7 @@ export function KioskGrid({
 
   return (
     <KioskErrorBoundary>
-    <div className="fixed inset-0 bg-black grid grid-cols-2 gap-1 p-1">
+    <div className={`fixed inset-0 bg-black grid ${gridCols} gap-1 p-1`}>
       {visibleCameras.map((camera) => (
         <div key={camera.id} className="relative">
           <CameraTile
