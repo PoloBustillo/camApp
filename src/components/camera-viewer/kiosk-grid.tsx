@@ -13,7 +13,8 @@ interface KioskGridProps {
   cameraFilters?: Record<string, PersistedFilters>;
 }
 
-const PAGE_SIZE = 4; // 2x2 — TV browsers can't handle 9 concurrent WebRTC
+const PAGE_SIZE = 4; // base page size for pagination
+const ADAPTIVE_THRESHOLD = 9; // show all cameras on one page when below this count
 const WATCHDOG_THRESHOLD_MS = 60_000;
 const MENU_PULSE_INTERVAL_MS = 30_000;
 const MENU_AUTO_HIDE_MS = 3_000;
@@ -82,15 +83,18 @@ export function KioskGrid({
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
 
+  // Adaptive grid: when fewer than ADAPTIVE_THRESHOLD cameras, show all on one page
+  const pageSize = cameras.length < ADAPTIVE_THRESHOLD ? cameras.length : PAGE_SIZE;
+
   // Watchdog: track state of each visible camera
   const cameraStatesRef = useRef<Map<string, PlayerState>>(new Map());
   const allBadSinceRef = useRef<number | null>(null);
 
-  const totalPages = Math.ceil(cameras.length / PAGE_SIZE);
+  const totalPages = Math.ceil(cameras.length / pageSize);
 
   const visibleCameras = useMemo(
-    () => cameras.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE),
-    [cameras, page],
+    () => cameras.slice(page * pageSize, (page + 1) * pageSize),
+    [cameras, page, pageSize],
   );
 
   // Reset watchdog when page changes
@@ -243,7 +247,7 @@ export function KioskGrid({
 
       {/* Empty slots */}
       {Array.from({
-        length: Math.max(0, PAGE_SIZE - visibleCameras.length),
+        length: Math.max(0, pageSize - visibleCameras.length),
       }).map((_, i) => (
         <div key={`empty-${i}`} className="bg-zinc-950 rounded" />
       ))}
