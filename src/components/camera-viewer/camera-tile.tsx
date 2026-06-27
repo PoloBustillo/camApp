@@ -20,6 +20,8 @@ interface CameraTileProps {
   onStateChange?: (state: PlayerState) => void;
   /** Always show info bar (TV mode) instead of hiding on hover */
   alwaysShowInfo?: boolean;
+  /** Remove aspect-ratio constraint and fill grid cell (TV/kiosk mode) */
+  fillContainer?: boolean;
 }
 
 function buildFilterStyle(filters: PersistedFilters | null | undefined): string {
@@ -60,6 +62,7 @@ export const CameraTile = memo(function CameraTile({
   preferWhep = false,
   onStateChange,
   alwaysShowInfo = false,
+  fillContainer = false,
 }: CameraTileProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { state, errorMsg, videoRef, connect, disconnect, isAutoRetrying, isFrozen, isMuted, hasAudio, toggleMute } = useCameraStream({
@@ -158,7 +161,8 @@ export const CameraTile = memo(function CameraTile({
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={onClick ? (e) => e.key === "Enter" && handleClick() : undefined}
       className={[
-        "relative bg-black rounded-xl overflow-hidden aspect-video group",
+        "relative bg-black overflow-hidden group",
+        fillContainer ? "h-full" : "aspect-video rounded-xl",
         "ring-1 ring-white/10",
         onClick ? "cursor-pointer hover:ring-white/30 transition-all duration-200" : "",
       ]

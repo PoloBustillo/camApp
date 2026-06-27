@@ -251,6 +251,7 @@ export function KioskGrid({
             filters={cameraFilters?.[camera.id]}
             preferWhep
             alwaysShowInfo
+            fillContainer
             onStateChange={(state) => handleTileStateChange(camera.id, state)}
           />
         </div>
