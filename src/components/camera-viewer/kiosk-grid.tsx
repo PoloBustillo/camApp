@@ -13,8 +13,7 @@ interface KioskGridProps {
   cameraFilters?: Record<string, PersistedFilters>;
 }
 
-const PAGE_SIZE = 4; // base page size for pagination
-const ADAPTIVE_THRESHOLD = 9; // show all cameras on one page when below this count
+const PAGE_SIZE = 4;
 const WATCHDOG_THRESHOLD_MS = 60_000;
 const MENU_PULSE_INTERVAL_MS = 30_000;
 const MENU_AUTO_HIDE_MS = 3_000;
@@ -83,8 +82,10 @@ export function KioskGrid({
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
 
-  // Adaptive grid: when fewer than ADAPTIVE_THRESHOLD cameras, show all on one page
-  const pageSize = cameras.length < ADAPTIVE_THRESHOLD ? cameras.length : PAGE_SIZE;
+  // Grid mode: "4" = paginated 2×2, "auto" = all cameras on one page
+  const [gridMode, setGridMode] = useState<"4" | "auto">("auto");
+
+  const pageSize = gridMode === "auto" ? cameras.length : PAGE_SIZE;
 
   // Watchdog: track state of each visible camera
   const cameraStatesRef = useRef<Map<string, PlayerState>>(new Map());
@@ -299,6 +300,22 @@ export function KioskGrid({
               {paused ? "Pausa" : "Auto"}
             </span>
           )}
+
+          <span className="text-white/20 text-[10px]">|</span>
+
+          <button
+            type="button"
+            onClick={() => setGridMode((m) => m === "auto" ? "4" : "auto")}
+            className={[
+              "text-[10px] font-medium px-2 py-0.5 rounded transition-colors",
+              gridMode === "auto"
+                ? "bg-white/15 text-white"
+                : "text-white/50 hover:text-white hover:bg-white/10",
+            ].join(" ")}
+            aria-label={gridMode === "auto" ? "Cambiar a 4 por página" : "Cambiar a auto"}
+          >
+            {gridMode === "auto" ? "Auto" : "4"}
+          </button>
 
           <button
             type="button"

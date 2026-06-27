@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-export type GridLayout = "2x2" | "3x3";
+export type GridLayout = "2x2" | "3x3" | "auto";
 export type GridFilter = "all" | "favorites";
 
 const STORAGE_KEY = "camwatch-grid-prefs";
@@ -14,7 +14,10 @@ interface GridPreferences {
 
 const DEFAULTS: GridPreferences = { layout: "2x2", filter: "all" };
 
-export function getPageSize(layout: GridLayout): number {
+export function getPageSize(layout: GridLayout): number;
+export function getPageSize(layout: GridLayout, totalCameras: number): number;
+export function getPageSize(layout: GridLayout, totalCameras?: number): number {
+  if (layout === "auto") return totalCameras ?? 9;
   return layout === "3x3" ? 9 : 4;
 }
 
@@ -27,8 +30,9 @@ export function useGridPreferences() {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as Partial<GridPreferences>;
+        const validLayouts: GridLayout[] = ["2x2", "3x3", "auto"];
         setPrefs({
-          layout: parsed.layout === "3x3" ? "3x3" : "2x2",
+          layout: validLayouts.includes(parsed.layout as GridLayout) ? (parsed.layout as GridLayout) : "2x2",
           filter: parsed.filter === "favorites" ? "favorites" : "all",
         });
       }

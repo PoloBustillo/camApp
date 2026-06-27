@@ -65,6 +65,7 @@ export function GridToolbar({
         options={[
           { id: "2x2", label: "2×2" },
           { id: "3x3", label: "3×3" },
+          { id: "auto", label: "Auto" },
         ]}
         onChange={onLayoutChange}
       />

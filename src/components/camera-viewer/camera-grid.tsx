@@ -42,7 +42,6 @@ export function CameraViewerGrid({
   showGridControls = false,
 }: CameraViewerGridProps) {
   const { layout, filter, setLayout, setFilter } = useGridPreferences();
-  const pageSize = getPageSize(layout);
 
   // Mutable copy of filters — updated when modal saves
   const [cameraFilters, setCameraFilters] = useState(initialCameraFilters);
@@ -62,6 +61,8 @@ export function CameraViewerGrid({
       (c) => favoriteSet.has(c.id) || c.isFavorite,
     );
   }, [orderedCameras, filter, favoriteSet, showGridControls]);
+
+  const pageSize = getPageSize(layout, displayCameras.length);
 
   const [isEditing, setIsEditing] = useState(false);
 
@@ -101,10 +102,17 @@ export function CameraViewerGrid({
     [displayCameras],
   );
 
-  const gridCols =
-    layout === "3x3"
+  const gridCols = useMemo(() => {
+    if (layout === "auto") {
+      const n = displayCameras.length;
+      if (n <= 2) return "grid-cols-1 sm:grid-cols-2";
+      if (n <= 4) return "grid-cols-2";
+      return "grid-cols-2 sm:grid-cols-3";
+    }
+    return layout === "3x3"
       ? "grid-cols-2 sm:grid-cols-3"
       : "grid-cols-1 sm:grid-cols-2";
+  }, [layout, displayCameras.length]);
 
   const handleTileClick = useCallback((cam: CameraViewerItem) => {
     setSelectedCamera(cam);
