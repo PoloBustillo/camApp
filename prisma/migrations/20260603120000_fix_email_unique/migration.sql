@@ -1,5 +1,7 @@
 -- Fix email unique constraint (idempotent)
--- Drop old named constraint/index only if they exist
+-- Prisma init creo un UNIQUE INDEX (no constraint) con el mismo nombre
+-- Hay que dropearlo antes de crear la constraint para evitar conflicto
+DROP INDEX IF EXISTS "users_email_key";
 DROP INDEX IF EXISTS "users_email_unique";
 DROP INDEX IF EXISTS "idx_users_email";
 
