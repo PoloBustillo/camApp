@@ -19,9 +19,10 @@ CMD ["bun", "run", "dev"]
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN ./node_modules/.bin/prisma generate
-ENV NEXT_TELEMETRY_DISABLED=1
-RUN bun run build
+ RUN ./node_modules/.bin/prisma generate
+ ENV NEXT_TELEMETRY_DISABLED=1
+ ENV NODE_OPTIONS=--max-old-space-size=512
+ RUN bun run build
 
 # ─── Migrador (etapa dedicada con CLI de Prisma) ─────────
 FROM base AS migrator

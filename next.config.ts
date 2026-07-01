@@ -10,6 +10,7 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react"],
     middlewareClientMaxBodySize: 104857600, // 100MB for video uploads
+    workerThreads: false,
   },
 
   async headers() {
