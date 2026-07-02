@@ -22,10 +22,9 @@ export default async function LitePage() {
     redirect("/dashboard?msg=no-streams");
   }
 
-  const host = process.env.GO2RTC_PUBLIC_HOST ?? "50.21.179.210";
-  const port = process.env.GO2RTC_WS_PORT ?? "9997";
+  const host = process.env.GO2RTC_PUBLIC_HOST ?? "camapp.modest-benz.50-21-179-210.plesk.page";
   const params = streamNames.map((s) => `src=${encodeURIComponent(s)}`).join("&");
-  const streamUrl = `http://${host}:${port}/stream.html?${params}&mode=webrtc,mse,hls,mjpeg`;
+  const streamUrl = `https://${host}/go2rtc/stream.html?${params}&mode=webrtc,mse,hls,mjpeg`;
 
   redirect(streamUrl);
 }
