@@ -66,8 +66,9 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   // WebSocket URL connects directly to go2rtc (more reliable on mobile).
   const whepUrl = `/api/cameras/${camera.id}/whep?type=${streamType}`;
 
-  // Build WebSocket URL — same-origin proxy to go2rtc (avoids HTTPS→WS mixed content)
-  const wsUrl = `/api/cameras/${camera.id}/ws?src=${encodeURIComponent(streamPath)}`;
+  // Build WebSocket URL — proxy via nginx (wss same-origin, avoids mixed content)
+  const wsHost = process.env.GO2RTC_PUBLIC_HOST ?? "camapp.modest-benz.50-21-179-210.plesk.page";
+  const wsUrl = `wss://${wsHost}/api/ws?src=${encodeURIComponent(streamPath)}`;
 
   // Audit log (non-blocking)
   prisma.auditLog.create({
