@@ -14,24 +14,24 @@ echo "📥 Pulling latest changes..."
 git pull origin main
 
 echo "🔨 Building Docker images (no cache)..."
-docker-compose -f docker-compose.prod.yml build --no-cache web
-docker-compose --profile migration -f docker-compose.prod.yml build --no-cache migrate
+docker compose -f docker compose.prod.yml build --no-cache web
+docker compose --profile migration -f docker compose.prod.yml build --no-cache migrate
 
 echo "⬆️  Starting postgres and redis..."
-docker-compose -f docker-compose.prod.yml up -d postgres redis
+docker compose -f docker compose.prod.yml up -d postgres redis
 
 # echo "⏳ Waiting for database to be healthy..."
-# docker-compose -f docker-compose.prod.yml wait postgres
+# docker compose -f docker compose.prod.yml wait postgres
 
 echo "📊 Running database migrations..."
-docker-compose --profile migration -f docker-compose.prod.yml run --rm migrate
+docker compose --profile migration -f docker compose.prod.yml run --rm migrate
 
 echo "🌱 Running seed (skip if already seeded)..."
-docker-compose --profile migration -f docker-compose.prod.yml run --rm migrate \
+docker compose --profile migration -f docker compose.prod.yml run --rm migrate \
   sh -c "bun run prisma/seed.ts" || true
 
 echo "⬆️  Starting web..."
-docker-compose -f docker-compose.prod.yml up -d web
+docker compose -f docker compose.prod.yml up -d web
 
 echo "✅ Deploy completo!"
 echo "🔗 https://camapp.modest-benz.50-21-179-210.plesk.page"
