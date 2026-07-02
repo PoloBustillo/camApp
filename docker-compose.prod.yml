@@ -45,7 +45,7 @@ services:
       NODE_ENV: production
       GO2RTC_INTERNAL_HOST: host.docker.internal
     ports:
-      - "2026:3000"
+      - "3000:3000"
     depends_on:
       postgres:
         condition: service_healthy
