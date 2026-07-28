@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get("search")?.trim();
 
   const where = {
+    deletedAt: null,
     ...(siteId && { siteId }),
     ...(protocol && {
       protocol: protocol as "rtsp" | "rtmp" | "webrtc" | "hls",

@@ -9,7 +9,7 @@ export default async function LitePage() {
   await requireSession();
 
   const cameras = await prisma.camera.findMany({
-    where: { enabled: true, online: true },
+    where: { enabled: true, online: true, deletedAt: null },
     orderBy: { name: "asc" },
     select: { substreamPath: true, mediaMtxPath: true, name: true },
   });

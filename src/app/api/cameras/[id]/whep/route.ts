@@ -82,8 +82,8 @@ async function resolveWhepTarget(
   cameraId: string,
   streamType: "main" | "sub" = "main",
 ): Promise<{ url: string; serverType: string } | null> {
-  const camera = await prisma.camera.findUnique({
-    where: { id: cameraId },
+  const camera = await prisma.camera.findFirst({
+    where: { id: cameraId, deletedAt: null },
     include: { edgeServer: true },
   });
 

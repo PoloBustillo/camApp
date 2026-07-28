@@ -13,7 +13,7 @@ export default async function RecordingsPage() {
 
   const [cameras, recentRecordings] = await Promise.all([
     prisma.camera.findMany({
-      where: { enabled: true },
+      where: { enabled: true, deletedAt: null },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),

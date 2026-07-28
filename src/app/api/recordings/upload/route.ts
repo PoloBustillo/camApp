@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const camera = await prisma.camera.findUnique({ where: { id: cameraId } });
+  const camera = await prisma.camera.findFirst({ where: { id: cameraId, deletedAt: null } });
   if (!camera) return Errors.notFound("Camera");
 
   const start = new Date(startTime);

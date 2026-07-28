@@ -36,6 +36,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   const existingPaths = await prisma.camera.findMany({
     where: {
       mediaMtxServerId: id,
+      deletedAt: null,
       mediaMtxPath: { in: paths.map((p) => p.name) },
     },
     select: { mediaMtxPath: true },

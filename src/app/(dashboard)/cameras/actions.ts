@@ -51,7 +51,9 @@ export async function updateCameraAction(id: string, formData: FormData): Promis
   const user = session.user;
   if (user.role === "viewer") return { success: false, error: "Sin permisos" };
 
-  const existing = await prisma.camera.findUnique({ where: { id } });
+  const existing = await prisma.camera.findFirst({
+    where: { id, deletedAt: null },
+  });
   if (!existing) return { success: false, error: "Cámara no encontrada" };
 
   const parsed = updateCameraSchema.safeParse({
@@ -86,15 +88,22 @@ export async function deleteCameraAction(id: string): Promise<ActionResult> {
   const user = session.user;
   if (user.role === "viewer") return { success: false, error: "Sin permisos" };
 
-  const existing = await prisma.camera.findUnique({ where: { id } });
+  const existing = await prisma.camera.findFirst({
+    where: { id, deletedAt: null },
+  });
   if (!existing) return { success: false, error: "Cámara no encontrada" };
 
-  await prisma.camera.delete({ where: { id } });
+  // Soft-delete: preserves recordings (FK ON DELETE NO ACTION / forensic integrity)
+  await prisma.camera.update({
+    where: { id },
+    data: { deletedAt: new Date(), enabled: false, online: false },
+  });
 
   await prisma.auditLog.create({
     data: { userId: user.id, action: "camera_deleted", resourceType: "camera", resourceId: id, metadata: { name: existing.name } },
   });
 
   revalidatePath("/cameras");
+  revalidatePath("/dashboard");
   return { success: true };
 }

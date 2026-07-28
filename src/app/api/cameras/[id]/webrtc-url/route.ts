@@ -20,8 +20,8 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   const { id } = await params;
   const streamType = (req.nextUrl.searchParams.get("type") ?? "sub") as "main" | "sub";
 
-  const camera = await prisma.camera.findUnique({
-    where: { id },
+  const camera = await prisma.camera.findFirst({
+    where: { id, deletedAt: null },
     include: { edgeServer: true },
   });
 

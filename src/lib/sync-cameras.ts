@@ -30,7 +30,7 @@ export async function syncCameraStatus(): Promise<void> {
 
         if (!health.healthy) {
           await prisma.camera.updateMany({
-            where: { edgeServerId: server.id, enabled: true },
+            where: { edgeServerId: server.id, enabled: true, deletedAt: null },
             data: { online: false },
           });
           return;
@@ -42,7 +42,7 @@ export async function syncCameraStatus(): Promise<void> {
         );
 
         const cameras = await prisma.camera.findMany({
-          where: { edgeServerId: server.id, enabled: true },
+          where: { edgeServerId: server.id, enabled: true, deletedAt: null },
           select: { id: true, mediaMtxPath: true, online: true },
         });
 

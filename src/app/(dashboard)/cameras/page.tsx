@@ -17,6 +17,7 @@ export default async function CamerasPage() {
 
   const [cameras, servers] = await Promise.all([
     prisma.camera.findMany({
+      where: { deletedAt: null },
       orderBy: { name: "asc" },
       include: {
         mediaMtxServer: { select: { id: true, name: true } },
@@ -24,7 +25,7 @@ export default async function CamerasPage() {
     }),
     prisma.edgeServer.findMany({
       orderBy: { name: "asc" },
-      include: { _count: { select: { cameras: true } } },
+      include: { _count: { select: { cameras: { where: { deletedAt: null } } } } },
     }),
   ]);
 

@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "Inicio — CamWatch" };
 
 async function fetchCamerasForViewer(): Promise<CameraViewerItem[]> {
   const rows = await prisma.camera.findMany({
-    where: { enabled: true },
+    where: { enabled: true, deletedAt: null },
     orderBy: [{ online: "desc" }, { name: "asc" }],
     select: {
       id: true,

@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
 
     for (const camName of cameraNames) {
       const camera = await prisma.camera.findFirst({
-        where: { name: { contains: camName, mode: "insensitive" } },
+        where: { name: { contains: camName, mode: "insensitive" }, deletedAt: null },
       });
       if (!camera) continue;
 

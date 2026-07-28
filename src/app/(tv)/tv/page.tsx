@@ -10,7 +10,7 @@ export default async function TvPage() {
 
   const [rows, cameraFiltersRows, cameraOrderRows] = await Promise.all([
     prisma.camera.findMany({
-      where: { enabled: true, online: true },
+      where: { enabled: true, online: true, deletedAt: null },
       orderBy: [{ name: "asc" }],
       select: {
         id: true,

@@ -19,7 +19,7 @@ export async function POST(_req: NextRequest, { params }: Params) {
 
   // Get all cameras for this server
   const cameras = await prisma.camera.findMany({
-    where: { mediaMtxServerId: id },
+    where: { mediaMtxServerId: id, deletedAt: null },
     select: { id: true, mediaMtxPath: true, online: true },
   });
 

@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   if (typeof fileHash !== "string") return Errors.validation({ fileHash: "Required string" });
 
   // Verify camera exists
-  const camera = await prisma.camera.findUnique({ where: { id: cameraId } });
+  const camera = await prisma.camera.findFirst({ where: { id: cameraId, deletedAt: null } });
   if (!camera) return Errors.notFound("Camera");
 
   // Parse timestamps

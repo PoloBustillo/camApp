@@ -114,7 +114,7 @@ export async function GET() {
   );
 
   const camerasWithoutEdgeServer = await prisma.camera.count({
-    where: { enabled: true, edgeServerId: null },
+    where: { enabled: true, edgeServerId: null, deletedAt: null },
   });
 
   return NextResponse.json({

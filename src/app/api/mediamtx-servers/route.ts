@@ -10,7 +10,7 @@ export async function GET(_req: NextRequest) {
 
   const servers = await prisma.mediaMtxServer.findMany({
     orderBy: { name: "asc" },
-    include: { _count: { select: { cameras: true } } },
+    include: { _count: { select: { cameras: { where: { deletedAt: null } } } } },
   });
 
   return NextResponse.json({ data: servers });

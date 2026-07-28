@@ -13,7 +13,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
   const { id } = await params;
   const server = await prisma.mediaMtxServer.findUnique({
     where: { id },
-    include: { _count: { select: { cameras: true } } },
+    include: { _count: { select: { cameras: { where: { deletedAt: null } } } } },
   });
 
   if (!server) return Errors.notFound("Servidor MediaMTX");
@@ -39,7 +39,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const server = await prisma.mediaMtxServer.update({
     where: { id },
     data: parsed.data,
-    include: { _count: { select: { cameras: true } } },
+    include: { _count: { select: { cameras: { where: { deletedAt: null } } } } },
   });
 
   return NextResponse.json({ data: server });
@@ -55,7 +55,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   const { id } = await params;
   const server = await prisma.mediaMtxServer.findUnique({
     where: { id },
-    include: { _count: { select: { cameras: true } } },
+    include: { _count: { select: { cameras: { where: { deletedAt: null } } } } },
   });
 
   if (!server) return Errors.notFound("Servidor MediaMTX");

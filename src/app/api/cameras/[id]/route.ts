@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/middleware";
-import { encryptPath, decryptPath } from "@/lib/crypto";
+import { encryptPath } from "@/lib/crypto";
 import { Errors } from "@/lib/errors";
 import { updateCameraSchema } from "@/lib/validations/camera";
 
@@ -25,8 +25,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
   if (user instanceof NextResponse) return user;
 
   const { id } = await params;
-  const camera = await prisma.camera.findUnique({
-    where: { id },
+  const camera = await prisma.camera.findFirst({
+    where: { id, deletedAt: null },
     select: cameraSelect,
   });
 
@@ -52,7 +52,9 @@ export async function PUT(req: NextRequest, { params }: Params) {
   if (roleError) return roleError;
 
   const { id } = await params;
-  const existing = await prisma.camera.findUnique({ where: { id } });
+  const existing = await prisma.camera.findFirst({
+    where: { id, deletedAt: null },
+  });
   if (!existing) return Errors.notFound("Cámara no encontrada");
 
   const body = await req.json().catch(() => null);
@@ -98,10 +100,16 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   if (roleError) return roleError;
 
   const { id } = await params;
-  const existing = await prisma.camera.findUnique({ where: { id } });
+  const existing = await prisma.camera.findFirst({
+    where: { id, deletedAt: null },
+  });
   if (!existing) return Errors.notFound("Cámara no encontrada");
 
-  await prisma.camera.delete({ where: { id } });
+  // Soft-delete: preserves recordings (FK ON DELETE NO ACTION / forensic integrity)
+  await prisma.camera.update({
+    where: { id },
+    data: { deletedAt: new Date(), enabled: false, online: false },
+  });
 
   prisma.auditLog.create({
     data: {
