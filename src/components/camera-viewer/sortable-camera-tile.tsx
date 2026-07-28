@@ -51,7 +51,7 @@ export const SortableCameraTile = memo(function SortableCameraTile({
       )}
       <CameraTile
         camera={camera}
-        streamType="sub"
+        streamType="main"
         onClick={isEditing ? undefined : onClick}
         filters={filters}
       />

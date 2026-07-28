@@ -59,7 +59,7 @@ function buildFilterStyle(filters: PersistedFilters | null | undefined): string 
 export const CameraTile = memo(function CameraTile({
   camera,
   filters,
-  streamType = "sub",
+  streamType = "main",
   onClick,
   preferWhep = false,
   onStateChange,

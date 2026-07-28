@@ -6,7 +6,7 @@ export interface CameraViewerItem {
   edgeServerId: string | null;
   /** Main stream path in MediaMTX (e.g., "cam1", "entrance") */
   streamName: string | null;
-  /** Sub-resolution stream path (e.g., "cam1_sub"). Used in grid mosaic. */
+  /** Sub-resolution stream path (e.g., "cam1_sub"). Reserved; UI uses main stream. */
   substreamName: string | null;
   enabled: boolean;
   online: boolean;

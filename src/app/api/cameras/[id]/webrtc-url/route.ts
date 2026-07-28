@@ -18,7 +18,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   if (user instanceof NextResponse) return user;
 
   const { id } = await params;
-  const streamType = (req.nextUrl.searchParams.get("type") ?? "sub") as "main" | "sub";
+  const streamType = (req.nextUrl.searchParams.get("type") ?? "main") as "main" | "sub";
 
   const camera = await prisma.camera.findFirst({
     where: { id, deletedAt: null },

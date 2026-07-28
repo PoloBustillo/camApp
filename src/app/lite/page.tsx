@@ -15,7 +15,7 @@ export default async function LitePage() {
   });
 
   const streamNames = cameras
-    .map((c) => c.substreamPath ?? c.mediaMtxPath)
+    .map((c) => c.mediaMtxPath ?? c.substreamPath)
     .filter((s): s is string => !!s);
 
   if (streamNames.length === 0) {

@@ -251,7 +251,7 @@ export function KioskGrid({
           <div key={camera.id} className="flex-1 relative min-w-0">
             <CameraTile
               camera={camera}
-              streamType="sub"
+              streamType="main"
               filters={cameraFilters?.[camera.id]}
               preferWhep
               alwaysShowInfo
@@ -266,7 +266,7 @@ export function KioskGrid({
           <div key={camera.id} className="flex-1 relative min-w-0">
             <CameraTile
               camera={camera}
-              streamType="sub"
+              streamType="main"
               filters={cameraFilters?.[camera.id]}
               preferWhep
               alwaysShowInfo
@@ -283,7 +283,7 @@ export function KioskGrid({
         <div key={camera.id} className="relative">
           <CameraTile
             camera={camera}
-            streamType="sub"
+            streamType="main"
             filters={cameraFilters?.[camera.id]}
             preferWhep
             alwaysShowInfo

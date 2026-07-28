@@ -301,7 +301,7 @@ export function CameraViewerGrid({
                     <CameraTile
                       key={`page${page}-${camera.id}`}
                       camera={camera}
-                      streamType="sub"
+                      streamType="main"
                       onClick={handleTileClick}
                       filters={cameraFilters?.[camera.id]}
                       className={spanClass}

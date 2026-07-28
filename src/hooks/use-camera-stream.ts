@@ -58,7 +58,7 @@ const dbgWarn = __DEV__ ? console.warn.bind(console) : () => {};
  */
 export function useCameraStream({
   cameraId,
-  streamType = "sub",
+  streamType = "main",
   autoConnect = false,
   startMuted = true,
   preferWhep = false,
